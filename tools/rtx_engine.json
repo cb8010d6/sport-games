@@ -1,0 +1,7 @@
+{
+  "repository": "https://github.com/NVIDIA-RTX/godot",
+  "branch": "nvidia-pt-dlss",
+  "commit": "135dff3887a3d2ccf45cafbd9bdffa7b718e1e76",
+  "version": "4.8.dev",
+  "standardRelease": false
+}
