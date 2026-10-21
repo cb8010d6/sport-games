@@ -4,7 +4,7 @@
   "api": "https://api.polyhaven.com",
   "credits": "game/assets/polyhaven/CREDITS.md",
   "terms": "https://github.com/Poly-Haven/Public-API/blob/master/ToS.md",
-  "note": "Exact local source versions are pinned. Live endpoint connectivity still needs verification in a network-enabled environment.",
+  "note": "Exact source versions are pinned. All 222 files were downloaded from Poly Haven and verified on 2026-10-21; builds recheck their hashes.",
   "files": [
     {
       "path": "game/assets/polyhaven/hdris/belfast_sunset_puresky/belfast_sunset_puresky_4k.hdr",

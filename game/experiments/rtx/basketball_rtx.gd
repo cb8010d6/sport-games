@@ -32,6 +32,9 @@ func _ready() -> void:
 		if not _has_property(probe, &"pathtracing_enabled"):
 			_block("This engine has no NVIDIA path tracing API")
 			return
+		if OS.get_name() != "Windows":
+			_block("Pinned fork enables Streamline only on Windows")
+			return
 		if not str(Engine.get_version_info().get("hash", "")).begins_with(FORK_COMMIT.left(9)):
 			_block("Engine commit differs from the pinned NVIDIA fork")
 			return

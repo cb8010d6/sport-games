@@ -70,17 +70,17 @@
 		{
 			"mimeType":"image/jpeg",
 			"name":"boulder_01_nor_gl_2k",
-			"uri":"textures_lod/boulder_01_nor_gl_2k.jpg"
+			"uri":"textures/boulder_01_nor_gl_2k.jpg"
 		},
 		{
 			"mimeType":"image/jpeg",
 			"name":"boulder_01_diff_2k",
-			"uri":"textures_lod/boulder_01_diff_2k.jpg"
+			"uri":"textures/boulder_01_diff_2k.jpg"
 		},
 		{
 			"mimeType":"image/jpeg",
 			"name":"boulder_01_arm_2k",
-			"uri":"textures_lod/boulder_01_arm_2k.jpg"
+			"uri":"textures/boulder_01_arm_2k.jpg"
 		}
 	],
 	"accessors":[

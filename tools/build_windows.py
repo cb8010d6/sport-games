@@ -10,6 +10,8 @@ import subprocess
 import sys
 import urllib.request
 
+from smoke_game import checked_run
+
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -60,8 +62,8 @@ def main() -> None:
     shutil.copy2(ROOT / "hub/config.json", out / "hub/config.json")
     run(shared + ["--onefile", "--windowed", "--name", "SportGames", "--distpath", str(out),
                   str(ROOT / "tools/release_launcher.py")])
-    run([str(args.godot), "--headless", "--path", str(ROOT / "game"), "--editor", "--import"])
-    run([str(args.godot), "--headless", "--path", str(ROOT / "game"), "--export-release", config["exportPreset"], str(out / "game/SportGames.exe")])
+    checked_run([str(args.godot), "--headless", "--path", str(ROOT / "game"), "--editor", "--import"], timeout=2400)
+    checked_run([str(args.godot), "--headless", "--path", str(ROOT / "game"), "--export-release", config["exportPreset"], str(out / "game/SportGames.exe")], timeout=1200)
     notices = out / "licenses"
     collect_notices(notices, config["godotVersion"])
     for name in ["LICENSE", "docs/THIRD_PARTY.md", "docs/ASSET_PROVENANCE.md", "game/assets/polyhaven/CREDITS.md"]:

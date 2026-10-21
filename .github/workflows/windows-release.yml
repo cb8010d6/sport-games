@@ -18,7 +18,7 @@ concurrency:
 jobs:
   windows:
     runs-on: windows-latest
-    timeout-minutes: 45
+    timeout-minutes: 60
     env:
       PYTHONUTF8: '1'
     steps:
@@ -42,6 +42,11 @@ jobs:
         run: node tools/sync_assets.mjs --check
       - name: Install verified official Godot and export templates
         run: python tools/download_godot.py --platform windows --templates
+      - name: Restore Godot import cache
+        uses: actions/cache@v4
+        with:
+          path: game/.godot
+          key: godot-${{ runner.os }}-${{ hashFiles('tools/release_config.json', 'game/**/*.import', 'game/**/*.glb', 'game/**/*.gltf') }}
       - name: Build portable game and hub
         run: python tools/build_windows.py
       - name: Test frozen network endpoints and exported game
@@ -59,7 +64,7 @@ jobs:
           retention-days: 7
 
   publish:
-    if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
+    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
     needs: windows
     runs-on: ubuntu-latest
     permissions:
@@ -68,8 +73,6 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-      - name: Require release commit on main
-        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main
       - uses: actions/download-artifact@v4
         with:
           name: SportGames-Windows-x86_64
@@ -77,9 +80,4 @@ jobs:
       - name: Publish verified Windows prerelease
         env:
           GH_TOKEN: ${{ github.token }}
-        run: >-
-          gh release create "$GITHUB_REF_NAME"
-          release/SportGames-Windows-x86_64.zip
-          release/SportGames-Windows-x86_64.zip.sha256
-          --repo "$GITHUB_REPOSITORY" --verify-tag
-          --title "Sport Games $GITHUB_REF_NAME" --generate-notes --prerelease
+        run: python tools/publish_prerelease.py

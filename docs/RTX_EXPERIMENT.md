@@ -13,9 +13,17 @@
 
 ## 运行
 
-取得上述提交的 NVIDIA 引擎，并按其官方构建文档编译；SConstruct 的 `use_streamline` 默认为 true，
-但仍应检查目标平台支持、Streamline 运行库、NVIDIA 驱动与 SDK 许可/分发要求。
+在 Windows 上取得上述提交的 NVIDIA 引擎，并按其官方构建文档配置 MSVC 和 SCons。
+该提交的 SConstruct 仅在 Windows 启用 Streamline；Linux 构建会关闭它。
+`use_streamline` 默认为 true，仍应检查 Streamline 运行库、NVIDIA 驱动与 SDK 许可/分发要求。
 本分支不分发 NVIDIA SDK 或来源不明的引擎二进制。
+
+```sh
+git clone --branch nvidia-pt-dlss https://github.com/NVIDIA-RTX/godot godot-rtx
+cd godot-rtx
+git checkout 135dff3887a3d2ccf45cafbd9bdffa7b718e1e76
+scons platform=windows target=editor arch=x86_64 use_streamline=yes
+```
 
 ```sh
 node tools/sync_assets.mjs
@@ -38,6 +46,6 @@ python tools/benchmark_rtx.py <NVIDIA-Godot>
 分别记录 1/2/4 人的显存、帧时间、闪烁、拖影和手感；多人明显退化时保留标准渲染作为默认。
 不要用帧生成 FPS 代替输入响应测试。
 
-2026-10-21 的执行环境没有 GPU，也没有官方预编译的该 fork Release。
+2026-10-21 的执行环境是 Linux、没有 GPU，也没有官方预编译的该 fork Release。
 本次只验证实验入口的脚本兼容性、标准引擎拒绝路径及 API 与固定源码一致性；
 没有声称完成 NVIDIA 引擎编译、RTX 画面或性能验收。标准发行工作流仍只用官方 Godot。

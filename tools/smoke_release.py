@@ -15,6 +15,8 @@ import urllib.request
 
 import aiohttp
 
+from smoke_game import smoke_game
+
 
 def free_port(kind: int = socket.SOCK_STREAM) -> int:
     with socket.socket(socket.AF_INET, kind) as probe:
@@ -66,6 +68,7 @@ def main() -> None:
                 process.wait(timeout=15)
         environment = {**os.environ, "SPORT_GAMES_DATA_DIR": str(data / "launcher")}
         subprocess.run([str(root / "SportGames.exe"), "--smoke-test"], cwd=root, env=environment, check=True, timeout=120)
+        smoke_game(root / "game/SportGames.exe")
     print("Frozen hub HTTP, trusted local HTTPS, WebSocket, launcher and exported-game startup passed.")
 
 

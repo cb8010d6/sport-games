@@ -34,13 +34,13 @@ node tools/sync_assets.mjs --check               # 离线校验全部下载文�
 |---|---|---|
 | Poly Haven 原始纹理、HDR 天空和模型 buffer | 原站下载，Git 忽略 | 原站 CC0；逐文件记录在 `tools/assets.lock.json` |
 | glTF 描述、Godot `.import` / `.uid`、来源清单 | 普通 Git | 保留来源与可移植配置 |
-| 16 个角色及配套纹理 | 普通 Git | Blender/MakeHuman 系统素材生成，CC0；生成脚本在 `tools/blender/` |
+| 16 个角色及配套纹理（包含开发中的高尔夫） | 普通 Git | Blender/MakeHuman 系统素材生成，CC0；生成脚本在 `tools/blender/` |
 | 6 组树木图集 | 普通 Git | 从 Poly Haven CC0 模型烘焙 |
-| 4 个减面模型的 buffer 和 `textures_lod/` | 普通 Git | 从 Poly Haven CC0 模型加工 |
+| 4 个减面模型的 buffer 和 1 张加工纹理 | 普通 Git | 从 Poly Haven CC0 模型加工；17 张未改变的纹理直接引用原站同步文件 |
 | 手柄模型、35 个成品音效、3 张贴花 | 普通 Git | 项目提供者确认 AI 原创，按项目 MIT；见 [来源声明](ASSET_PROVENANCE.md) |
 | 下载缓存、工具、证书、日志和私人配置 | 仅本机，Git 忽略 | 不分发 |
 
-以上 183 个角色/树木/减面生成文件约 707 MiB，最大文件 `skier1.glb` 约 22.3 MiB。
+以上 166 个角色/树木/减面生成文件约 673 MiB，最大文件 `skier1.glb` 约 22.3 MiB。
 当前待发布游戏素材没有超过 50 MiB 的单文件，也没有超过 GitHub 普通 Git 的 100 MiB
 单文件限制。总大小是未压缩文件之和，不代表首次克隆的实际传输量；后续频繁修改大文件会累积历史。
 
@@ -73,5 +73,5 @@ Powered by Poly Haven：<https://polyhaven.com>。使用自定义 User-Agent 标
 node --test tools/tests/asset_sync.test.mjs
 ```
 
-本次环境已完成本机 222 个文件的离线哈希验证及模拟下载测试。执行环境的网络限制导致
-无法连接素材站，真实网络下载仍需要在可联网环境验证，不能把离线通过当作端到端联网验收。
+2026-10-21 已从 Poly Haven 实际下载全部 222 个文件，随后离线校验全部通过，失败数为 0。
+下载器另有模拟网络、损坏文件和元数据脱敏测试。原站可用性会变化，CI 每次打包都会重新校验。

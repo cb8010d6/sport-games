@@ -9,13 +9,15 @@
    生成成品随普通 Git 克隆；不使用 Git LFS。详见 [素材说明](docs/ASSETS.md)。
 2. 使用 Godot 4.7.2 打开 `game/project.godot`。Python 中枢的安装和固件依赖见
    [开发说明](docs/DEVELOPMENT.md)。
-3. 每个 PR 聚焦一个问题；先描述现象、预期行为和修改原因。较大的玩法和协议改动请先开 Issue 讨论。
+3. 从 `dev` 建立功能分支，PR 目标选择 `dev`。`main` 用于通过验证的发布版本；维护者通过 PR 将 `dev` 合入 `main`。
+4. 每个 PR 聚焦一个问题；先描述现象、预期行为和修改原因。较大的玩法和协议改动请先开 Issue 讨论。
 
 ## 提交前
 
 - 中枢修改：在 `hub` 下执行 `python -m pytest -q`。
 - 游戏修改：运行受影响的游戏，检查大厅、开始、暂停、重开、结算和返回菜单；
   涉及多人界面时检查 2 人和 4 人分屏。
+  自动无界面检查可运行 `python tools/smoke_game.py <Godot可执行文件> --project game`，它不替代画面和手柄实测。
 - 体感修改：说明测试用手机还是 Regina；检查短挥动、长按、断线与重连。
 - 文案修改：执行 `python tools/i18n_check.py`，检查中英文。
 - 安装 Node.js 20+ 后可执行 `node tools/publication_audit.mjs --strict --write audit-output`；

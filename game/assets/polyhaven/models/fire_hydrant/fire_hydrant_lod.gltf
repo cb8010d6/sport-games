@@ -317,32 +317,32 @@
 		{
 			"mimeType":"image/jpeg",
 			"name":"fire_hydrant_nor_gl_2k",
-			"uri":"textures_lod/fire_hydrant_nor_gl_2k.jpg"
+			"uri":"textures/fire_hydrant_nor_gl_2k.jpg"
 		},
 		{
 			"mimeType":"image/jpeg",
 			"name":"fire_hydrant_diff_2k",
-			"uri":"textures_lod/fire_hydrant_diff_2k.jpg"
+			"uri":"textures/fire_hydrant_diff_2k.jpg"
 		},
 		{
 			"mimeType":"image/jpeg",
 			"name":"fire_hydrant_arm_2k",
-			"uri":"textures_lod/fire_hydrant_arm_2k.jpg"
+			"uri":"textures/fire_hydrant_arm_2k.jpg"
 		},
 		{
 			"mimeType":"image/jpeg",
 			"name":"fire_hydrant_aged_nor_gl_2k",
-			"uri":"textures_lod/fire_hydrant_aged_nor_gl_2k.jpg"
+			"uri":"textures/fire_hydrant_aged_nor_gl_2k.jpg"
 		},
 		{
 			"mimeType":"image/jpeg",
 			"name":"fire_hydrant_aged_diff_2k",
-			"uri":"textures_lod/fire_hydrant_aged_diff_2k.jpg"
+			"uri":"textures/fire_hydrant_aged_diff_2k.jpg"
 		},
 		{
 			"mimeType":"image/jpeg",
 			"name":"fire_hydrant_aged_arm_2k",
-			"uri":"textures_lod/fire_hydrant_aged_arm_2k.jpg"
+			"uri":"textures/fire_hydrant_aged_arm_2k.jpg"
 		}
 	],
 	"accessors":[
