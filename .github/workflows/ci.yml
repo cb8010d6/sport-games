@@ -67,6 +67,8 @@ jobs:
             !/game/assets/models/*
             /game/assets/models/regina.glb
             /game/assets/models/regina.glb.import
+            /game/assets/music/
+            /game/assets/previews/
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
@@ -83,4 +85,27 @@ jobs:
         run: python tools/import_game.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
       - name: Test saves and complete party flow
         run: python tools/test_game.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --party
+      # The other sports need the complete art tree; the package job covers them.
+      - name: Test UDP controls, pause, restart and reconnect
+        run: python tools/test_lifecycle.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --games plane archery bowling
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: lifecycle-source
+          path: audit-output/lifecycle/
+          if-no-files-found: warn
+      - name: Test formal solo opponents at all difficulty levels
+        run: python tools/test_solo.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --games plane archery bowling
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: solo-lightweight
+          path: audit-output/solo
+          if-no-files-found: warn
+      - name: Test music buses, fades, pause and scene lifecycle
+        run: python tools/test_music.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
       - run: python tools/i18n_check.py
+      - name: Test bilingual menu previews and input navigation
+        run: python tools/test_menu_preview.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
+      - name: Test camera accessibility settings and reload
+        run: python tools/test_camera_comfort.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --ui-only

@@ -667,7 +667,7 @@ func _bot(p: Player, dt: float) -> void:
 			var dist := float(ROUNDS[_round]["dist"])
 			var t := dist / SPEED_MAX
 			var spot := Vector3(s.lane_x - 0.5 * _wind * WIND_ACCEL * t * t, FACE_Y + 0.5 * GRAVITY * t * t, -dist)
-			spot += Vector3(_rng.randf_range(-0.35, 0.35), _rng.randf_range(-0.35, 0.35), 0.0) * (1.0 + _round * 0.5)
+			spot += Vector3(_rng.randf_range(-0.35, 0.35), _rng.randf_range(-0.35, 0.35), 0.0) * (1.0 + _round * 0.5) * bot_error()
 			s.bot_aim = (spot - p.cam.position).normalized()
 			s.drawing = true
 			s.draw_t = 0.0
@@ -712,7 +712,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 		if s.drawing:
 			h.draw_arc(c, r + 18 * k, -PI / 2.0, -PI / 2.0 + TAU * pw, 48, col.lightened(0.2), 5.0 * k, true)
 		elif s.arrows_left == ARROWS and _round == 0:
-			draw_text(h, tr("按住 A 拉弓，松开放箭"), Vector2(c.x, sz.y * 0.72), 22 * k, Color.WHITE, true)
+			draw_text(h, tr("按住 A 拉弓，松开放箭"), Vector2(c.x, sz.y * 0.61), 22 * k, Color.WHITE, true)
 
 	# This round's arrows on a small target face, bottom right.
 	var fc := Vector2(sz.x - 80 * k, sz.y - 80 * k)

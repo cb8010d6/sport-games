@@ -14,15 +14,14 @@ static func load_once() -> void:
 	if _loaded:
 		return
 	_loaded = true
-	var cf := ConfigFile.new()
-	cf.load(PATH)
+	var cf := RSSave.read(PATH)
 	for slot in range(1, 5):
 		var key := str(slot)
 		_slots[slot] = {
-			"name": clean_name(str(cf.get_value(key, "name", "P%d" % slot)), slot),
-			"color": clampi(int(cf.get_value(key, "color", slot - 1)), 0, COLORS.size() - 1),
-			"avatar": clampi(int(cf.get_value(key, "avatar", slot - 1)), 0, 3),
-			"phone_name": str(cf.get_value(key, "phone_name", "")),
+			"name": clean_name(RSSave.string_value(cf, key, "name", "P%d" % slot), slot),
+			"color": clampi(RSSave.integer(cf, key, "color", slot - 1), 0, COLORS.size() - 1),
+			"avatar": clampi(RSSave.integer(cf, key, "avatar", slot - 1), 0, 3),
+			"phone_name": RSSave.string_value(cf, key, "phone_name", ""),
 			"tutorials": _tutorial_ids(cf.get_value(key, "tutorials", [])),
 		}
 
@@ -67,10 +66,14 @@ static func avatar(slot: int) -> int:
 static func update(slot: int, name: String, color: int, look: int) -> Error:
 	load_once()
 	slot = clampi(slot, 1, 4)
+	var previous: Dictionary = _slots[slot].duplicate(true)
 	_slots[slot]["name"] = clean_name(name, slot)
 	_slots[slot]["color"] = clampi(color, 0, COLORS.size() - 1)
 	_slots[slot]["avatar"] = clampi(look, 0, 3)
-	return save()
+	var err := save()
+	if err != OK:
+		_slots[slot] = previous
+	return err
 
 
 static func import_phone_name(slot: int, name: String) -> void:
@@ -80,17 +83,20 @@ static func import_phone_name(slot: int, name: String) -> void:
 	load_once()
 	var clean := clean_name(name, slot)
 	if _slots[slot]["phone_name"] != clean:
+		var previous: Dictionary = _slots[slot].duplicate(true)
 		_slots[slot]["phone_name"] = clean
 		_slots[slot]["name"] = clean
-		save()
+		if save() != OK:
+			_slots[slot] = previous
 
 
 static func save() -> Error:
+	load_once()
 	var cf := ConfigFile.new()
 	for slot in _slots:
 		for field: String in _slots[slot]:
 			cf.set_value(str(slot), field, _slots[slot][field])
-	var err := cf.save(PATH)
+	var err := RSSave.write(PATH, cf)
 	if err != OK:
 		push_error("RSProfiles: cannot save profiles (%s)" % error_string(err))
 	return err

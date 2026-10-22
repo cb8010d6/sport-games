@@ -212,7 +212,7 @@ func _round_started(list: Array) -> void:
 		for l in r.letter_nodes:
 			l.visible = true
 		if p.fake:
-			r.bot = RSSkateBot.new(r.sk, 77 + p.c.player * 13 + _rng.randi_range(0, 9999))
+			r.bot = RSSkateBot.new(r.sk, 77 + p.c.player * 13 + _rng.randi_range(0, 9999), bot_ability())
 		send_ui(p, {"clear": true, "title": "SKATE", "main": "0", "sub": "READY", "legends": ["", "PUSH", "", null]})
 		_camera(p, r, 0.0, true)
 
@@ -438,6 +438,9 @@ func _camera(p: Player, r: Rider, dt: float, snap: bool) -> void:
 		r.cam_look = r.cam_look.lerp(look, minf(k * 1.4, 1.0))
 	r.shake = maxf(r.shake - dt * 1.6, 0.0)
 	var jitter := Vector3(_rng.randf() - 0.5, _rng.randf() - 0.5, _rng.randf() - 0.5) * r.shake * 0.35
+	# Consume the same RNG values so this visual option cannot change gameplay.
+	if not RSSettings.camera_shake:
+		jitter = Vector3.ZERO
 	p.cam.global_position = r.cam_pos + jitter
 	if p.cam.global_position.distance_to(r.cam_look) > 0.1:
 		p.cam.look_at(r.cam_look + jitter * 0.5)

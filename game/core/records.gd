@@ -11,19 +11,24 @@ static func load_once() -> void:
 	if _loaded:
 		return
 	_loaded = true
-	var cf := ConfigFile.new()
-	if cf.load(PATH) != OK:
-		return
+	var cf := RSSave.read(PATH)
+	_boards.clear()
 	for key: String in cf.get_sections():
+		if not cf.has_section_key(key, "entries"):
+			continue
 		var rows: Variant = cf.get_value(key, "entries", [])
 		if not rows is Array:
 			continue
-		var valid: Array = []
+		var by_slot: Dictionary = {}
 		for row: Variant in rows:
 			if row is Dictionary and row.get("slot") is int and row.get("score") is int:
-				if row["slot"] >= 1 and row["slot"] <= 4:
-					valid.append(row.duplicate())
-		_boards[key] = valid
+				var slot: int = row["slot"]
+				if slot >= 1 and slot <= 4 and row["score"] >= 0:
+					if not by_slot.has(slot) or row["score"] > by_slot[slot]["score"]:
+						by_slot[slot] = {"slot": slot, "score": row["score"],
+							"name": RSProfiles.clean_name(row["name"] if row.get("name") is String else "", slot),
+							"date": row["date"] if row.get("date") is String else ""}
+		_boards[key] = by_slot.values()
 
 
 static func key_for(game_id: String, map_id: int) -> String:
@@ -73,7 +78,7 @@ static func submit(game_id: String, map_id: int, slot: int, score: int) -> bool:
 	var cf := ConfigFile.new()
 	for board: String in _boards:
 		cf.set_value(board, "entries", _boards[board])
-	var err := cf.save(PATH)
+	var err := RSSave.write(PATH, cf)
 	if err != OK:
 		_boards[key] = previous
 		push_error("RSRecords: cannot save records (%s)" % error_string(err))

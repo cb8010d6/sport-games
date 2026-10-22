@@ -6,6 +6,7 @@ extends Control
 ## camera that cuts between a chase shot and a tracking shot alongside.
 
 const GAMES := RSCatalog.GAMES + [
+	{"name": "单人挑战", "oled": "SOLO", "scene": "", "page": "solo", "desc": "选择电脑难度，挑战三个分数目标，收集每个项目的星星。"},
 	{"name": "派对大赛", "oled": "PARTY", "scene": "", "page": "party", "desc": "选择 3–6 个项目，连续比赛并累计名次积分。"},
 	{"name": "玩家 / 手柄", "oled": "PLAYERS", "scene": "", "page": "players", "desc": "编辑玩家档案，扫码连接手机，分配手柄编号、查看电量与校准。"},
 	{"name": "本地排行榜", "oled": "RECORDS", "scene": "", "page": "records", "desc": "查看每个项目、每张地图的个人最佳成绩。"},
@@ -25,6 +26,7 @@ var _index := 0
 var _pages: RSMenuPages
 var _settings: RSPauseMenu
 var _menu_grid: GridContainer
+var _preview: RSGamePreview
 
 var _course: RSSkateCourse
 var _cam: Camera3D
@@ -58,6 +60,7 @@ func _ready() -> void:
 		return
 	theme = RSUi.theme(20)
 	RSTournament.clear()
+	RSSolo.clear()
 	if "--static-menu" in OS.get_cmdline_user_args():
 		var bg := ColorRect.new()
 		bg.color = Color("152338")
@@ -137,6 +140,8 @@ func _ready() -> void:
 	_status = RSUi.label("", 15)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(_status)
+	_preview = RSGamePreview.new()
+	add_child(_preview)
 	_pages = RSMenuPages.new()
 	add_child(_pages)
 	_pages.closed.connect(_restore_focus)
@@ -150,6 +155,7 @@ func _ready() -> void:
 	ControllerHub.controller_connected.connect(_send_oled)
 	_buttons[0].grab_focus()
 	RSSettings.apply(get_tree())
+	RSMusic.attach(self).play_track("menu")
 
 
 func _build_backdrop() -> void:
@@ -247,6 +253,7 @@ func _status_text() -> void:
 
 func _on_focus(i: int) -> void:
 	_index = i
+	_preview.show_game(GAMES[i])
 	_desc.text = tr(GAMES[i]["desc"])
 	var game_id: String = GAMES[i].get("id", "")
 	if not game_id.is_empty():
@@ -288,6 +295,7 @@ func _open(i: int) -> void:
 		return
 	if GAMES[i].has("page"):
 		_menu_grid.visible = false
+		_preview.visible = false
 		if GAMES[i]["page"] == "settings":
 			_settings.open()
 		else:
@@ -303,3 +311,4 @@ func _open(i: int) -> void:
 func _restore_focus() -> void:
 	_menu_grid.visible = true
 	_buttons[_index].grab_focus()
+	_preview.show_game(GAMES[_index])

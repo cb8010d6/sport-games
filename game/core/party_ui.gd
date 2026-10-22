@@ -68,6 +68,8 @@ func update_lobby() -> void:
 		lines.append(tr("[color=#f87171]● 未连接 hub —— 请运行 hub/run_hub.bat[/color]"))
 	if RSTournament.active():
 		lines.append(tr("大赛总积分 · %d / %d") % [RSTournament.index + 1, RSTournament.games.size()])
+	if game.solo_mode:
+		lines.append(tr("单人挑战 · %s · P%d 对战电脑") % [RSSolo.difficulty_name(), RSSolo.slot])
 	var text := "\n".join(lines)
 	if _lobby_players.text != text:
 		_lobby_players.text = text
