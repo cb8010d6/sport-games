@@ -65,6 +65,7 @@ jobs:
             /game/assets/models/regina.glb
             /game/assets/models/regina.glb.import
             /game/assets/music/
+            /game/assets/previews/
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -101,3 +102,5 @@ jobs:
       - name: Test music buses, fades, pause and scene lifecycle
         run: python tools/test_music.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
       - run: python tools/i18n_check.py
+      - name: Test bilingual menu previews and input navigation
+        run: python tools/test_menu_preview.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
