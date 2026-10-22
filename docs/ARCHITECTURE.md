@@ -41,6 +41,8 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 项目注册在游戏目录里（PR #2 合并后是 `game/core/catalog.gd` 的 `RSCatalog.GAMES`；在那之前是 `main_menu.gd` 的 `GAMES`）。
 
+菜单的 `RSGamePreview` 根据目录 ID 显示 `assets/previews/<id>.jpg`，只在焦点切换时加载并缓存。预览由 `tools/capture_previews.py` 从实际运动场景的玩家 3D 视口渲染，不含界面覆盖；运行时不会为选中项目再建一个世界。缺少预览的目录项正常进入，不显示空卡；设置等非运动入口隐藏预览。
+
 ### 回合流程
 
 `RSPartyGame` 负责整个回合：大厅（A 准备、手机二维码、地图卡）→ 3-2-1 倒数 → 比赛 → 成绩（A 再来、C 回菜单）。按一下 D 或 Esc 打开暂停菜单。项目**只重写钩子**，不要自己做大厅、倒数、成绩或暂停。
