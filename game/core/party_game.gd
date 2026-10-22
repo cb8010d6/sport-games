@@ -92,6 +92,7 @@ var _smoke_shot := ""
 var _smoke_done := false
 var _tournament_final_shown := false
 var _tutorials: Dictionary = {}  ## controller id -> its active lobby lesson
+var _music: RSMusic
 
 
 # ---------------------------------------------------------------------- game hooks ----
@@ -243,6 +244,7 @@ func _ready() -> void:
 	_build_ui()
 	_update_map_card()
 	RSSettings.apply(get_tree())
+	_music = RSMusic.attach(self)
 	ControllerHub.button_pressed.connect(_on_button.bind(true))
 	ControllerHub.button_released.connect(_on_button.bind(false))
 	ControllerHub.controller_event.connect(_on_event)
@@ -501,6 +503,7 @@ func _sync_players() -> void:
 # ------------------------------------------------------------------------- phases ----
 
 func _to_lobby() -> void:
+	_music.play_track("lobby")
 	phase = Phase.LOBBY
 	phase_time = 0.0
 	views.visible = false
@@ -512,6 +515,7 @@ func _to_lobby() -> void:
 
 
 func _start_countdown() -> void:
+	_music.silence()
 	_result_committed = false
 	phase = Phase.COUNTDOWN
 	phase_time = 0.0
@@ -532,6 +536,7 @@ func finish_round() -> void:
 	if _result_committed:
 		return
 	_result_committed = true
+	_music.play_track("victory")
 	phase = Phase.RESULTS
 	phase_time = 0.0
 	var list := ranked_players()

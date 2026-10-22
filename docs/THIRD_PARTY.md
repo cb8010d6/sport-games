@@ -10,6 +10,12 @@ Review date: 2026-10-21. The 39 formerly unresolved outputs are now classified u
 provider's explicit AI originality declaration. This is distinguished from independently documented
 third-party sources. See [PUBLICATION_AUDIT.md](PUBLICATION_AUDIT.md) and `tools/asset_policy.json`.
 
+## Procedural background music
+
+The separately documented [background music](../game/assets/music/CREDITS.md) is a new
+procedural contribution released as CC0-1.0, generated from the retained project score
+without external samples. It does not inherit the historical SFX source classification.
+
 ## Poly Haven
 
 Location: `game/assets/polyhaven/`.
