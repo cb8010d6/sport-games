@@ -1,4 +1,7 @@
 {
+  "无障碍": "Accessibility",
+  "无障碍　▸": "Accessibility  ▸",
+  "镜头晃动　◀ %s ▶": "Camera shake  ◀ %s ▶",
  "[font_size=30]第 %d 名  [color=#%s]P%d[/color]  %d 分[/font_size]\n[color=#9aa3b5]%s[/color]": "[font_size=30]#%d  [color=#%s]P%d[/color]  %d pts[/font_size]\n[color=#9aa3b5]%s[/color]",
  "◀  地图 %d/%d：%s  ▶": "◀  Map %d/%d: %s  ▶",
  "　（加载中…）": "  (loading…)",

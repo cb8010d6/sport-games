@@ -81,6 +81,8 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 ## 4. 数据与接口
 
+无障碍的镜头晃动开关由 `RSSettings.camera_shake` 统一保存到现有 `settings.cfg`，主菜单和游戏暂停菜单共用无障碍页面。滑板、滑雪在生成原有随机偏移后决定是否应用，保持原随机数消耗顺序，关闭抖动不改变运动物理、机器人决策或计分。
+
 - **中枢 ↔ 游戏**：只有 [protocol.md](protocol.md) 定义的 UDP 消息。新增字段要同时改协议文档、hub 和 `ControllerHub`，并保持旧字段兼容。
 - **存档**：`user://*.cfg`（ConfigFile）。改格式要能读旧文件；新增存档文件需要维护者同意。之后会加存档版本号和迁移（M1）。
 - **文案**：中文原文就是 key。改中文原文等于换了 key，必须同步 `en.json`，并通过 `python tools/i18n_check.py`。
