@@ -65,6 +65,18 @@ godot --path game
 
 先进主菜单：手柄 **B / C** 切换、**A** 进入（键盘用方向键和回车）。菜单最后一项是 **语言 Language**，按 A 在中文和 English 之间切换。
 
+主菜单新增：
+
+- **玩家 / 手柄**：编辑 P1–P4 的名字、颜色和现有角色外观，保存在 `user://profiles.cfg`。查看设备电量、分配编号、归零和零偏校准；手机二维码会在 hub 就绪后更新。手机页面的“设置”里可以输入玩家名字，下一次入场时同步到对应档案。
+- **本地排行榜**：按项目和地图保存每位玩家的最佳成绩，位于 `user://records.cfg`；主菜单显示项目最佳，结算显示“新纪录！”。`--demo`、`--shots`、自定义 `--round` / `--frames` 不计正式纪录。
+- **派对大赛**：选择 3–6 项（也可随机选 3 项），连接并分配手柄后开始。每个项目的第 1–4 名分别得 10 / 7 / 5 / 3 分；同分共享名次，例如并列第一后下一名为第三。项目之间按 A 继续，最后按 A 查看总领奖台，再按 A 返回；C 结束大赛。参赛槽固定，中途缺席的玩家需在下个大厅重连后才能开始。
+- **设置**：直接调整画面、四类音量、语言与色弱友好配色。修改会立即保存；角色颜色在下一次进入项目时更新。
+- **致谢与素材**：游戏内来源与许可摘要；完整逐项记录仍见 `docs/THIRD_PARTY.md`。
+
+低功耗或界面调试时可用 `godot --path game -- --static-menu` 关闭主菜单的 3D 背景演示。
+
+**首次教学**：每位玩家首次进入某个项目时，按 A 开始教学。先看动画示范，再按提示完成倾斜、瞄准、起跳或按住 / 松开按键的练习；通过后回到舒适握姿，按 A 准备开赛。每个项目的完成状态保存在该玩家的 `profiles.cfg` 中。以后在大厅按键盘 **T**、点击“重看教学”，或短按手柄 **D** 后选择“新手教学”即可重练。演示机器人和录制回放跳过教学；重练不清除已保存的完成状态。
+
 **暂停菜单**：游戏里短按手柄 **D**（长按 1 秒是归零，不会打开菜单）或按 **Esc**。里面有继续、重新开始、画面设置、语言和回主菜单。设置保存在 `%APPDATA%\Godot\app_userdata\Regina Sports\settings.cfg`，所有游戏通用：
 
 | 设置 | 选项 | 说明 |
@@ -135,6 +147,26 @@ hub/.venv/Scripts/python tools/i18n_check.py
 ```
 
 它会列出还没有英文的中文文字（`--todo 文件名` 把它们写进一个待翻译文件），以及 en.json 里已经用不到的条目。不需要翻译的行在行尾加 `# no-i18n`。
+
+游戏回归检查（需要先完成素材导入）：
+
+```sh
+python tools/import_game.py --godot /path/to/godot
+python tools/test_game.py --godot /path/to/godot --party
+python -m unittest discover -s tools/tests -p 'test_*.py'
+python tools/smoke_test.py --godot /path/to/godot --players 2 --all-maps --output audit-output/smoke-2
+python tools/smoke_test.py --godot /path/to/godot --players 4 --all-maps --output audit-output/smoke-4
+python tools/smoke_test.py --godot /path/to/godot --games ski --map 3 --players 4
+python tools/smoke_test.py --godot /path/to/godot --players 4 --screenshots --language en --output audit-output/captures-4
+```
+
+测试会隔离用户数据，避免覆盖真实档案。冒烟脚本从游戏大厅实际使用的地图列表发现用例；默认跑第 0 图，`--all-maps` 跑全部地图，`--map N` 选择从 0 开始的指定地图（不存在会报错）。每项必须真正进入结算，且项目、地图、玩家槽和有限数值成绩均正确才算通过。
+
+默认输出在 `audit-output/smoke/`：`run.json` 记录预期 / 完成数量和 RUNNING / PASS / FAIL，`summary.json` 与 `index.html` 汇总逐项结果，另存原始结算 JSON 和日志。中途失败或中断不会保留旧的通过汇总。截图模式需要图形桌面，验证 PNG 完整性及 1600×900 尺寸，并输出嵌入全部截图的 `contact-sheet.svg`，可单独复制查看，不需要安装额外 Python 图像库。建议给不同人数和语言使用不同输出目录。
+
+导入脚本先检查 glTF 的外部依赖；素材缺失时先运行 `node tools/sync_assets.mjs`。Godot 4.7.2 的无头渲染器存在并发 RID 分配缺陷，项目暂时关闭并行素材导入，代价是首次导入稍慢；升级到包含上游 [#121958](https://github.com/godotengine/godot/pull/121958) 的版本后再评估恢复。
+
+导入和测试共用进程管理：同一项目的自动化命令不能同时运行；Windows 在引擎执行前将它加入 Job Object，退出、超时或中断时清理整棵子进程树。原生异常保留失败退出码和日志，避免反复拉起即时调试器，无需改系统调试器配置。手动打开的编辑器不受自动化锁管理，执行导入前应先关闭该项目编辑器。当前验证范围与后续建议见 [改进记录](docs/IMPROVEMENTS.md)。
 
 **手柄调试**：显示每个手柄的 3D 模型、状态卡片、手机二维码、角速度和线加速度曲线、挥动检测记录，还有手柄屏幕的实时预览。
 

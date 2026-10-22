@@ -1,0 +1,111 @@
+extends Node
+const TutorialCases := preload("res://tests/tutorial_cases.gd")
+## Run this scene with an isolated APPDATA directory; it writes actual ConfigFile saves.
+
+var _failures := 0
+
+
+func _ready() -> void:
+	if OS.get_environment("RS_TEST_MODE") != "1":
+		push_error("Use tools/test_game.py: these tests need an isolated user data directory.")
+		get_tree().quit(1)
+		return
+	_run.call_deferred()
+
+
+func _check(ok: bool, message: String) -> void:
+	if not ok:
+		_failures += 1
+		push_error("FAIL: " + message)
+
+
+func _run() -> void:
+	_check(RSProfiles.clean_name("  Test\nName  ") == "TestName", "nickname sanitization")
+	_check(RSProfiles.bbcode("[b]Name") == "[lb]b]Name", "rich text nickname escaping")
+	_check(RSProfiles.update(1, "Example Player", 5, 3) == OK, "profile save")
+	RSProfiles._loaded = false
+	_check(RSProfiles.player_name(1) == "Example Player" and RSProfiles.avatar(1) == 3, "profile round trip")
+	RSProfiles.import_phone_name(1, "Example Phone")
+	_check(RSProfiles.player_name(1) == "Example Phone", "phone nickname import")
+	RSProfiles.update(1, "Manual Name", 2, 1)
+	RSProfiles.import_phone_name(1, "Example Phone")
+	_check(RSProfiles.player_name(1) == "Manual Name", "unchanged phone nickname does not overwrite local edit")
+	RSRecords._loaded = true
+	RSRecords._boards.clear()
+	_check(RSRecords.submit("ski", 0, 1, 100), "first record")
+	_check(not RSRecords.submit("ski", 0, 1, 90), "lower score ignored")
+	_check(not RSRecords.submit("ski", 0, 1, 100), "equal score ignored")
+	_check(RSRecords.submit("ski", 1, 1, 50), "maps isolated")
+	_check(RSRecords.submit("ski", 0, 2, 100), "second profile")
+	_check(not RSRecords.submit("ski", 0, 0, 1000), "invalid slot ignored")
+	RSRecords._loaded = false
+	RSRecords._boards.clear()
+	_check(RSRecords.best("ski", 0, 1) == 100 and RSRecords.best("ski", 1, 1) == 50, "record round trip")
+	_check(RSRecords.best("archery", 0) == -1, "games isolated")
+	_check(RSRecords.leaderboard("ski", 0).size() == 2, "one best per player")
+	var game := RSPartyGame.new()
+	var player := RSPartyGame.Player.new()
+	player.c = RSController.new()
+	player.c.kind = "phone"
+	_check(game.can_record(player), "standard phone match can record")
+	player.c.kind = "replay"
+	_check(not game.can_record(player), "recorded controller replay cannot set a record")
+	player.c.kind = "phone"
+	player.fake = true
+	_check(not game.can_record(player), "bot cannot record")
+	player.fake = false
+	game._records_enabled = false
+	_check(not game.can_record(player), "custom rules cannot record")
+	game.free()
+	var selection := ["plane", "archery", "bowling"]
+	_check(not RSTournament.begin(["plane", "plane", "ski"], [1]), "duplicate game rejected")
+	_check(not RSTournament.begin(selection, []), "empty party rejected")
+	_check(RSTournament.begin(selection, [1, 2, 3]), "party start")
+	var results := [{"slot": 1, "rank": 1}, {"slot": 2, "rank": 1}, {"slot": 3, "rank": 3}]
+	_check(not RSTournament.record("ski", results), "wrong scene cannot score")
+	_check(RSTournament.record("plane", results), "party score")
+	_check(not RSTournament.record("plane", results), "duplicate score rejected")
+	_check(RSTournament.entrants[1]["points"] == 10 and RSTournament.entrants[2]["points"] == 10 and RSTournament.entrants[3]["points"] == 5, "ties share rank points")
+	_check(RSTournament.advance().contains("archery"), "advance changes scene")
+	_check(RSTournament.advance().is_empty(), "cannot skip unfinished round")
+	RSTournament.record("archery", results)
+	RSTournament.advance()
+	_check(RSTournament.last_round(), "last round")
+	RSTournament.record("bowling", results)
+	_check(RSTournament.advance().is_empty(), "last round cannot advance")
+	_check(RSTournament.standings()[0]["points"] == 30, "party totals")
+	RSTournament.clear()
+	_check(not RSTournament.active(), "party cancel")
+	RSAudio.set_volume(RSAudio.MUSIC, 0)
+	_check(AudioServer.is_bus_mute(AudioServer.get_bus_index(RSAudio.MUSIC)), "music mute")
+	RSSettings.volumes = [9, 0, 6, 5]
+	RSSettings.color_safe = true
+	RSSettings.save()
+	RSSettings._loaded = false
+	RSSettings.load_once()
+	_check(RSSettings.volumes == [9, 0, 6, 5] and RSSettings.color_safe, "settings round trip")
+	var pause := RSPauseMenu.new(self, true)
+	add_child(pause)
+	pause.open()
+	_check(get_tree().paused and pause.is_open(), "main menu settings open")
+	pause._choose(0) # display
+	pause.back()
+	_check(pause._page == "settings", "settings back navigation")
+	pause.close()
+	_check(not get_tree().paused, "settings close unpauses")
+	pause.queue_free()
+	var pages := RSMenuPages.new()
+	add_child(pages)
+	for page: String in ["players", "records", "party", "credits"]:
+		pages.open(page)
+		_check(pages.visible and pages._focus.size() > 0, "menu page: " + page)
+		pages.close()
+	pages.queue_free()
+	_check(load("res://scenes/menu/main_menu.gd") != null, "main menu compiles")
+	TutorialCases.run(_check)
+	await TutorialCases.integration(self, _check)
+	await get_tree().process_frame
+	# Let the audio thread release the pause-menu cue before shutting down the test process.
+	await get_tree().create_timer(0.25).timeout
+	print("RS_SHELL_TESTS: %d failures" % _failures)
+	get_tree().quit(1 if _failures else 0)

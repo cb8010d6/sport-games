@@ -133,7 +133,7 @@ func _lobby_process(delta: float) -> void:
 func _player_added(p: Player) -> void:
 	var r := Rider.new()
 	p.data = r
-	r.sk = RSSkater.new(_course, color_of(p), p.c.player - 1, p.c.player)
+	r.sk = RSSkater.new(_course, color_of(p), avatar_of(p), p.c.player)
 	add_child(r.sk)
 	r.sk.visible = false
 	r.sk.combo_banked.connect(_on_banked.bind(p))

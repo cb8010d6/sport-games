@@ -205,7 +205,7 @@ func _player_added(p: Player) -> void:
 	var s := Shooter.new()
 	p.data = s
 	s.court = clampi(p.c.player - 1, 0, RSBallCourt.COURTS - 1)
-	s.rig = RSBallerRig.new(color_of(p), p.c.player - 1)
+	s.rig = RSBallerRig.new(color_of(p), avatar_of(p))
 	add_child(s.rig)
 	s.rig.visible = false
 	s.rp_ball = RSBasketball.new(0, false)

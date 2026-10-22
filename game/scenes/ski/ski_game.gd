@@ -254,7 +254,7 @@ func _follow_snow(sn: GPUParticles3D, cam: Camera3D) -> void:
 func _player_added(p: Player) -> void:
 	var r := Racer.new()
 	p.data = r
-	r.sk = RSSkier.new(_course, color_of(p), p.c.player - 1, p.c.player)
+	r.sk = RSSkier.new(_course, color_of(p), avatar_of(p), p.c.player)
 	add_child(r.sk)
 	r.sk.visible = false
 	r.sk.gate_passed.connect(_on_gate.bind(p, true))
