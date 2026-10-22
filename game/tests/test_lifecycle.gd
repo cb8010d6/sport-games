@@ -195,10 +195,6 @@ func _run() -> void:
 	set_process(false)
 	_peer.close()
 	ControllerHub.controllers.clear()
-	# Fixed-fps gameplay can outrun the real audio worker; drain wall time too.
-	var drain_until := Time.get_ticks_msec() + 350
-	while Time.get_ticks_msec() < drain_until:
-		await get_tree().process_frame
 	if not _report.is_empty():
 		var file := FileAccess.open(_report, FileAccess.WRITE)
 		if file != null:
@@ -207,4 +203,4 @@ func _run() -> void:
 		else:
 			_check(false, "write lifecycle report")
 	print("RS_LIFECYCLE_DONE: %s/%d" % [_game_id, _count])
-	get_tree().quit(0 if _errors.is_empty() else 1)
+	RSExit.quit(get_tree(), 0 if _errors.is_empty() else 1)

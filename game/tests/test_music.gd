@@ -63,8 +63,18 @@ func _run() -> void:
 	await _menu_lifecycle()
 	music.queue_free()
 	await _wait(0.4)
+	# Close the window while music and a looping effect still play: RSExit must drain them,
+	# or the runner sees "leaked at exit" / "still in use at exit".
+	RSExit.install(get_tree())
+	_check(not get_tree().auto_accept_quit, "window close goes through RSExit")
+	RSMusic.attach(self).play_track("menu")
+	RSSfx.loop(self, "applause").volume_db = 0.0
+	await _wait(0.2)
 	print("RS_MUSIC_TESTS: %d checks, %d failures" % [_checks, _failures])
-	get_tree().quit(0 if _failures == 0 else 1)
+	if _failures == 0:
+		get_tree().root.close_requested.emit()
+	else:
+		RSExit.quit(get_tree(), 1)
 
 
 func _game_lifecycle() -> void:

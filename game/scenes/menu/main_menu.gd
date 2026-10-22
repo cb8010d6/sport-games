@@ -40,6 +40,7 @@ var _side := 1.0
 
 
 func _ready() -> void:
+	RSExit.install(get_tree())
 	var cli_game := "plane"
 	var cli_launch := false
 	for a: String in OS.get_cmdline_user_args():
@@ -56,7 +57,7 @@ func _ready() -> void:
 				return
 		push_error("Unknown --game id")
 		set_process(false)   # the menu is not built; _process would touch missing nodes
-		get_tree().quit(2)
+		RSExit.quit(get_tree(), 2)
 		return
 	theme = RSUi.theme(20)
 	RSTournament.clear()
