@@ -60,6 +60,14 @@ jobs:
           github-token: ${{ github.token }}
       - name: Import, check every map and export Windows game
         run: python tools/build_game.py
+      - name: Test formal solo opponents on every shipped map
+        run: python tools/test_solo.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --all-maps
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: solo-all-maps
+          path: audit-output/solo
+          if-no-files-found: warn
       - uses: actions/upload-artifact@v4
         with:
           name: Godot-imports

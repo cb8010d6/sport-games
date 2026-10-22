@@ -212,7 +212,7 @@ func _round_started(list: Array) -> void:
 		for l in r.letter_nodes:
 			l.visible = true
 		if p.fake:
-			r.bot = RSSkateBot.new(r.sk, 77 + p.c.player * 13 + _rng.randi_range(0, 9999))
+			r.bot = RSSkateBot.new(r.sk, 77 + p.c.player * 13 + _rng.randi_range(0, 9999), bot_ability())
 		send_ui(p, {"clear": true, "title": "SKATE", "main": "0", "sub": "READY", "legends": ["", "PUSH", "", null]})
 		_camera(p, r, 0.0, true)
 

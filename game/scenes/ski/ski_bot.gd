@@ -23,12 +23,15 @@ var _popped_for := -1
 var _err := 0.0
 
 
-func _init(skier: RSSkier, seed_value: int) -> void:
+func _init(skier: RSSkier, seed_value: int, ability: float = -1.0) -> void:
 	sk = skier
 	course = skier.course
 	_rng.seed = seed_value
 	_skill = _rng.randf_range(0.84, 0.97)
 	_vmax = _rng.randf_range(22.0, 27.0)
+	if ability >= 0.0:
+		_skill = clampf(ability, 0.5, 0.99)
+		_vmax = lerpf(16.0, 29.0, clampf((ability - 0.5) / 0.5, 0.0, 1.0))
 	for g in course.gates:
 		# Through the gate a little on the inside of the next turn, with some slop.
 		var x := float(g["x"]) - float(g["side"]) * float(g["w"]) * 0.25
