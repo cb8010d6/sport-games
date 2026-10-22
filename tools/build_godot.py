@@ -9,17 +9,16 @@ import argparse
 import hashlib
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import sys
 import urllib.request
 import venv
 import zipfile
+from pathlib import Path
 
 from engine_process import WindowsJob
 from test_game import ROOT
-
 
 PATCH_DIR = ROOT / "tools/engine_patches"
 LOCK = json.loads((PATCH_DIR / "build-lock.json").read_text(encoding="utf-8"))

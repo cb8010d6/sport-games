@@ -6,14 +6,14 @@ Rendered WAV outputs are dedicated under CC0-1.0; see assets/music/CREDITS.md.
 from __future__ import annotations
 
 import argparse
-from array import array
 import hashlib
 import json
 import math
-from pathlib import Path
 import random
 import sys
 import wave
+from array import array
+from pathlib import Path
 
 RATE = 22050
 CHORDS = ((60, 64, 67, 71), (53, 57, 60, 64), (57, 60, 64, 67), (55, 59, 62, 67))

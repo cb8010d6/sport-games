@@ -1,8 +1,8 @@
 """A positive lifecycle result needs the correct case, mode and completed assertions."""
-from pathlib import Path
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))

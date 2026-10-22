@@ -6,16 +6,16 @@ python tools/capture_previews.py --output game/assets/previews
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
 import hashlib
 import json
 import os
-from pathlib import Path
 import shutil
 import struct
 import tempfile
 import time
 from collections.abc import Iterator
+from contextlib import contextmanager
+from pathlib import Path
 
 from smoke_test import GAMES, engine_errors
 from test_game import ROOT, find_godot, run_engine

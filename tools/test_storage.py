@@ -3,12 +3,11 @@ from __future__ import annotations
 
 import argparse
 import os
-from pathlib import Path
 import re
 import tempfile
+from pathlib import Path
 
 from engine_process import run_engine, silence_native_crash_dialogs
-
 
 ROOT = Path(__file__).resolve().parent.parent
 EXPECTED_ERRORS = (

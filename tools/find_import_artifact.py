@@ -1,8 +1,8 @@
 """Bootstrap main imports only from a successful same-repository dev PR with identical tree."""
 import json
 import os
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 
 def gh_json(endpoint):

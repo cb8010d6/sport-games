@@ -7,15 +7,15 @@ Real BLE/phone hardware, haptics and HDR still need device validation.
 from __future__ import annotations
 
 import argparse
-from contextlib import nullcontext
 import html
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import time
+from contextlib import nullcontext
+from pathlib import Path
 
 from smoke_test import GAMES, decode, discover_cases, engine_errors, png_size
 from test_game import ROOT, find_godot, run_engine

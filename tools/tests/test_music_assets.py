@@ -1,14 +1,14 @@
 """Validate the committed PCM files and their retained generation record."""
 from __future__ import annotations
 
-from array import array
 import hashlib
 import json
 import math
-from pathlib import Path
 import sys
 import unittest
 import wave
+from array import array
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[2]
 

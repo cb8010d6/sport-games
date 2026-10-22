@@ -1,7 +1,7 @@
 """Apply the reviewed main ruleset with the maintainer's administrative GitHub CLI login."""
 import json
-from pathlib import Path
 import subprocess
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 REPO = "cb8010d6/sport-games"

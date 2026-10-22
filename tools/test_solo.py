@@ -7,16 +7,16 @@ Synthetic controller tests do not certify physical controller feel or difficulty
 from __future__ import annotations
 
 import argparse
-from contextlib import contextmanager
 import html
 import json
 import os
-from pathlib import Path
 import shutil
 import subprocess
 import tempfile
 import time
 from collections.abc import Iterator
+from contextlib import contextmanager
+from pathlib import Path
 
 from smoke_test import GAMES, decode, discover_cases, engine_errors, png_size
 from test_game import ROOT, find_godot, run_engine, silence_native_crash_dialogs

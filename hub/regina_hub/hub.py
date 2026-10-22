@@ -41,7 +41,7 @@ class GameLink:
     unreachable" error, which happens every time the game exits while samples are streaming.
     """
 
-    def __init__(self, hub: "Hub", game_addr: tuple[str, int]):
+    def __init__(self, hub: Hub, game_addr: tuple[str, int]):
         self.hub = hub
         self.game_addr = game_addr
         self.sock: socket.socket | None = None
@@ -69,7 +69,7 @@ class GameLink:
         while not self._closing:
             try:
                 data, addr = self.sock.recvfrom(65536)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 if self._closing:

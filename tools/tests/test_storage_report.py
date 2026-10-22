@@ -1,13 +1,12 @@
 """Fault diagnostics must not conceal unrelated engine failures."""
 from __future__ import annotations
 
-from pathlib import Path
 import sys
 import unittest
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from test_storage import valid_output
-
 
 GOOD = "\n".join((
     "ERROR: ConfigFile parse error at user://save-tests/syntax.cfg:0: Unexpected EOF while parsing simple tag.",

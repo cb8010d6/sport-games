@@ -7,10 +7,10 @@ from __future__ import annotations
 
 import argparse
 import os
-from pathlib import Path
 import shutil
 import tempfile
 import time
+from pathlib import Path
 
 from smoke_test import engine_errors, png_size
 from test_game import ROOT, find_godot, run_engine

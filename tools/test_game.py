@@ -8,15 +8,14 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
 import re
 import shutil
 import sys
 import tempfile
+from pathlib import Path
 
 from engine_process import run_engine, silence_native_crash_dialogs
 from test_storage import run_storage
-
 
 ROOT = Path(__file__).resolve().parent.parent
 

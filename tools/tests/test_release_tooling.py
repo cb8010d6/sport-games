@@ -1,8 +1,8 @@
 """Release safety: private runtime files and invalid tool downloads cannot be shipped."""
-from io import BytesIO
 import hashlib
-from pathlib import Path
 import zipfile
+from io import BytesIO
+from pathlib import Path
 
 import pytest
 

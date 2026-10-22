@@ -14,11 +14,11 @@ import html
 import json
 import math
 import os
-from pathlib import Path
 import struct
 import subprocess
 import tempfile
 import time
+from pathlib import Path
 
 from test_game import ROOT, find_godot, run_engine, silence_native_crash_dialogs
 

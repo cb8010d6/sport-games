@@ -3,9 +3,9 @@ from __future__ import annotations
 
 import argparse
 import os
-from pathlib import Path
 import re
 import tempfile
+from pathlib import Path
 
 from engine_process import run_engine
 from test_game import ROOT, find_godot
