@@ -40,6 +40,7 @@
 - **ARCH-SAVE**：只有 `game/core` 读写 `user://`。
 - **ARCH-ARGS**：命令行参数只在 `party_game.gd`、`main_menu.gd` 解析；项目用 `_parse_arg()`。
 - **ARCH-HAPTIC**：震动用 `haptic(p, name)`；**ARCH-AUDIO**：声音用 `RSSfx`，不要自己创建 AudioStreamPlayer。
+- **ARCH-QUIT**：退出游戏用 `RSExit.quit(get_tree(), code)`，调用后直接 `return`；不要直接 `get_tree().quit()`。测试脚本可以直接退出。
 - 场景内容在代码里构建，`.tscn` 只放根节点和脚本（现有做法，避免多人改同一个 `.tscn` 产生冲突）。
 - 不新增 autoload；不用 `get_node("/root/...")` 这类绝对节点路径。
 

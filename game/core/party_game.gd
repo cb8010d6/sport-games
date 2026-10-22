@@ -244,6 +244,7 @@ func _ready() -> void:
 	_build_ui()
 	_update_map_card()
 	RSSettings.apply(get_tree())
+	RSExit.install(get_tree())   # also covers games launched directly by tests and tools
 	_music = RSMusic.attach(self)
 	ControllerHub.button_pressed.connect(_on_button.bind(true))
 	ControllerHub.button_released.connect(_on_button.bind(false))
@@ -363,18 +364,12 @@ func _complete_smoke() -> void:
 	var report := FileAccess.open(_smoke_report, FileAccess.WRITE)
 	if report == null:
 		push_error("Cannot write smoke report")
-		get_tree().quit(1)
+		RSExit.quit(get_tree(), 1)
 		return
 	report.store_string(JSON.stringify({"game": game_id(), "map": map_index, "players": scores, "phase": "results"}))
 	report.close()
-	# Fixed-fps smoke rounds can finish faster than the audio mixer drains its playbacks.
-	# Stop this scene's audio and give the mixer real time before terminating the process.
-	for audio: AudioStreamPlayer in find_children("*", "AudioStreamPlayer", true, false):
-		audio.stop()
-		audio.stream = null
-	OS.delay_msec(250)
 	print("RS_SMOKE_DONE: " + game_id())
-	get_tree().quit()
+	RSExit.quit(get_tree())
 
 
 # ------------------------------------------------------------------------ players ----
@@ -815,4 +810,4 @@ func _take_shots() -> void:
 	get_viewport().get_texture().get_image().save_png("%s_%d.png" % [_shots, _shot_i])
 	_shot_i += 1
 	if _shot_i >= shot_times.size():
-		get_tree().quit()
+		RSExit.quit(get_tree())
