@@ -106,6 +106,15 @@ parent Regina project is copied or assumed to cover the model.
 - `tools/regina_sports.ico`: the icon source/generation record has not been established;
   this optional desktop icon is excluded from publication. The editable game SVG is separate.
 
+## Scene-rendered menu previews
+
+`game/assets/previews/*.jpg` are 1600×900 exports of this project's actual game cameras,
+using project MIT code/geometry and the existing CC0 scene assets. They do not introduce
+external photographs, samples or AI-generated images. Source notices remain applicable;
+see [capture provenance](../game/assets/previews/CREDITS.md), the retained capture harness
+and SHA-256 manifest. UI evidence in `docs/screenshots/phase5-menu-*.png` additionally
+contains the project MIT menu. The combined scene exports are recorded as MIT AND CC0-1.0.
+
 ## Runtime and build dependencies
 
 Godot is an external MIT-licensed engine; see <https://godotengine.org/license/>.
