@@ -64,6 +64,7 @@ jobs:
             !/game/assets/models/*
             /game/assets/models/regina.glb
             /game/assets/models/regina.glb.import
+            /game/assets/music/
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
@@ -97,4 +98,6 @@ jobs:
           name: solo-lightweight
           path: audit-output/solo
           if-no-files-found: warn
+      - name: Test music buses, fades, pause and scene lifecycle
+        run: python tools/test_music.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
       - run: python tools/i18n_check.py
