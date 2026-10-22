@@ -122,5 +122,3 @@ static func draw_replay(game: RSBasketballGame, h: RSPartyGame.PlayerHud, p: RSP
 	game.draw_text(h, "REPLAY", Vector2(sz.x - 136 * k, bar * 0.5 + 8 * k), 22 * k, Color.WHITE)
 	game.draw_text(h, game.tr("最佳一投  ") + s.clip_name, Vector2(sz.x * 0.5, sz.y - bar - 44 * k), 22 * k, Color.WHITE, true)
 	game.draw_text(h, "+%d" % s.clip_pts, Vector2(sz.x * 0.5, sz.y - bar - 8 * k), 40 * k, RSBasketballGame.GOLD, true)
-
-
