@@ -9,6 +9,11 @@
   ],
   "documented": [
     {
+      "prefix": "docs/screenshots/phase3-solo-",
+      "license": "MIT",
+      "evidence": "docs/PHASE_3_SOLO.md#界面截图"
+    },
+    {
       "prefix": "game/assets/polyhaven/",
       "license": "CC0-1.0",
       "evidence": "game/assets/polyhaven/CREDITS.md"
