@@ -37,7 +37,7 @@ FUNC = re.compile(r"^\s*(?:static\s+)?func\s+(\w+)\s*\(")
 CLASS_NAME = re.compile(r"^class_name\s+(\w+)", re.M)
 ABS_PATH = re.compile(r"(?<![\w/])[A-Za-z]:[\\/](?:Users|Program Files|SteamLibrary|Regina)|[\\/]Users[\\/][^\\/\s\"']+[\\/]", re.I)
 SOURCE_SUFFIXES = {".gd", ".py", ".mjs", ".js", ".html", ".gdshader", ".tscn"}
-SKIP_DIRS = {".godot", ".venv", "node_modules", "__pycache__", ".git", "assets", "audit-output", "build", "dist"}
+SKIP_DIRS = {".godot", ".venv", "node_modules", "__pycache__", ".git", "assets", "audit-output", "build", "dist", "_dl"}
 
 
 @dataclass

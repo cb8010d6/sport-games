@@ -5,6 +5,24 @@ on:
 permissions:
   contents: read
 jobs:
+  engine-runner:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/game/assets/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: python -m pip install 'pytest>=8'
+      - name: Test process cleanup, native failure, reports and release tooling
+        run: python -m pytest -q tools/tests
   hub:
     runs-on: ubuntu-latest
     strategy:
@@ -35,3 +53,34 @@ jobs:
       - run: node tools/publication_audit.mjs --privacy-only
       # docs/CODING_STANDARDS.md rules (standard library only, no setup needed).
       - run: python3 tools/check_conventions.py
+  game-shell:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # Keep the controller model preloaded by bowling; omit the large art tree.
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/game/assets/*
+            /game/assets/models/
+            !/game/assets/models/*
+            /game/assets/models/regina.glb
+            /game/assets/models/regina.glb.import
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Download pinned Godot
+        run: |
+          mkdir -p tools/godot
+          cd tools/godot
+          curl --fail --location --retry 3 -O https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
+          curl --fail --location --retry 3 -O https://github.com/godotengine/godot/releases/download/4.7.2-stable/SHA512-SUMS.txt
+          sha512sum --ignore-missing -c SHA512-SUMS.txt
+          unzip -q Godot_v4.7.2-stable_linux.x86_64.zip
+          chmod +x Godot_v4.7.2-stable_linux.x86_64
+      - name: Register script classes
+        run: python tools/import_game.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
+      - name: Test saves and complete party flow
+        run: python tools/test_game.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --party
+      - run: python tools/i18n_check.py

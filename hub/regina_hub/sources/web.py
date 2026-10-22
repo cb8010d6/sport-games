@@ -59,6 +59,13 @@ def _finite(vals: list[Any]) -> bool:
     return all(isinstance(v, (int, float)) and math.isfinite(v) for v in vals)
 
 
+def clean_profile_name(value: Any) -> str:
+    """A plain-text nickname, shared by the phone and local game profile."""
+    if not isinstance(value, str):
+        return ""
+    return "".join(ch for ch in value if ch.isprintable()).strip()[:20]
+
+
 class WebSource:
     def __init__(self, hub: Hub, phone_axis_map: Any = PHONE_AXIS_MAP):
         self.hub = hub
@@ -124,6 +131,7 @@ class WebSource:
                     client_id = str(data.get("client_id") or id(ws))[:64]
                     name = str(data.get("name") or kind)[:32]
                     controller = self.hub.attach(kind, f"{kind}:{client_id}", name, transport, rate_hint_hz=60.0 if kind == "phone" else 100.0, wrap_bits=None)
+                    controller.extra["profile_name"] = clean_profile_name(data.get("profile_name"))
                     if kind == "phone":
                         controller.predict_s = PHONE_PREDICT_S
                     await ws.send_str(json.dumps({"t": "welcome", "id": controller.id, "player": controller.player}))
@@ -131,6 +139,11 @@ class WebSource:
                     await ws.send_str(json.dumps({"t": "pong", "c": data.get("c")}))
                 elif controller is None:
                     continue
+                elif t == "profile":
+                    nickname = clean_profile_name(data.get("name"))
+                    controller.extra["profile_name"] = nickname
+                    self.hub.on_status(controller, controller.battery, controller.charging)
+                    await ws.send_json({"t": "profile", "name": nickname})
                 elif t == "m":
                     remap = self.remaps.get(str(data.get("frame", "device")), self.remaps["device"])
                     items = []
