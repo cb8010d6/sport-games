@@ -9,7 +9,7 @@ in the parent directory must not be imported into this repository.
 ## Game and hub
 
 - Godot **4.7.2** standard build. Open `game/project.godot`, or run `godot --path game`.
-- Python **3.11+**, plus the hashed dependencies in `hub/requirements-dev.lock`.
+- Python **3.11+**, plus the hashed dependencies in `hub/requirements-dev.txt`.
 - Node.js **22.23.4+ or 24.22.1+** (the 2026-10-21 security releases; Node 20 is end-of-life) for restoring upstream assets: run `node tools/sync_assets.mjs` and
   `node tools/sync_assets.mjs --check` from the repository root before opening Godot.
   Generated assets are ordinary Git files; no Git LFS or npm packages are required.
@@ -19,7 +19,7 @@ From the repository root on Windows:
 
 ```powershell
 python -m venv hub/.venv
-hub/.venv/Scripts/python -m pip install --require-hashes -r hub/requirements-dev.lock
+hub/.venv/Scripts/python -m pip install --require-hashes -r hub/requirements-dev.txt
 ```
 
 Then enter `hub`, so Python can locate the source package:
@@ -72,13 +72,15 @@ does not verify rendering, controller feel or performance.
 `tools/release_config.json`. The generated locks include transitive dependencies,
 platform/Python markers and distribution hashes. CI uses `--require-hashes` on both
 Python 3.11 and 3.12; Windows packaging uses its own lock with the same hash enforcement.
+The locks use `requirements-*.txt` names so Dependabot's pip updater discovers the
+actual installed pins and hashes as well as the input requirements.
 
 Install **uv 0.13.5** in a tooling environment, then run these commands from the repository root:
 
 ```powershell
 python -m pip install uv==0.13.5
-uv pip compile hub/pyproject.toml --extra dev --universal --python-version 3.11 --generate-hashes --no-header --output-file hub/requirements-dev.lock
-uv pip compile hub/requirements-windows.in --universal --python-version 3.11 --generate-hashes --no-header --output-file hub/requirements-windows.lock
+uv pip compile hub/pyproject.toml --extra dev --universal --python-version 3.11 --generate-hashes --no-header --output-file hub/requirements-dev.txt
+uv pip compile hub/requirements-windows.in --universal --python-version 3.11 --generate-hashes --no-header --output-file hub/requirements-windows.txt
 ```
 
 These commands reuse existing pins. Add `--upgrade` for an intentional full update or

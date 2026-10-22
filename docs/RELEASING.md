@@ -13,7 +13,7 @@
 4. 检查 HTTP、HTTPS、WebSocket、启动器、各游戏地图和篮球 1/2/4 人启动。
 5. 打包 ZIP 和 SHA-256，保存为 Actions artifact（7 天）。
 
-Python 依赖从带哈希的 `hub/requirements-windows.lock` 安装（`pip --require-hashes`），
+Python 依赖从带哈希的 `hub/requirements-windows.txt` 安装（`pip --require-hashes`），
 包含 `tools/release_config.json` 原先指定的 PyInstaller 版本；工作流会检查两者一致。
 依赖升级后按 [DEVELOPMENT.md](DEVELOPMENT.md#updating-python-dependencies) 重新生成并提交锁文件。
 Actions 固定到完整提交 SHA；升级和 artifact 兼容性记录见同文的 Actions upgrade notes。
