@@ -168,6 +168,8 @@ python tools/smoke_test.py --godot /path/to/godot --players 4 --screenshots --la
 
 导入和测试共用进程管理：同一项目的自动化命令不能同时运行；Windows 在引擎执行前将它加入 Job Object，退出、超时或中断时清理整棵子进程树。原生异常保留失败退出码和日志，避免反复拉起即时调试器，无需改系统调试器配置。手动打开的编辑器不受自动化锁管理，执行导入前应先关闭该项目编辑器。当前验证范围与后续建议见 [改进记录](docs/IMPROVEMENTS.md)。
 
+项目附带 [Godot 4.7.2 引擎修复补丁与构建说明](tools/engine_patches/README.md)，直接修复无头渲染器五类 RID 分配器的线程安全缺陷。在 64 位 Windows 上运行 `python tools/build_godot.py --jobs 6` 可在工作区编译、压力测试并安装本地修复版，无需安装 Visual Studio / Windows SDK。导入和 Python 测试工具会自动优先使用已验证的本地修复版；原版保留，显式 `--godot` 或 `REGINA_GODOT` 可切换。此构建用于无头验证及 Vulkan / OpenGL，D3D12 / HDR 等可选功能仍使用完整官方版本。手动构建工作流在 Actions 的 `Patched Godot engine regression`，不随每次提交自动编译整个引擎。
+
 **手柄调试**：显示每个手柄的 3D 模型、状态卡片、手机二维码、角速度和线加速度曲线、挥动检测记录，还有手柄屏幕的实时预览。
 
 - 长按手柄 **D 键 1 秒**：归零（把当前指向设为正前方）

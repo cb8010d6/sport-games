@@ -75,6 +75,11 @@ class ConventionTests(unittest.TestCase):
         found = cc.run(self.root)
         self.assertEqual([(f.rule, f.warning) for f in found], [("SIZE", True)])
 
+    def test_downloaded_toolchain_is_not_project_source(self) -> None:
+        vendor_path = "C" + ":/Program Files/Vendor"
+        self.write("tools/_dl/vendor/setup.py", f"TOOLCHAIN = '{vendor_path}'\n")
+        self.assertEqual(self.rules(), [])
+
 
 if __name__ == "__main__":
     unittest.main()

@@ -20,9 +20,8 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-      - run: python -m pip install -r hub/requirements.txt
-      # pytest also runs the unittest-style tests; plain unittest cannot import the pytest-style ones.
-      - name: Test process cleanup, native failure and report validation
+      - run: python -m pip install 'pytest>=8'
+      - name: Test process cleanup, native failure, reports and release tooling
         run: python -m pytest -q tools/tests
   hub:
     runs-on: ubuntu-latest
@@ -56,13 +55,15 @@ jobs:
     steps:
       - uses: actions/checkout@v4
         with:
-          # Shell and procedural-game tests skip the large art, but scripts preload the
-          # small tracked models (core/controller_model.gd needs models/regina.glb).
+          # Keep the controller model preloaded by bowling; omit the large art tree.
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /*
             !/game/assets/*
             /game/assets/models/
+            !/game/assets/models/*
+            /game/assets/models/regina.glb
+            /game/assets/models/regina.glb.import
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'

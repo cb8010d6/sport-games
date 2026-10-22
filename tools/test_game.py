@@ -6,9 +6,11 @@ Requires the managed import step first: python tools/import_game.py --godot /pat
 from __future__ import annotations
 
 import argparse
+import json
 import os
 from pathlib import Path
 import shutil
+import sys
 import tempfile
 
 from engine_process import run_engine, silence_native_crash_dialogs
@@ -18,7 +20,16 @@ ROOT = Path(__file__).resolve().parent.parent
 
 
 def find_godot(explicit: str | None) -> str:
-    candidate = explicit or os.environ.get("REGINA_GODOT") or shutil.which("godot")
+    candidate = explicit or os.environ.get("REGINA_GODOT")
+    if not candidate and sys.platform == "win32":
+        lock = ROOT / "tools/engine_patches/build-lock.json"
+        if lock.is_file():
+            name = json.loads(lock.read_text(encoding="utf-8"))["output_binary"]
+            patched = ROOT / "tools/godot" / name
+            if patched.is_file():
+                candidate = str(patched)
+    if not candidate:
+        candidate = shutil.which("godot")
     if not candidate:
         local = list((ROOT / "tools" / "godot").glob("*console.exe"))
         if local:

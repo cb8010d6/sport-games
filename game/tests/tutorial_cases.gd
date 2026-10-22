@@ -165,7 +165,7 @@ static func integration(host: Node, check: Callable) -> void:
 	game.review_tutorials()
 	game.ui.update_lobby()
 	check.call(game.ui._tutorial_grid.get_child_count() == 4 and game.ui._tutorial_grid.columns == 2, "four-player tutorial cards")
-	var lesson = game.tutorial_for(player)
+	var lesson := game.tutorial_for(player)
 	_right(lesson, c)
 	_demo(lesson, c)
 	_sample(c, Quaternion(Vector3.RIGHT, -0.5))

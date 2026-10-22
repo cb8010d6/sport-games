@@ -1,0 +1,32 @@
+name: Patched Godot engine regression
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  engine:
+    runs-on: windows-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          sparse-checkout-cone-mode: false
+          sparse-checkout: |
+            /*
+            !/game/assets/
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Build and verify the pinned engine repair
+        run: python tools/build_godot.py --jobs 4
+      - name: Repeat each concurrent allocation test ten times
+        run: python tools/test_engine.py --runs 10 --output audit-output/engine-ci
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: engine-regression-evidence
+          path: |
+            audit-output/engine-build-llvm.log
+            audit-output/engine-patched/*.json
+            audit-output/engine-ci/*.json
+            tools/godot/regina-engine.json
