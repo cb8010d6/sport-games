@@ -121,7 +121,7 @@ def render(output: Path) -> dict:
                         rms=math.sqrt(sum(sample * sample for sample in samples) / len(samples)),
                         seam=abs(samples[0] - samples[-1]))
         manifest["tracks"][track] = metadata
-    (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8")
+    (output / "manifest.json").write_text(json.dumps(manifest, indent=2) + "\n", encoding="utf-8", newline="\n")
     return manifest
 
 
