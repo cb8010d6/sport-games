@@ -205,6 +205,14 @@ func _run() -> void:
 	print("RS_SOLO_TEST: %s" % ("PASS" if _errors.is_empty() else "FAIL"))
 	# Fixed-fps headless frames can run much faster than the audio worker. Drain real
 	# time too, so the last menu cue is released before engine shutdown.
+	var final_scene := get_tree().current_scene
+	if final_scene != null:
+		for audio: AudioStreamPlayer in final_scene.find_children("*", "AudioStreamPlayer", true, false):
+			audio.stop()
+			audio.stream = null
+		get_tree().current_scene = null
+		final_scene.queue_free()
+	await _frames(3)
 	var drain_until := Time.get_ticks_msec() + 350
 	while Time.get_ticks_msec() < drain_until:
 		await _frames(1)
