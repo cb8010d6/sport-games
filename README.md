@@ -171,6 +171,7 @@ firmware/build.ps1 -Port COM5
 
 - [开发环境与独立运行](docs/DEVELOPMENT.md)
 - [参与贡献与 PR](CONTRIBUTING.md)
+- [分支与 Windows Release](docs/RELEASING.md)
 - [第三方素材与许可](docs/THIRD_PARTY.md)
 - [素材下载与分发](docs/ASSETS.md)
 - [AI 原创素材来源声明](docs/ASSET_PROVENANCE.md)

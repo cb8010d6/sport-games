@@ -1498,33 +1498,6 @@
     "evidence": "game/assets/polyhaven/CREDITS.md"
   },
   {
-    "path": "game/assets/polyhaven/models/boulder_01/textures_lod/boulder_01_arm_2k.jpg",
-    "bytes": 2273068,
-    "sha256": "ab52859dde519b4822111aa60916b6d21f8a6966c67b6cec44d1cd0775b8a86a",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
-    "path": "game/assets/polyhaven/models/boulder_01/textures_lod/boulder_01_diff_2k.jpg",
-    "bytes": 3672483,
-    "sha256": "90bbaa17c1fe0254d2b0b6e5148264fa834953a72724d566f14af029eebe3ca3",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
-    "path": "game/assets/polyhaven/models/boulder_01/textures_lod/boulder_01_nor_gl_2k.jpg",
-    "bytes": 4649207,
-    "sha256": "5174b318712ac7725cbcb55d422607f9c66d7f8d035c5412ab897b5939e2db6b",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
     "path": "game/assets/polyhaven/models/concrete_road_barrier/concrete_road_barrier_lod.bin",
     "bytes": 146816,
     "sha256": "8a381895b104b6303979a52ecf4b04023c17319e4c2f62a2d6485ab5f463998d",
@@ -1534,90 +1507,9 @@
     "evidence": "game/assets/polyhaven/CREDITS.md"
   },
   {
-    "path": "game/assets/polyhaven/models/concrete_road_barrier/textures_lod/concrete_road_barrier_arm_2k.jpg",
-    "bytes": 2515448,
-    "sha256": "8c17f77897138a5ee0f80d0b5d194fd00554371e33b9f62f6d7b6a4e640094d6",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
-    "path": "game/assets/polyhaven/models/concrete_road_barrier/textures_lod/concrete_road_barrier_diff_2k.jpg",
-    "bytes": 3189621,
-    "sha256": "51832691e0769a04246b61222e5df1ce7dc22e9c7162f786a314409ac76d643c",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
-    "path": "game/assets/polyhaven/models/concrete_road_barrier/textures_lod/concrete_road_barrier_nor_gl_2k.jpg",
-    "bytes": 3888469,
-    "sha256": "8e48a287ae58a53030635c585d57a2da72660531a907a8e6cd04836bc60bf3a3",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
     "path": "game/assets/polyhaven/models/fire_hydrant/fire_hydrant_lod.bin",
     "bytes": 268908,
     "sha256": "a5e2ad2163eb043242f19f6e4b2d2700044f10ec9c612e68a52b8cd2fdcfca0e",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
-    "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_aged_arm_2k.jpg",
-    "bytes": 2268350,
-    "sha256": "edcc286284098e20d6f29215f05efb11658a71d7ed5664c8680a747c3721f329",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
-    "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_aged_diff_2k.jpg",
-    "bytes": 2191944,
-    "sha256": "02cc548f6c88a7c0c2062cb201ba542fa33e9f836c602bac69405e848ff232c3",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
-    "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_aged_nor_gl_2k.jpg",
-    "bytes": 2097229,
-    "sha256": "b27858fb50356fd5bd1b76350a1ea689b5e570c5f04a641bab7b25d16ce695cf",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
-    "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_arm_2k.jpg",
-    "bytes": 2322663,
-    "sha256": "9422e07195a865958594ba65d9446f284a5032b07cfc4fe766486d3a69f934d3",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
-    "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_diff_2k.jpg",
-    "bytes": 2012585,
-    "sha256": "d7d3181b80ccf18e60614b21104e39218e8483d2c999c7d96867deba2f13bb38",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
-    "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_nor_gl_2k.jpg",
-    "bytes": 1847102,
-    "sha256": "2edf5b7ac369f5657db079bf6913e1b971136e8218bd1c7ace12a3d77263896d",
     "materialized": true,
     "status": "documented-source",
     "license": "CC0-1.0",
@@ -1636,51 +1528,6 @@
     "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_leaves_diff_2k.png",
     "bytes": 3413480,
     "sha256": "1e40cf053b8a7a39e199a6f0c30521199dae8bc2a539cdc51cce1089eafb27aa",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
-    "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_leaves_nor_gl_2k.jpg",
-    "bytes": 764246,
-    "sha256": "8cde55f644e9092bcaa7976b005c6df1b452714f1e1c57ede8abb8b7c8bb4a1a",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
-    "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_leaves_rough_2k.jpg",
-    "bytes": 348164,
-    "sha256": "77c990375720dcdfd801592c9f0546bc5a2ec99a825879945225080ba291d694",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
-    "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_pot_diff_2k.jpg",
-    "bytes": 745276,
-    "sha256": "5c85fa6020e1b5a84ea1e6da84261e4fb6f0a94bf48cd6d56fa603de234336fa",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
-    "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_pot_nor_gl_2k.jpg",
-    "bytes": 827724,
-    "sha256": "22792283d310a057553e7428739be073720a492c2a288440ab690124462de1e3",
-    "materialized": true,
-    "status": "documented-source",
-    "license": "CC0-1.0",
-    "evidence": "game/assets/polyhaven/CREDITS.md"
-  },
-  {
-    "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_pot_rough_2k.jpg",
-    "bytes": 610864,
-    "sha256": "95154a5693f70802d36691cc284e378e173c56d416506c187725c08a96260503",
     "materialized": true,
     "status": "documented-source",
     "license": "CC0-1.0",

@@ -1,0 +1,232 @@
+{
+  "date": "2026-10-21",
+  "restoreCommit": "7082240d397fdfc9b09a070a4abbd58ee25154e7",
+  "removedFiles": 34,
+  "removedBytes": 36242787,
+  "files": [
+    {
+      "path": "game/assets/polyhaven/models/concrete_road_barrier/textures_lod/concrete_road_barrier_nor_gl_2k.jpg",
+      "bytes": 3888469,
+      "sha256": "8e48a287ae58a53030635c585d57a2da72660531a907a8e6cd04836bc60bf3a3",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/concrete_road_barrier/textures/concrete_road_barrier_nor_gl_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/concrete_road_barrier/textures_lod/concrete_road_barrier_nor_gl_2k.jpg.import",
+      "bytes": 1104,
+      "sha256": "c5d67eca3201ce2d9a2df0826448ab7a212ab2d91debe6431489c683f12fb9f5",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/concrete_road_barrier/textures_lod/concrete_road_barrier_diff_2k.jpg",
+      "bytes": 3189621,
+      "sha256": "51832691e0769a04246b61222e5df1ce7dc22e9c7162f786a314409ac76d643c",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/concrete_road_barrier/textures/concrete_road_barrier_diff_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/concrete_road_barrier/textures_lod/concrete_road_barrier_diff_2k.jpg.import",
+      "bytes": 1097,
+      "sha256": "023a76b000c0a3140d53efc5dff04c2bdab23c3becdd25b5cd7058c6e098f18b",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/concrete_road_barrier/textures_lod/concrete_road_barrier_arm_2k.jpg",
+      "bytes": 2515448,
+      "sha256": "8c17f77897138a5ee0f80d0b5d194fd00554371e33b9f62f6d7b6a4e640094d6",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/concrete_road_barrier/textures/concrete_road_barrier_arm_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/concrete_road_barrier/textures_lod/concrete_road_barrier_arm_2k.jpg.import",
+      "bytes": 1095,
+      "sha256": "6bb1d9978ade3682fbb99bfa05e10ce5725b063e4a5d83d8d66a1f33245dde56",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_pot_nor_gl_2k.jpg",
+      "bytes": 827724,
+      "sha256": "22792283d310a057553e7428739be073720a492c2a288440ab690124462de1e3",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/potted_plant_01/textures/potted_plant_01_pot_nor_gl_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_pot_nor_gl_2k.jpg.import",
+      "bytes": 1091,
+      "sha256": "b2d850fb34d938c78876efe3c164056997d274678bc8ce98e1338fd53877143c",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_pot_diff_2k.jpg",
+      "bytes": 745276,
+      "sha256": "5c85fa6020e1b5a84ea1e6da84261e4fb6f0a94bf48cd6d56fa603de234336fa",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/potted_plant_01/textures/potted_plant_01_pot_diff_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_pot_diff_2k.jpg.import",
+      "bytes": 1086,
+      "sha256": "fb8034208f0247eac6f2f2bb243fcbd6418089e78a8d0d55c7fd2b73bc2ddc18",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_pot_rough_2k.jpg",
+      "bytes": 610864,
+      "sha256": "95154a5693f70802d36691cc284e378e173c56d416506c187725c08a96260503",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/potted_plant_01/textures/potted_plant_01_pot_rough_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_pot_rough_2k.jpg.import",
+      "bytes": 1089,
+      "sha256": "0a65085e662be8ce1b801eca4e9b860028a2d926eccd473401a51850f68268dc",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_leaves_nor_gl_2k.jpg",
+      "bytes": 764246,
+      "sha256": "8cde55f644e9092bcaa7976b005c6df1b452714f1e1c57ede8abb8b7c8bb4a1a",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/potted_plant_01/textures/potted_plant_01_leaves_nor_gl_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_leaves_nor_gl_2k.jpg.import",
+      "bytes": 1100,
+      "sha256": "1784c7ab4d3869a2cfeb5e13ccbc742d52923a8a0f85d5207aa1bebc5ddba71f",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_leaves_rough_2k.jpg",
+      "bytes": 348164,
+      "sha256": "77c990375720dcdfd801592c9f0546bc5a2ec99a825879945225080ba291d694",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/potted_plant_01/textures/potted_plant_01_leaves_rough_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/potted_plant_01/textures_lod/potted_plant_01_leaves_rough_2k.jpg.import",
+      "bytes": 1096,
+      "sha256": "4fdb30e02e534dbb26d433271fb001ae5aa92a87d85a432589ae07987a266139",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/boulder_01/textures_lod/boulder_01_nor_gl_2k.jpg",
+      "bytes": 4649207,
+      "sha256": "5174b318712ac7725cbcb55d422607f9c66d7f8d035c5412ab897b5939e2db6b",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/boulder_01/textures/boulder_01_nor_gl_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/boulder_01/textures_lod/boulder_01_nor_gl_2k.jpg.import",
+      "bytes": 1060,
+      "sha256": "c6ac08d44c898cb3c8ca08984467095b653b74a2f819542260ed5915fdf956dd",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/boulder_01/textures_lod/boulder_01_diff_2k.jpg",
+      "bytes": 3672483,
+      "sha256": "90bbaa17c1fe0254d2b0b6e5148264fa834953a72724d566f14af029eebe3ca3",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/boulder_01/textures/boulder_01_diff_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/boulder_01/textures_lod/boulder_01_diff_2k.jpg.import",
+      "bytes": 1054,
+      "sha256": "2d50035d2be417a3c298eca52e00652277860604cefcb646a70fc8dd697626fa",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/boulder_01/textures_lod/boulder_01_arm_2k.jpg",
+      "bytes": 2273068,
+      "sha256": "ab52859dde519b4822111aa60916b6d21f8a6966c67b6cec44d1cd0775b8a86a",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/boulder_01/textures/boulder_01_arm_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/boulder_01/textures_lod/boulder_01_arm_2k.jpg.import",
+      "bytes": 1051,
+      "sha256": "5a23073e4230b0e6a08b67a0e3e8069976168f4ab2f46060e785edcf6199f735",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_nor_gl_2k.jpg",
+      "bytes": 1847102,
+      "sha256": "2edf5b7ac369f5657db079bf6913e1b971136e8218bd1c7ace12a3d77263896d",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/fire_hydrant/textures/fire_hydrant_nor_gl_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_nor_gl_2k.jpg.import",
+      "bytes": 1068,
+      "sha256": "7553171648ccc7cc70875848fd8e5807d5feccbb4604975f8ff9ba225c7a33d6",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_diff_2k.jpg",
+      "bytes": 2012585,
+      "sha256": "d7d3181b80ccf18e60614b21104e39218e8483d2c999c7d96867deba2f13bb38",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/fire_hydrant/textures/fire_hydrant_diff_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_diff_2k.jpg.import",
+      "bytes": 1061,
+      "sha256": "01c5a937b4420b41027f3686658948dd63436cb757ecb40d4b5ec7295e8b30c8",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_arm_2k.jpg",
+      "bytes": 2322663,
+      "sha256": "9422e07195a865958594ba65d9446f284a5032b07cfc4fe766486d3a69f934d3",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/fire_hydrant/textures/fire_hydrant_arm_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_arm_2k.jpg.import",
+      "bytes": 1059,
+      "sha256": "c63516ff8f108331302e670219c6ba2f3c8fbc4d5b80e61642fe99ea234f43e3",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_aged_nor_gl_2k.jpg",
+      "bytes": 2097229,
+      "sha256": "b27858fb50356fd5bd1b76350a1ea689b5e570c5f04a641bab7b25d16ce695cf",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/fire_hydrant/textures/fire_hydrant_aged_nor_gl_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_aged_nor_gl_2k.jpg.import",
+      "bytes": 1083,
+      "sha256": "21e543d74a8c5859cbfbdb99809e1faf6d026a870fd3262dde1d6f65ab891d53",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_aged_diff_2k.jpg",
+      "bytes": 2191944,
+      "sha256": "02cc548f6c88a7c0c2062cb201ba542fa33e9f836c602bac69405e848ff232c3",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/fire_hydrant/textures/fire_hydrant_aged_diff_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_aged_diff_2k.jpg.import",
+      "bytes": 1077,
+      "sha256": "6fa44057d78e0f0c418ff2206c44971021e8b26e0a55d98269be4c61ff9c9ca5",
+      "reason": "removed-duplicate-sidecar"
+    },
+    {
+      "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_aged_arm_2k.jpg",
+      "bytes": 2268350,
+      "sha256": "edcc286284098e20d6f29215f05efb11658a71d7ed5664c8680a747c3721f329",
+      "reason": "identical-upstream-texture",
+      "replacement": "game/assets/polyhaven/models/fire_hydrant/textures/fire_hydrant_aged_arm_2k.jpg"
+    },
+    {
+      "path": "game/assets/polyhaven/models/fire_hydrant/textures_lod/fire_hydrant_aged_arm_2k.jpg.import",
+      "bytes": 1073,
+      "sha256": "5f5175d7721bfd167d202b6966ba9c210b519b125caec40d46c86c5312f9a7b1",
+      "reason": "removed-duplicate-sidecar"
+    }
+  ],
+  "preservedFeatures": [
+    "Golf work in progress: all four golfer models, textures, import settings, course prototype and generators retained."
+  ]
+}

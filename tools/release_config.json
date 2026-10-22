@@ -1,0 +1,7 @@
+{
+  "godotVersion": "4.7.2",
+  "pyinstallerVersion": "6.22.3",
+  "packageName": "SportGames-Windows-x86_64",
+  "exportPreset": "Windows Desktop",
+  "initialPrerelease": "v0.1.0-alpha.1"
+}

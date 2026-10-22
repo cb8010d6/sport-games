@@ -18,7 +18,7 @@ from .netutil import ensure_cert, lan_ips, qr_ascii, qr_rows, ssl_context
 from .recorder import Recorder, replay
 from .sources.web import WebSource
 
-HUB_DIR = Path(__file__).resolve().parent.parent
+HUB_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = HUB_DIR / "config.json"
 log = logging.getLogger("main")
 
@@ -42,6 +42,7 @@ def load_config(path: Path) -> dict[str, Any]:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     ap = argparse.ArgumentParser(prog="regina_hub", description="Regina Sports controller hub")
     ap.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
+    ap.add_argument("--data-dir", type=Path, default=HUB_DIR, help="directory for locally generated certificates")
     ap.add_argument("--no-ble", action="store_true", help="don't scan for Regina controllers")
     ap.add_argument("--no-https", action="store_true", help="don't serve the phone controller page")
     ap.add_argument("--record", type=Path, help="append raw controller data to this JSONL file")
@@ -66,7 +67,7 @@ async def amain(args: argparse.Namespace) -> None:
     if not args.no_https:
         ips = lan_ips()
         ip = args.lan_ip or cfg.get("lan_ip") or ips[0]
-        cert, key = ensure_cert(HUB_DIR / ".certs", sorted(set(ips + [ip])))
+        cert, key = ensure_cert(args.data_dir / ".certs", sorted(set(ips + [ip])))
         ssl_ctx = ssl_context(cert, key)
         hub.phone_url = f"https://{ip}:{args.https_port}/"
         hub.qr = {"type": "qr", "url": hub.phone_url, "rows": qr_rows(hub.phone_url)}

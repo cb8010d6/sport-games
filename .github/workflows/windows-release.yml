@@ -1,0 +1,145 @@
+name: Windows package
+
+on:
+  push:
+    branches: [main, dev]
+    tags: ['v*']
+  pull_request:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  actions: read
+
+concurrency:
+  group: windows-${{ github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository && format('refs/heads/{0}', github.head_ref) || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  game:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Verify publication scope
+        run: node tools/publication_audit.mjs --strict
+      - name: Restore and verify pinned upstream assets
+        run: |
+          node tools/sync_assets.mjs
+          node tools/sync_assets.mjs --check
+      - name: Install verified official Godot and Windows export templates
+        run: python tools/download_godot.py --platform linux --templates
+      - name: Restore Godot import cache
+        id: imports
+        uses: actions/cache@v4
+        with:
+          path: game/.godot
+          key: godot-${{ runner.os }}-${{ hashFiles('tools/release_config.json', 'game/**/*.import', 'game/**/*.glb', 'game/**/*.gltf') }}
+      - name: Find verified dev PR imports for the first main build
+        id: import_artifact
+        if: github.ref == 'refs/heads/main' && steps.imports.outputs.cache-hit != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/find_import_artifact.py
+      - name: Restore verified PR imports
+        if: steps.import_artifact.outputs.run_id != ''
+        uses: actions/download-artifact@v4
+        with:
+          name: Godot-imports
+          path: game/.godot
+          run-id: ${{ steps.import_artifact.outputs.run_id }}
+          github-token: ${{ github.token }}
+      - name: Import, check every map and export Windows game
+        run: python tools/build_game.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Godot-imports
+          overwrite: true
+          path: |
+            game/.godot/imported/
+            game/.godot/uid_cache.bin
+            game/.godot/global_script_class_cache.cfg
+          include-hidden-files: true
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 1
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Godot-Windows-game
+          overwrite: true
+          path: |
+            build/game/**/*.exe
+            build/game/**/*.pck
+            build/game/**/*.dll
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+  windows:
+    needs: game
+    runs-on: windows-latest
+    timeout-minutes: 60
+    env:
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - name: Install packaging dependencies
+        shell: pwsh
+        run: |
+          $version = (Get-Content tools/release_config.json | ConvertFrom-Json).pyinstallerVersion
+          python -m pip install -r hub/requirements.txt "pyinstaller==$version"
+      - name: Verify publication scope
+        run: node tools/publication_audit.mjs --strict
+      - uses: actions/download-artifact@v4
+        with:
+          name: Godot-Windows-game
+          path: build/game
+      - name: Build portable game and hub
+        run: python tools/build_windows.py --game-input build/game
+      - name: Test frozen network endpoints and exported game
+        run: python tools/smoke_release.py dist/SportGames-Windows-x86_64
+      - name: Package checked files and checksum
+        run: python tools/package_archive.py
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SportGames-Windows-x86_64
+          overwrite: true
+          path: |
+            dist/SportGames-Windows-x86_64.zip
+            dist/SportGames-Windows-x86_64.zip.sha256
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 7
+
+  publish:
+    if: github.event_name == 'push' && (startsWith(github.ref, 'refs/tags/v') || github.ref == 'refs/heads/main')
+    needs: windows
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/download-artifact@v4
+        with:
+          name: SportGames-Windows-x86_64
+          path: release
+      - name: Publish verified Windows prerelease
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python tools/publish_prerelease.py

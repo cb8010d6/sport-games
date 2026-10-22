@@ -10,7 +10,7 @@ in the parent directory must not be imported into this repository.
 
 - Godot **4.7.2** standard build. Open `game/project.godot`, or run `godot --path game`.
 - Python **3.11+**, plus dependencies from `hub/requirements.txt`.
-- Node.js **20+** for restoring upstream assets: run `node tools/sync_assets.mjs` and
+- Node.js **22.23.4+ or 24.22.1+** (the 2026-10-21 security releases; Node 20 is end-of-life) for restoring upstream assets: run `node tools/sync_assets.mjs` and
   `node tools/sync_assets.mjs --check` from the repository root before opening Godot.
   Generated assets are ordinary Git files; no Git LFS or npm packages are required.
   See [ASSETS.md](ASSETS.md) and [PUBLICATION_AUDIT.md](PUBLICATION_AUDIT.md).
@@ -48,11 +48,12 @@ Set-Location hub
 From the repository root:
 
 ```powershell
+python tools/check_conventions.py
 python tools/i18n_check.py
 node tools/publication_audit.mjs --strict --write audit-output
 ```
 
-Node.js 20+ is a setup/developer dependency, not a game/runtime dependency. The audit scans publishable
+Node.js is a setup/developer dependency, not a game/runtime dependency. The audit scans publishable
 source and supported embedded metadata, reports relative filenames without secret values,
 and creates ignored `audit-output/privacy-scan.json` and `asset-manifest.json`.
 CI tests the downloader without contacting upstream hosts; it does not restore ignored raw assets.
