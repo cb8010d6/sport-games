@@ -451,7 +451,7 @@ func _send_round_ui(p: Player) -> void:
 
 func _capture_aim(p: Player) -> void:
 	var s := _archer(p)
-	s.aim_ref = p.c.orientation
+	s.aim_ref = p.c.motion_orientation()
 	s.aim = Vector3.FORWARD
 
 
@@ -631,7 +631,7 @@ func _update_view(p: Player, dt: float) -> void:
 	var s := _archer(p)
 	if not p.fake and p.c.connected and phase == Phase.PLAY and _stage == Stage.SHOOT:
 		# Relative aim: how the controller turned since capture, applied to "straight ahead".
-		var raw := (p.c.orientation * s.aim_ref.inverse()) * Vector3.FORWARD
+		var raw := (p.c.motion_orientation() * s.aim_ref.inverse()) * Vector3.FORWARD
 		s.aim = s.aim.slerp(_clamp_aim(raw), 1.0 - exp(-dt * 18.0))
 	elif p.fake:
 		s.aim = s.aim.slerp(_clamp_aim(s.bot_aim), 1.0 - exp(-dt * 8.0))

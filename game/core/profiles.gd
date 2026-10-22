@@ -18,12 +18,14 @@ static func load_once() -> void:
 	cf.load(PATH)
 	for slot in range(1, 5):
 		var key := str(slot)
+		var hand: Variant = cf.get_value(key, "left_handed", false)
 		_slots[slot] = {
 			"name": clean_name(str(cf.get_value(key, "name", "P%d" % slot)), slot),
 			"color": clampi(int(cf.get_value(key, "color", slot - 1)), 0, COLORS.size() - 1),
 			"avatar": clampi(int(cf.get_value(key, "avatar", slot - 1)), 0, 3),
 			"phone_name": str(cf.get_value(key, "phone_name", "")),
 			"tutorials": _tutorial_ids(cf.get_value(key, "tutorials", [])),
+			"left_handed": hand if hand is bool else false,
 		}
 
 
@@ -64,13 +66,27 @@ static func avatar(slot: int) -> int:
 	return int(profile(slot)["avatar"])
 
 
-static func update(slot: int, name: String, color: int, look: int) -> Error:
+static func left_handed(slot: int) -> bool:
+	load_once()
+	return bool(_slots[slot]["left_handed"]) if slot >= 1 and slot <= 4 else false
+
+
+static func update(slot: int, name: String, color: int, look: int, hand: int = -1) -> Error:
+	## hand: -1 preserves the current preference, 0 = right, 1 = left.
+	if hand < -1 or hand > 1:
+		return ERR_INVALID_PARAMETER
 	load_once()
 	slot = clampi(slot, 1, 4)
+	var previous: Dictionary = _slots[slot].duplicate(true)
 	_slots[slot]["name"] = clean_name(name, slot)
 	_slots[slot]["color"] = clampi(color, 0, COLORS.size() - 1)
 	_slots[slot]["avatar"] = clampi(look, 0, 3)
-	return save()
+	if hand >= 0:
+		_slots[slot]["left_handed"] = hand == 1
+	var err := save()
+	if err != OK:
+		_slots[slot] = previous
+	return err
 
 
 static func import_phone_name(slot: int, name: String) -> void:

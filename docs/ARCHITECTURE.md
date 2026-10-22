@@ -81,6 +81,10 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 ## 4. 数据与接口
 
+左手手势偏好按 P1–P4 保存在现有 `RSProfiles`，旧档案默认右手。`RSController` 的原始姿态、角速度和历史保持协议原值，调试与录制不受影响；游戏通过 `motion_orientation / motion_pose / motion_gyro / motion_roll` 读取镜像后的输入。左右镜像使用 `M=diag(-1,1,1)`：旋转为 `M R M`，轴向角速度为 `-M g`，保持抬腕方向、速度和手势时序。六项目与教学统一消费这层输入，同一局不同玩家可选不同手。
+
+篮球改动时按 SIZE 规则抽出 `RSBasketballHud`，与阶段三 PR #7 的同名模块保持一致；控制输入与运动状态仍由游戏持有。
+
 - **中枢 ↔ 游戏**：只有 [protocol.md](protocol.md) 定义的 UDP 消息。新增字段要同时改协议文档、hub 和 `ControllerHub`，并保持旧字段兼容。
 - **存档**：`user://*.cfg`（ConfigFile）。改格式要能读旧文件；新增存档文件需要维护者同意。之后会加存档版本号和迁移（M1）。
 - **文案**：中文原文就是 key。改中文原文等于换了 key，必须同步 `en.json`，并通过 `python tools/i18n_check.py`。

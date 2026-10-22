@@ -278,11 +278,11 @@ func _player_removed(p: Player) -> void:
 
 func _player_ready(p: Player, is_ready: bool) -> void:
 	if is_ready:
-		_racer(p).gest.capture(p.c.orientation)
+		_racer(p).gest.capture(p.c.motion_orientation())
 
 
 func _player_recentered(p: Player) -> void:
-	_racer(p).gest.capture(p.c.orientation)
+	_racer(p).gest.capture(p.c.motion_orientation())
 	p.popup(tr("已重设“平”的姿势"))
 
 

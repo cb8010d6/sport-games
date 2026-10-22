@@ -1,4 +1,9 @@
 {
+  "右手": "Right hand",
+  "左手": "Left hand",
+  "惯用手": "Preferred hand",
+  "左手模式会镜像左右手势；按键、前后倾斜与起跳不变。可分别为四位玩家设置。": "Left-hand mode mirrors sideways gestures. Buttons, forward/back tilt and upward flicks stay the same. Set each player separately.",
+  "向左倾斜手柄，并保持片刻": "Tilt the controller left and hold briefly",
  "[font_size=30]第 %d 名  [color=#%s]P%d[/color]  %d 分[/font_size]\n[color=#9aa3b5]%s[/color]": "[font_size=30]#%d  [color=#%s]P%d[/color]  %d pts[/font_size]\n[color=#9aa3b5]%s[/color]",
  "◀  地图 %d/%d：%s  ▶": "◀  Map %d/%d: %s  ▶",
  "　（加载中…）": "  (loading…)",

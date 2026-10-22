@@ -9,6 +9,11 @@
   ],
   "documented": [
     {
+      "prefix": "docs/screenshots/phase7-hand-",
+      "license": "MIT",
+      "evidence": "docs/PHASE_7_LEFT_HAND.md"
+    },
+    {
       "prefix": "game/assets/polyhaven/",
       "license": "CC0-1.0",
       "evidence": "game/assets/polyhaven/CREDITS.md"

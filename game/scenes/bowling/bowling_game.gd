@@ -362,11 +362,11 @@ func _player_removed(p: Player) -> void:
 
 func _player_ready(p: Player, is_ready: bool) -> void:
 	if is_ready:
-		_bowler(p).stick.capture(p.c.orientation)
+		_bowler(p).stick.capture(p.c.motion_orientation())
 
 
 func _player_recentered(p: Player) -> void:
-	_bowler(p).stick.capture(p.c.orientation)
+	_bowler(p).stick.capture(p.c.motion_orientation())
 	p.popup(tr("已重新设定"))
 
 
@@ -448,7 +448,7 @@ func _play_process(delta: float) -> void:
 			_bot(p)
 		match s.step:
 			Step.AIM:
-				var stick := s.stick.stick(p.c.orientation) if (p.c.connected and not p.fake) else Vector2.ZERO
+				var stick := s.stick.stick(p.c.motion_orientation()) if (p.c.connected and not p.fake) else Vector2.ZERO
 				s.pos = clampf(s.pos + stick.x * 0.7 * delta, -MAX_STEP, MAX_STEP)
 				_hold_ball(s)
 			Step.SWING:
@@ -503,8 +503,8 @@ func _start_swing(p: Player) -> void:
 	var s := _bowler(p)
 	s.step = Step.SWING
 	s.step_t = 0.0
-	s.swing_q = p.c.orientation
-	s.swing_roll = p.c.roll()
+	s.swing_q = p.c.motion_orientation()
+	s.swing_roll = p.c.motion_roll()
 	s.peak_rate = 0.0
 	s.swing_angle = 0.0
 
@@ -516,7 +516,7 @@ func _track_swing(p: Player) -> void:
 	else:
 		s.peak_rate = maxf(s.peak_rate, p.c.gyro.length())
 		# The arm swings about the controller's own right axis (body X) for either grip.
-		var r := s.swing_q.inverse() * p.c.orientation
+		var r := s.swing_q.inverse() * p.c.motion_orientation()
 		s.swing_angle = clampf(2.0 * atan2(r.x, r.w), -1.8, 1.8)
 	var ball_at := Vector3(s.lane_x + s.pos + 0.18, 0.8, 0.6) + Vector3(0, -0.6 * cos(s.swing_angle), -0.6 * sin(s.swing_angle))
 	s.ball.global_position = ball_at
@@ -531,7 +531,7 @@ func _swing_speed(peak: float) -> float:
 func _twist(p: Player) -> float:
 	## Wrist roll since B went down, rad, + = rolled to the right.
 	var s := _bowler(p)
-	return wrapf(p.c.roll() - s.swing_roll, -PI, PI)
+	return wrapf(p.c.motion_roll() - s.swing_roll, -PI, PI)
 
 
 func _release(p: Player, speed: float, twist: float) -> void:

@@ -81,3 +81,5 @@ jobs:
       - name: Test saves and complete party flow
         run: python tools/test_game.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --party
       - run: python tools/i18n_check.py
+      - name: Test per-player hand preferences, mirrored motion and tutorials
+        run: python tools/test_left_hand.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --ui-only
