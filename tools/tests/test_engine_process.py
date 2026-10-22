@@ -1,11 +1,11 @@
 """Exercise real process ownership, native failure and contention without Godot."""
 import os
-from pathlib import Path
 import subprocess
 import sys
 import tempfile
 import time
 import unittest
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 from engine_process import project_lock, run_engine

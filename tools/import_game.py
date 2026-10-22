@@ -8,9 +8,9 @@ import argparse
 import json
 import math
 import os
-from pathlib import Path
 import subprocess
 import tempfile
+from pathlib import Path
 from urllib.parse import unquote
 
 from smoke_test import decode, engine_errors

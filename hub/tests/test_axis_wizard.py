@@ -1,6 +1,7 @@
 import itertools
 
 import pytest
+
 from regina_hub.axis_wizard import _invert, solve
 from regina_hub.frames import handedness, make_remap
 

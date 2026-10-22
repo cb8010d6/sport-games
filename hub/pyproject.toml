@@ -23,6 +23,9 @@ select = ["E", "F", "W", "I", "UP", "B"]
 # Preserve the existing hand-wrapped long lines; this change does not run a formatter.
 ignore = ["E501"]
 
+[tool.ruff.lint.isort]
+known-first-party = ["regina_hub"]
+
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 testpaths = ["tests"]

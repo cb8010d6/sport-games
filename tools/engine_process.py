@@ -1,12 +1,12 @@
 """Bounded, project-serialized Godot subprocesses, including Windows descendants."""
 from __future__ import annotations
 
-from contextlib import contextmanager
 import math
 import os
-from pathlib import Path
 import signal
 import subprocess
+from contextlib import contextmanager
+from pathlib import Path
 
 
 def silence_native_crash_dialogs() -> None:
