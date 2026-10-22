@@ -1,5 +1,4 @@
 extends RefCounted
-const Tutorial := preload("res://core/tutorial.gd")
 
 
 class PracticeGame extends RSPartyGame:
@@ -24,7 +23,7 @@ static func _button(lesson: RSTutorial, c: RSController, button: int, down: bool
 
 
 static func _demo(lesson: RSTutorial, c: RSController) -> void:
-	lesson.update(c, Tutorial.DEMO_SECONDS + 0.01)
+	lesson.update(c, RSTutorial.DEMO_SECONDS + 0.01)
 
 
 static func _right(lesson: RSTutorial, c: RSController) -> void:
@@ -43,9 +42,9 @@ static func _throw(lesson: RSTutorial, c: RSController) -> void:
 
 static func run(check: Callable) -> void:
 	for entry: Dictionary in RSCatalog.GAMES:
-		check.call(Tutorial.LESSONS.has(entry["id"]), "catalog game has tutorial: " + entry["id"])
+		check.call(RSTutorial.LESSONS.has(entry["id"]), "catalog game has tutorial: " + entry["id"])
 	var c := _controller()
-	var lesson := Tutorial.new("plane")
+	var lesson := RSTutorial.new("plane")
 	_button(lesson, c, RSController.BTN_A, true)
 	_button(lesson, c, RSController.BTN_A, false)
 	_sample(c, Quaternion(Vector3.FORWARD, 0.5))
@@ -74,7 +73,7 @@ static func run(check: Callable) -> void:
 	lesson.update(c, 0.51)
 	check.call(lesson.finished, "plane tutorial finishes after real input")
 	c = _controller()
-	lesson = Tutorial.new("archery")
+	lesson = RSTutorial.new("archery")
 	lesson.start(c)
 	_demo(lesson, c)
 	_sample(c, Quaternion(Vector3.UP, 0.3))
@@ -94,7 +93,7 @@ static func run(check: Callable) -> void:
 	_button(lesson, c, RSController.BTN_A, false)
 	check.call(lesson.finished, "archery draw and release")
 	c = _controller()
-	lesson = Tutorial.new("bowling")
+	lesson = RSTutorial.new("bowling")
 	lesson.start(c)
 	_right(lesson, c)
 	_demo(lesson, c)
@@ -106,7 +105,7 @@ static func run(check: Callable) -> void:
 	check.call(lesson.finished, "bowling hold, swing and release")
 	for game_id: String in ["skate", "ski"]:
 		c = _controller()
-		lesson = Tutorial.new(game_id)
+		lesson = RSTutorial.new(game_id)
 		lesson.start(c)
 		_right(lesson, c)
 		if game_id == "ski":
@@ -126,14 +125,14 @@ static func run(check: Callable) -> void:
 		lesson.update(c, 0.51)
 		check.call(lesson.finished, game_id + " tutorial complete")
 	c = _controller()
-	lesson = Tutorial.new("basketball")
+	lesson = RSTutorial.new("basketball")
 	lesson.start(c)
 	_demo(lesson, c)
 	_sample(c, Quaternion(Vector3.UP, 0.3))
 	lesson.update(c, 0.31)
 	_throw(lesson, c)
 	check.call(lesson.finished, "basketball aim and shot")
-	lesson = Tutorial.new("plane")
+	lesson = RSTutorial.new("plane")
 	lesson.start(c)
 	_demo(lesson, c)
 	c.sample_time = -2.0

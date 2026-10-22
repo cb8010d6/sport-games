@@ -22,7 +22,6 @@ enum Phase { LOBBY, COUNTDOWN, PLAY, RESULTS }
 const MENU_SCENE := "res://scenes/menu/main_menu.tscn"
 const COUNTDOWN_TIME := 3.0
 const MENU_TAP_MS := 800         ## D held longer than this is the hub's recenter, not the menu
-const Tutorial := preload("res://core/tutorial.gd")
 
 
 class Player:
@@ -405,7 +404,7 @@ func review_tutorials() -> void:
 	for p: Player in players.values():
 		if not p.fake and p.c.kind != "replay":
 			_set_ready(p, false)
-			var lesson := Tutorial.new(game_id())
+			var lesson := RSTutorial.new(game_id())
 			lesson.start(p.c)
 			_tutorials[p.c.id] = lesson
 
@@ -447,7 +446,7 @@ func _add_player(c: RSController, fake: bool) -> Player:
 	players[c.id] = p
 	_player_added(p)
 	if not fake and c.kind != "replay" and not RSProfiles.tutorial_done(c.player, game_id()):
-		_tutorials[c.id] = Tutorial.new(game_id())
+		_tutorials[c.id] = RSTutorial.new(game_id())
 	return p
 
 
