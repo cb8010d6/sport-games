@@ -53,6 +53,7 @@ func _ready() -> void:
 				get_tree().change_scene_to_file.call_deferred(game["scene"])
 				return
 		push_error("Unknown --game id")
+		set_process(false)   # the menu is not built; _process would touch missing nodes
 		get_tree().quit(2)
 		return
 	theme = RSUi.theme(20)
