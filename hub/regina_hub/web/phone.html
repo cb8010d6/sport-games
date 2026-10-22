@@ -229,6 +229,11 @@
   <div class="sheet" id="sheet">
     <div class="handle"></div>
     <h3>设置</h3>
+    <div class="item">
+      <label class="tx" for="profileName"><b>玩家名字</b><span>同步到游戏中的玩家档案</span></label>
+      <input id="profileName" maxlength="20" autocomplete="nickname" style="width:38%;padding:10px;border:1px solid var(--outline);border-radius:12px;background:var(--s1);color:var(--on);font:inherit;user-select:text;touch-action:manipulation">
+      <button class="rp" id="saveProfile" style="padding:10px">保存</button>
+    </div>
     <button class="item rp" id="recenter">
       <svg class="i" viewBox="0 0 24 24"><circle cx="12" cy="12" r="7"/><circle cx="12" cy="12" r="2.5"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
       <div class="tx"><b>朝向归零</b><span>手机顶端指向屏幕，点一下（也可以长按 D）</span></div>
@@ -307,6 +312,8 @@ let motionCount = 0, rateT0 = performance.now(), rateHz = 0, rtt = 0, connState 
 
 const isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1);
 const deviceName = isIOS ? "iPhone" : (/Android/.test(navigator.userAgent) ? "Android" : "Phone");
+let profileName = "";
+try { profileName = localStorage.getItem("rs-profile-name") || ""; } catch (_) { /* private mode */ }
 let playerNo = 0;
 
 const CONN_TEXT = { connected: RS.t("已连接"), connecting: RS.t("连接中…"), disconnected: RS.t("重连中…") };
@@ -331,6 +338,7 @@ function setPlayer(p) {
 const hub = new RS.HubConnection({
   kind: "phone",
   name: deviceName,
+  profileName,
   onWelcome: (m) => { setPlayer(m.player); sendInput(); sendBattery(); },
   onState: (s) => { connState = s; statusLine(); },
   onMessage: (m) => {
@@ -435,6 +443,15 @@ function sheet(open) {
   $("sheet").classList.toggle("open", open);
   $("scrim").classList.toggle("open", open);
 }
+$("profileName").value = profileName;
+$("saveProfile").addEventListener("click", () => {
+  profileName = $("profileName").value.replace(/[\u0000-\u001f\u007f]/g, "").trim().slice(0, 20);
+  $("profileName").value = profileName;
+  hub.profileName = profileName;
+  try { localStorage.setItem("rs-profile-name", profileName); } catch (_) { /* private mode */ }
+  hub.send({ t: "profile", name: profileName });
+  sheet(false);
+});
 $("menuBtn").addEventListener("click", () => sheet(true));
 $("scrim").addEventListener("click", () => sheet(false));
 $("recenter").addEventListener("click", () => { hub.send({ t: "recenter" }); sheet(false); });

@@ -58,7 +58,7 @@ class Listener:
                 self._last_hello = time.monotonic()
             try:
                 data, _ = self.sock.recvfrom(65536)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 continue
@@ -78,7 +78,7 @@ def capture_gravity(listener: Listener, cid: int, seconds: float = 1.5) -> tuple
         acc: list[tuple[float, float, float]] = []
         gyro_max = [0.0]
 
-        def on_sample(c, s):
+        def on_sample(c, s, acc=acc, gyro_max=gyro_max):
             if c == cid:
                 acc.append(s[8:11])
                 gyro_max[0] = max(gyro_max[0], math.sqrt(s[5] ** 2 + s[6] ** 2 + s[7] ** 2))

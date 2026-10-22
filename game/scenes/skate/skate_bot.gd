@@ -23,12 +23,14 @@ var _prev_pitch := 0.0
 var _skill := 0.9
 
 
-func _init(skater: RSSkater, seed_value: int) -> void:
+func _init(skater: RSSkater, seed_value: int, ability: float = -1.0) -> void:
 	sk = skater
 	course = skater.course
 	_rng.seed = seed_value
 	_lane = _rng.randf_range(-5.0, 5.0)
 	_skill = _rng.randf_range(0.82, 0.97)
+	if ability >= 0.0:
+		_skill = clampf(ability, 0.5, 0.99)
 	_make_plan()
 
 

@@ -5,16 +5,15 @@ import argparse
 import asyncio
 import json
 import os
-from pathlib import Path
 import socket
 import ssl
 import subprocess
 import tempfile
 import time
 import urllib.request
+from pathlib import Path
 
 import aiohttp
-
 from smoke_game import smoke_game
 
 
@@ -53,9 +52,9 @@ def main() -> None:
                         with urllib.request.urlopen(f"http://127.0.0.1:{http}/api/status", timeout=1) as response:
                             assert json.load(response)["type"] == "roster"
                         break
-                    except OSError:
+                    except OSError as exc:
                         if process.poll() is not None or time.monotonic() >= deadline:
-                            raise RuntimeError((data / "hub-output.txt").read_text(encoding="utf-8"))
+                            raise RuntimeError((data / "hub-output.txt").read_text(encoding="utf-8")) from exc
                         time.sleep(0.2)
                 with urllib.request.urlopen(f"http://127.0.0.1:{http}/sim", timeout=5) as response:
                     assert b"<html" in response.read().lower()

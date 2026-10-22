@@ -109,7 +109,8 @@ Regina 手柄 ──BLE──┐
 客户端 → hub：
 
 ```jsonc
-{"t":"hello","kind":"phone","name":"iPhone","client_id":"随机持久 ID"}  // kind 取 phone 或 sim
+{"t":"hello","kind":"phone","name":"iPhone","client_id":"随机持久 ID","profile_name":"Example Player"}  // kind 取 phone 或 sim
+{"t":"profile","name":"Example Player"} // 可选：修改玩家昵称，去控制字符、首尾空格，最多 20 字符
 {"t":"m","frame":"device","s":[[ts_ms, gx,gy,gz, ax,ay,az], ...]}
 //  frame 为 device：手机坐标系（x 向右，y 指向屏幕顶端，z 垂直屏幕向外）
 //  frame 为 canonical：已经是第 1 节的本体坐标系（模拟手柄用）
@@ -122,6 +123,7 @@ hub → 客户端：
 
 ```jsonc
 {"t":"welcome","id":3,"player":2}
+{"t":"profile","name":"Example Player"} // 昵称修改确认；设备 name 与重连 ID 不变
 {"t":"player","player":2}
 {"t":"ui", ...与第 4 节 ui 对象相同...}
 {"t":"beep","freq":2000,"ms":80}
@@ -158,6 +160,7 @@ hub 发到 `127.0.0.1:47800`（游戏监听这个端口）；游戏发到 `127.0
   "connected":true,"battery":87,"charging":false,"calibrated":true,"stationary":true,
   "rate_hz":199.6,"loss":0.0}],
  "phone_url":"https://<电脑局域网IP>:47843/"}
+// 手机 / 模拟手柄条目可带 profile_name（可选、纯文本、最多 20 字符），用于更新对应 P1–P4 档案。
 {"type":"qr","url":"https://...","rows":["1110...","..."]}   // 二维码矩阵，1 为黑块
 {"type":"event","controller":1,"name":"recentered"}
 // name 可能是 connected / disconnected / recentered / calibrated / calibrate_failed / low_battery

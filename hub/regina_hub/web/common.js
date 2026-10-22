@@ -23,6 +23,9 @@ const RS = (() => {
   // The language follows the browser until the player picks one (kept on this device).
   // translatePage() swaps the page's own text once at load; text built in code uses t().
   const EN = {
+    "玩家名字": "Player name",
+    "同步到游戏中的玩家档案": "Sync to your in-game player profile",
+    "保存": "Save",
     "Regina 手机手柄": "Regina Phone Controller",
     "Regina 模拟手柄": "Regina Simulator",
     "手机手柄": "Phone controller",
@@ -220,9 +223,10 @@ const RS = (() => {
 
   // ------------------------------------------------------------- connection ----
   class HubConnection {
-    constructor({ kind, name, onWelcome, onMessage, onState }) {
+    constructor({ kind, name, profileName = "", onWelcome, onMessage, onState }) {
       this.kind = kind;
       this.name = name;
+      this.profileName = profileName;
       this.clientId = clientId(kind);
       this.onWelcome = onWelcome || (() => {});
       this.onMessage = onMessage || (() => {});
@@ -240,7 +244,7 @@ const RS = (() => {
       ws.onopen = () => {
         this.open = true;
         this.retry = 500;
-        this.send({ t: "hello", kind: this.kind, name: this.name, client_id: this.clientId });
+        this.send({ t: "hello", kind: this.kind, name: this.name, profile_name: this.profileName, client_id: this.clientId });
       };
       ws.onmessage = (ev) => {
         let msg;

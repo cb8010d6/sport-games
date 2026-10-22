@@ -15,7 +15,6 @@ Transparent texels are filled with the nearest colours so mipmaps don't fringe. 
 camera-facing quad per tree and picks the frames for the view (shaders/impostor.gdshader).
 """
 import json
-import math
 import os
 import sys
 
