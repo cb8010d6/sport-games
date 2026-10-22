@@ -9,6 +9,7 @@ extends Control
 ## the scene —, back to the main menu), display (frame rate incl. VRR, quality, upscaling,
 ## window mode, HDR) and sound (master, music, effects, ambience volume). Settings are
 ## RSSettings and are saved as soon as they change.
+## Accessibility contains cosmetic camera shake and the existing color-safe palette.
 
 signal restart_requested
 signal menu_requested
@@ -20,12 +21,13 @@ var can_restart := true          ## set by the game: restart makes sense right n
 var can_tutorial := false
 
 const PAGES := {
-	"main": ["resume", "restart", "tutorial", "display", "sound", "language", "menu"],
+	"main": ["resume", "restart", "tutorial", "display", "sound", "accessibility", "language", "menu"],
 	"display": ["fps", "quality", "upscale", "window", "hdr", "back"],
 	"sound": ["vol_master", "vol_music", "vol_sfx", "vol_ambience", "back"],
-	"settings": ["display", "sound", "color_safe", "language", "resume"],
+	"settings": ["display", "sound", "accessibility", "language", "resume"],
+	"accessibility": ["camera_shake", "color_safe", "back"],
 }
-const VALUES := ["fps", "quality", "upscale", "window", "hdr", "language", "color_safe", "vol_master", "vol_music", "vol_sfx", "vol_ambience"]
+const VALUES := ["fps", "quality", "upscale", "window", "hdr", "language", "color_safe", "camera_shake", "vol_master", "vol_music", "vol_sfx", "vol_ambience"]
 const VOLUMES := ["vol_master", "vol_music", "vol_sfx", "vol_ambience"]   ## in RSAudio.BUSES order
 
 var _page := "main"
@@ -181,7 +183,7 @@ func _show_page(page: String, focus: int) -> void:
 		_col.add_child(b)
 		_rows.append(b)
 	_col.move_child(_hint, -1)
-	_title.text = {"main": tr("暂停"), "settings": tr("设置"), "display": tr("画面设置"), "sound": tr("声音")}[page]
+	_title.text = {"main": tr("暂停"), "settings": tr("设置"), "display": tr("画面设置"), "sound": tr("声音"), "accessibility": tr("无障碍")}[page]
 	_index = clampi(focus, 0, _rows.size() - 1)
 	_refresh()
 	if visible:
@@ -215,7 +217,7 @@ func _choose(i: int) -> void:
 			if can_tutorial:
 				close()
 				tutorial_requested.emit()
-		"display", "sound":
+		"display", "sound", "accessibility":
 			_show_page(_items()[i], 0)
 			RSSfx.play(self, "beep", -18.0, 1.6)
 		"back":
@@ -243,6 +245,8 @@ func _change(i: int, step: int, wrap: bool) -> void:
 			RSSettings.hdr = not RSSettings.hdr
 		"color_safe":
 			RSSettings.color_safe = not RSSettings.color_safe
+		"camera_shake":
+			RSSettings.camera_shake = not RSSettings.camera_shake
 		"language":
 			# Every text in the scene was built in the old language: start it again.
 			RSSettings.next_language()
@@ -278,6 +282,8 @@ func _label(item: String) -> String:
 			return tr("画面设置　▸")
 		"sound":
 			return tr("声音　▸")
+		"accessibility":
+			return tr("无障碍　▸")
 		"back":
 			return tr("◀ 返回")
 		"fps":
@@ -292,6 +298,8 @@ func _label(item: String) -> String:
 			return tr("HDR　　◀ %s ▶") % RSSettings.hdr_name()
 		"color_safe":
 			return tr("色弱友好配色　◀ %s ▶") % (tr("开") if RSSettings.color_safe else tr("关"))
+		"camera_shake":
+			return tr("镜头晃动　◀ %s ▶") % (tr("开") if RSSettings.camera_shake else tr("关"))
 		"language":
 			return tr("语言 Language　◀ %s ▶") % RSSettings.language_name()
 		"vol_master":
@@ -318,6 +326,8 @@ func _oled_label(item: String) -> Array:
 			return ["DISPLAY", ">"]
 		"sound":
 			return ["SOUND", ">"]
+		"accessibility":
+			return ["ACCESS", ">"]
 		"back":
 			return ["BACK", ""]
 		"fps":
@@ -332,6 +342,8 @@ func _oled_label(item: String) -> Array:
 			return ["HDR", RSSettings.hdr_oled()]
 		"color_safe":
 			return ["COLORS", "ACCESSIBLE" if RSSettings.color_safe else "DEFAULT"]
+		"camera_shake":
+			return ["CAM SHAKE", "ON" if RSSettings.camera_shake else "OFF"]
 		"language":
 			return ["LANGUAGE", ["CHINESE", "ENGLISH"][RSSettings.language]]
 		"vol_master", "vol_music", "vol_sfx", "vol_ambience":
