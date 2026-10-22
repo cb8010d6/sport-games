@@ -14,6 +14,7 @@ import sys
 import tempfile
 
 from engine_process import run_engine, silence_native_crash_dialogs
+from test_storage import run_storage
 
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -57,6 +58,8 @@ def main() -> int:
         output = result.stdout + result.stderr
         if result.returncode != 0 or "RS_SHELL_TESTS: 0 failures" not in output or "SCRIPT ERROR" in output:
             return 1
+    if run_storage(find_godot(args.godot)) != 0:
+        return 1
     if args.party:
         with tempfile.TemporaryDirectory(prefix="rs-party-tests-") as temp:
             env = dict(os.environ, RS_TEST_MODE="1", APPDATA=temp, XDG_DATA_HOME=temp,
