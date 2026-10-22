@@ -195,7 +195,10 @@ func _run() -> void:
 	set_process(false)
 	_peer.close()
 	ControllerHub.controllers.clear()
-	await get_tree().create_timer(0.3).timeout
+	# Fixed-fps gameplay can outrun the real audio worker; drain wall time too.
+	var drain_until := Time.get_ticks_msec() + 350
+	while Time.get_ticks_msec() < drain_until:
+		await get_tree().process_frame
 	if not _report.is_empty():
 		var file := FileAccess.open(_report, FileAccess.WRITE)
 		if file != null:
