@@ -1,7 +1,6 @@
 import itertools
 
 import pytest
-
 from regina_hub.axis_wizard import _invert, solve
 from regina_hub.frames import handedness, make_remap
 
@@ -11,7 +10,7 @@ G = 9.81
 def _proper_maps():
     for perm in itertools.permutations("xyz"):
         for signs in itertools.product("+-", repeat=3):
-            m = [("-" if s == "-" else "") + a for s, a in zip(signs, perm)]
+            m = [("-" if s == "-" else "") + a for s, a in zip(signs, perm, strict=False)]
             if handedness(m) > 0:
                 yield m
 

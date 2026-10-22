@@ -2,10 +2,10 @@
 
 unittest style, so it runs under both `pytest` and `python -m unittest`."""
 
-from pathlib import Path
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import check_conventions as cc  # noqa: E402

@@ -89,7 +89,7 @@ class Controller:
             return out
         dev_times = [self.clock.device_seconds(raw_us) for raw_us, _, _ in items]
         self.clock.observe(dev_times[-1], hub_now)
-        for dev_s, (_, gyro, accel) in zip(dev_times, items):
+        for dev_s, (_, gyro, accel) in zip(dev_times, items, strict=False):
             if not all(math.isfinite(v) for v in (*gyro, *accel)):
                 continue
             # Integrate on the device clock (exact dt); only the reported time is hub-mapped.

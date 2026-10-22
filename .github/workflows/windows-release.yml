@@ -21,15 +21,17 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 50
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 2
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22'
+          node-version: '24'
+          check-latest: true
+          package-manager-cache: false
       - name: Verify publication scope
         run: node tools/publication_audit.mjs --strict
       - name: Restore and verify pinned upstream assets
@@ -40,7 +42,7 @@ jobs:
         run: python tools/download_godot.py --platform linux --templates
       - name: Restore Godot import cache
         id: imports
-        uses: actions/cache@v4
+        uses: actions/cache@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: game/.godot
           key: godot-${{ runner.os }}-${{ hashFiles('tools/release_config.json', 'game/**/*.import', 'game/**/*.glb', 'game/**/*.gltf') }}
@@ -52,7 +54,7 @@ jobs:
         run: python tools/find_import_artifact.py
       - name: Restore verified PR imports
         if: steps.import_artifact.outputs.run_id != ''
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: Godot-imports
           path: game/.godot
@@ -60,7 +62,7 @@ jobs:
           github-token: ${{ github.token }}
       - name: Import, check every map and export Windows game
         run: python tools/build_game.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Godot-imports
           overwrite: true
@@ -72,7 +74,7 @@ jobs:
           if-no-files-found: error
           compression-level: 0
           retention-days: 1
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: Godot-Windows-game
           overwrite: true
@@ -90,21 +92,25 @@ jobs:
     env:
       PYTHONUTF8: '1'
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
         with:
-          node-version: '22'
+          node-version: '24'
+          check-latest: true
+          package-manager-cache: false
       - name: Install packaging dependencies
         shell: pwsh
         run: |
-          $version = (Get-Content tools/release_config.json | ConvertFrom-Json).pyinstallerVersion
-          python -m pip install -r hub/requirements.txt "pyinstaller==$version"
+          python -m pip install --require-hashes -r hub/requirements-windows.lock
+          $expected = (Get-Content tools/release_config.json | ConvertFrom-Json).pyinstallerVersion
+          $actual = python -c "import importlib.metadata; print(importlib.metadata.version('pyinstaller'))"
+          if ($actual -ne $expected) { throw "Regenerate the Windows dependency lock for PyInstaller $expected" }
       - name: Verify publication scope
         run: node tools/publication_audit.mjs --strict
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: Godot-Windows-game
           path: build/game
@@ -114,7 +120,7 @@ jobs:
         run: python tools/smoke_release.py dist/SportGames-Windows-x86_64
       - name: Package checked files and checksum
         run: python tools/package_archive.py
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: SportGames-Windows-x86_64
           overwrite: true
@@ -132,10 +138,10 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           fetch-depth: 0
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333 # v8.0.2
         with:
           name: SportGames-Windows-x86_64
           path: release

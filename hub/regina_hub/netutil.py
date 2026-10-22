@@ -65,7 +65,7 @@ def _cert_covers(cert_path: Path, ips: list[str]) -> bool:
         cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
         san = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
         have = {str(ip) for ip in san.get_values_for_type(x509.IPAddress)}
-        not_expired = cert.not_valid_after_utc > dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=7)
+        not_expired = cert.not_valid_after_utc > dt.datetime.now(dt.UTC) + dt.timedelta(days=7)
         return not_expired and all(ip in have for ip in ips)
     except Exception:  # noqa: BLE001 - any parse problem means regenerate
         return False
@@ -87,7 +87,7 @@ def ensure_cert(cert_dir: Path, ips: list[str]) -> tuple[Path, Path]:
     log.info("generating self-signed certificate for %s", ", ".join(ips))
     key = ec.generate_private_key(ec.SECP256R1())
     name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Regina Sports Hub")])
-    now = dt.datetime.now(dt.timezone.utc)
+    now = dt.datetime.now(dt.UTC)
     san = [x509.DNSName("localhost")] + [x509.IPAddress(ipaddress.ip_address(ip)) for ip in sorted(set(ips + ["127.0.0.1"]))]
     cert = (
         x509.CertificateBuilder()
@@ -132,7 +132,7 @@ def qr_ascii(text: str) -> str:
         top = rows[y]
         bot = rows[y + 1] if y + 1 < len(rows) else "0" * len(top)
         line = []
-        for a, b in zip(top, bot):
+        for a, b in zip(top, bot, strict=False):
             # Dark modules are drawn as spaces on a light background so phone cameras read it.
             if a == "1" and b == "1":
                 line.append(" ")

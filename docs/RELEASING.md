@@ -13,6 +13,13 @@
 4. 检查 HTTP、HTTPS、WebSocket、启动器、各游戏地图和篮球 1/2/4 人启动。
 5. 打包 ZIP 和 SHA-256，保存为 Actions artifact（7 天）。
 
+Python 依赖从带哈希的 `hub/requirements-windows.lock` 安装（`pip --require-hashes`），
+包含 `tools/release_config.json` 原先指定的 PyInstaller 版本；工作流会检查两者一致。
+依赖升级后按 [DEVELOPMENT.md](DEVELOPMENT.md#updating-python-dependencies) 重新生成并提交锁文件。
+Actions 固定到完整提交 SHA；升级和 artifact 兼容性记录见同文的 Actions upgrade notes。
+Node 工具使用 `24` 的最新修补版（`check-latest: true`）；不需要 npm 依赖。
+触发条件、打包内容、版本号规则和 artifact 的名称、路径及保留天数沿用现有发行流程。
+
 玩家解压后运行根目录 `SportGames.exe`，无需开发环境或另行同步素材。
 无界面测试不覆盖图像正确性、BLE、手机权限流程、网络防火墙和 GPU 性能；发布前仍应实机检查。
 官方发行模板禁用命令行场景路径覆盖。测试通过菜单内六个固定游戏 ID 选择玩法，
