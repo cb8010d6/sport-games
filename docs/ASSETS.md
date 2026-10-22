@@ -38,6 +38,7 @@ node tools/sync_assets.mjs --check               # 离线校验全部下载文�
 | 6 组树木图集 | 普通 Git | 从 Poly Haven CC0 模型烘焙 |
 | 4 个减面模型的 buffer 和 1 张加工纹理 | 普通 Git | 从 Poly Haven CC0 模型加工；17 张未改变的纹理直接引用原站同步文件 |
 | 手柄模型、35 个成品音效、3 张贴花 | 普通 Git | 项目提供者确认 AI 原创，按项目 MIT；见 [来源声明](ASSET_PROVENANCE.md) |
+| 三首背景 / 胜利音乐 | 普通 Git | 本次贡献的乐谱与程序合成，无外部采样，输出 CC0；见 [生成记录](../game/assets/music/CREDITS.md) |
 | 下载缓存、工具、证书、日志和私人配置 | 仅本机，Git 忽略 | 不分发 |
 
 以上 166 个角色/树木/减面生成文件约 673 MiB，最大文件 `skier1.glb` 约 22.3 MiB。

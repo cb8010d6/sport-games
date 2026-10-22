@@ -9,6 +9,7 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 import shutil
 import sys
 import tempfile
@@ -17,6 +18,11 @@ from engine_process import run_engine, silence_native_crash_dialogs
 
 
 ROOT = Path(__file__).resolve().parent.parent
+
+
+def suite_passed(output: str, returncode: int, marker: str) -> bool:
+    return (returncode == 0 and marker in output.splitlines()
+            and not re.search(r"^(?:ERROR:|SCRIPT ERROR:|WARNING:.*leaked at exit)", output, re.MULTILINE))
 
 
 def find_godot(explicit: str | None) -> str:
@@ -55,7 +61,7 @@ def main() -> int:
         print(result.stderr)
         # Godot sometimes returns 0 after a script error; also require our explicit completion marker.
         output = result.stdout + result.stderr
-        if result.returncode != 0 or "RS_SHELL_TESTS: 0 failures" not in output or "SCRIPT ERROR" in output:
+        if not suite_passed(output, result.returncode, "RS_SHELL_TESTS: 0 failures"):
             return 1
     if args.party:
         with tempfile.TemporaryDirectory(prefix="rs-party-tests-") as temp:
@@ -66,7 +72,7 @@ def main() -> int:
                                     env=env, timeout=120)
             output = result.stdout + result.stderr
             print(output)
-            return 0 if result.returncode == 0 and "RS_PARTY_FLOW: PASS" in output and "SCRIPT ERROR" not in output else 1
+            return 0 if suite_passed(output, result.returncode, "RS_PARTY_FLOW: PASS") else 1
     return 0
 
 

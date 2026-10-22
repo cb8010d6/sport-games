@@ -45,7 +45,22 @@ func _process(_delta: float) -> void:
 	if RSTournament.last_round():
 		game._on_button((list[0] as RSPartyGame.Player).c, RSController.BTN_A, true)
 		_failed = _failed or not game._tournament_final_shown
-		print("RS_PARTY_FLOW: " + ("FAIL" if _failed or _seen.size() != 3 else "PASS"))
-		get_tree().quit(1 if _failed else 0)
+		_finish.call_deferred()
 	else:
 		game._on_button((list[0] as RSPartyGame.Player).c, RSController.BTN_A, true)
+
+
+func _finish() -> void:
+	var scene := get_tree().current_scene
+	for audio: AudioStreamPlayer in scene.find_children("*", "AudioStreamPlayer", true, false):
+		audio.stop()
+		audio.stream = null
+	get_tree().current_scene = null
+	scene.queue_free()
+	# Fixed-fps gameplay can outrun the real audio mixer. Free the final scene and
+	# let worker threads drain before checking shutdown, rather than hiding leaks.
+	var until := Time.get_ticks_msec() + 350
+	while Time.get_ticks_msec() < until:
+		await get_tree().process_frame
+	print("RS_PARTY_FLOW: " + ("FAIL" if _failed or _seen.size() != 3 else "PASS"))
+	get_tree().quit(1 if _failed else 0)

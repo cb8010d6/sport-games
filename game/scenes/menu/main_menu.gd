@@ -149,6 +149,7 @@ func _ready() -> void:
 	ControllerHub.controller_connected.connect(_send_oled)
 	_buttons[0].grab_focus()
 	RSSettings.apply(get_tree())
+	RSMusic.attach(self).play_track("menu")
 
 
 func _build_backdrop() -> void:
