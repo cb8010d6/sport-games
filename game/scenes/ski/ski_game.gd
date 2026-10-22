@@ -321,7 +321,7 @@ func _round_started(list: Array) -> void:
 		r.sk.rig.set_layers(1)
 		r.bot = null
 		if p.fake:
-			r.bot = RSSkiBot.new(r.sk, 91 + p.c.player * 17 + _rng.randi_range(0, 9999))
+			r.bot = RSSkiBot.new(r.sk, 91 + p.c.player * 17 + _rng.randi_range(0, 9999), bot_ability())
 		send_ui(p, {"clear": true, "title": "SKI", "main": "0", "sub": "READY", "legends": ["", "POLE", "", null]})
 		_camera(p, r, 0.0, true)
 

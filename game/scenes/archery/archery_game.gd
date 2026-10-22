@@ -667,7 +667,7 @@ func _bot(p: Player, dt: float) -> void:
 			var dist := float(ROUNDS[_round]["dist"])
 			var t := dist / SPEED_MAX
 			var spot := Vector3(s.lane_x - 0.5 * _wind * WIND_ACCEL * t * t, FACE_Y + 0.5 * GRAVITY * t * t, -dist)
-			spot += Vector3(_rng.randf_range(-0.35, 0.35), _rng.randf_range(-0.35, 0.35), 0.0) * (1.0 + _round * 0.5)
+			spot += Vector3(_rng.randf_range(-0.35, 0.35), _rng.randf_range(-0.35, 0.35), 0.0) * (1.0 + _round * 0.5) * bot_error()
 			s.bot_aim = (spot - p.cam.position).normalized()
 			s.drawing = true
 			s.draw_t = 0.0

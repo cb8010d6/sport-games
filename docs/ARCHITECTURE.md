@@ -57,6 +57,8 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 每个玩家是一个 `RSPartyGame.Player`：`c`（RSController）、`score`、`data`（本项目的玩家状态）、`cam`、`hud`、`fake`（机器人）。机器人由项目自己驱动（`--demo=N`）。
 
+正式单人模式使用 `RSSolo.begin(game_id, slot, difficulty)`：一个已分配本地槽的真人和一个电脑对手，共用原有物理、名次和教学流程；只有真人可以写纪录。电脑独占另一个槽，`RSPartyGame` 保证真人缺席时不会自动开局，其他手柄不会加入。项目通过 `bot_error()` / `bot_ability()` 取得难度参数，演示默认参数保持原样。退出到菜单时清除会话。每项目三个分数挑战基于地图 1 的正式个人最佳导出（每档一星），复用 `records.cfg`，不另加进度文件；主菜单标明规则、个人星数与难度。
+
 调试参数（`--` 之后）只在 `party_game.gd` 和 `main_menu.gd` 里解析（ARCH-ARGS）：`--demo=N`、`--shots=<前缀>`、`--map=N`、`--game=<id>`；项目自己的参数通过 `_parse_arg(arg)` 拿到。
 
 ## 3. 公共模块

@@ -89,4 +89,12 @@ jobs:
           name: lifecycle-source
           path: audit-output/lifecycle/
           if-no-files-found: warn
+      - name: Test formal solo opponents at all difficulty levels
+        run: python tools/test_solo.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --games plane archery bowling
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: solo-lightweight
+          path: audit-output/solo
+          if-no-files-found: warn
       - run: python tools/i18n_check.py
