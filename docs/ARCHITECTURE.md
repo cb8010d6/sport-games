@@ -77,6 +77,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 | 音乐 | `RSMusic.attach(parent)` 创建随场景释放的公共播放器，`play_track("menu" / "lobby" / "victory")`、`silence()`，统一走 `RSAudio.MUSIC` 总线 | 项目自己放背景音乐 |
 | 退出 | `RSExit.quit(get_tree(), code)`：暂停场景、停掉所有声音、按真实时间等 350 ms 让音频线程释放，再退出。菜单和 `RSPartyGame` 调用 `RSExit.install(tree)`，关窗口也走这条路 | 直接 `get_tree().quit()`（ARCH-QUIT），退出时会报音频资源泄漏 |
 | 界面 | `RSUi.theme / label / panel_style`；大厅、成绩、暂停在 `RSPartyUi`、`RSPauseMenu` | 每个项目自建一套面板样式 |
+| 开场飞越 | `RSIntro.apply(camera, elapsed, duration, start, via, end, look_start, look_end, fov_start, fov_end, look_delay)`：公共二次 Bézier 飞越、视线过渡与 FOV；`RSIntro.fade` 提供标题淡入淡出 | 项目各自重写相同插值公式 |
 | 分屏 | `RSPartyViews`（`views`）；每个玩家的相机在 `p.cam`，可见层为 `1 | 1 << 玩家号` | 自建 SubViewport |
 | 画面设置 | `RSSettings.apply(tree)`、`apply_viewport(vp)`、`environment(env)`、`sun_shadows(sun)` | 写死阴影、抗锯齿、帧率 |
 | 文案 | 节点里 `tr("中文")`，静态代码里 `RSLang.t("中文")`；英文在 `game/i18n/en.json` | 直接写英文、拼接句子 |
@@ -85,6 +86,8 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 | 存档 | 只在 `core` 里读写 `user://`（ARCH-SAVE）：`RSSettings`（settings.cfg），PR #2 合并后还有 `RSProfiles`（profiles.cfg）、`RSRecords`（records.cfg）、`RSTournament`（内存中的派对赛） | 项目自己写文件 |
 
 ## 4. 数据与接口
+
+开场由项目在原有 COUNTDOWN 阶段调用无状态的 `RSIntro`，时间仍为 `phase_time`（秒），不增加计时器或 autoload。项目只提供当前世界坐标中的起点、控制点、跟随终点与视线目标；公共层不依赖场地、人物或游戏类。滑板、滑雪、篮球保留各自的时长、动态锚点、视线延迟与 FOV 参数，暂停冻结、重开归零及地图切换仍遵循 `RSPartyGame`。零或负时长直接落到终点；目标与相机重合时保留朝向，垂直视线使用备用上方向，避免无效相机变换。
 
 无障碍的镜头晃动开关由 `RSSettings.camera_shake` 统一保存到现有 `settings.cfg`，主菜单和游戏暂停菜单共用无障碍页面。滑板、滑雪在生成原有随机偏移后决定是否应用，保持原随机数消耗顺序，关闭抖动不改变运动物理、机器人决策或计分。
 

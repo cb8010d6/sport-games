@@ -573,15 +573,10 @@ func _camera(p: Player, r: Racer, dt: float, snap: bool) -> void:
 	p.cam.fov = lerpf(p.cam.fov, 62.0 + clampf(spd - 8.0, 0.0, 18.0) * 0.6, 1.0 if snap else 1.0 - exp(-dt * 2.0))
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
 		# Intro: high over the run looking down the valley, then swooping in behind the racer.
-		var u := smoothstep(0.0, INTRO, phase_time)
 		var ahead := _course.world(0.0, 180.0, 0.0)
 		var p0 := _course.world(-40.0, -60.0, 60.0)
 		var p1 := sk.pos + Vector3(6.0 * signf(sk.pos.x - _course.centre(0.0) + 0.01), 4.0, 12.0)
-		var at := p0.lerp(p1, u).lerp(p1.lerp(r.cam_pos, u), u)
-		var lk := ahead.lerp(r.cam_look, smoothstep(0.3, 1.0, u))
-		p.cam.global_position = at
-		p.cam.look_at(lk)
-		p.cam.fov = lerpf(55.0, 64.0, u)
+		RSIntro.apply(p.cam, phase_time, INTRO, p0, p1, r.cam_pos, ahead, r.cam_look, 55.0, 64.0, 0.3)
 	_follow_snow(r.snow, p.cam)
 
 
@@ -743,7 +738,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 func _draw_overlay(o: Overlay, k: float) -> void:
 	var m := _course.map
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
-		var a := clampf(phase_time / 0.6, 0.0, 1.0) * clampf((INTRO - phase_time) / 0.6, 0.0, 1.0)
+		var a := RSIntro.fade(phase_time, INTRO)
 		draw_text(o, tr(str(m["name"])), Vector2(o.size.x * 0.5, o.size.y * 0.4), 84 * k, Color(1, 1, 1, a), true)
 		draw_text(o, tr("%s  ·  %d 米  ·  %d 道旗门  ·  难度 %s") % [m["en"], roundi(_course.length), _course.gates.size(), RSSkiMaps.stars(map_index)],
 			Vector2(o.size.x * 0.5, o.size.y * 0.4 + 56 * k), 24 * k, Color(1, 0.9, 0.6, a), true)

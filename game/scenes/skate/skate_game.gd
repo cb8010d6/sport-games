@@ -448,14 +448,10 @@ func _camera(p: Player, r: Rider, dt: float, snap: bool) -> void:
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
 		# Intro: from high over the start, looking down the street to the sea, swooping in
 		# behind the rider.
-		var u := smoothstep(0.0, INTRO, phase_time)
 		var p0 := sk.pos + Vector3(0.0, 26.0, 36.0)
 		var p1 := sk.pos + Vector3(5.0 * signf(sk.pos.x + 0.01), 5.0, 13.0)
-		var at := p0.lerp(p1, u).lerp(p1.lerp(r.cam_pos, u), u)
-		var lk := (sk.pos + Vector3(0.0, -8.0, -120.0)).lerp(r.cam_look, smoothstep(0.25, 1.0, u))
-		p.cam.global_position = at
-		p.cam.look_at(lk)
-		p.cam.fov = lerpf(50.0, 66.0, u)
+		RSIntro.apply(p.cam, phase_time, INTRO, p0, p1, r.cam_pos,
+			sk.pos + Vector3(0.0, -8.0, -120.0), r.cam_look, 50.0, 66.0)
 
 
 # ------------------------------------------------------------------- hints / OLED ----
@@ -617,7 +613,7 @@ func _draw_balance(h: Control, at: Vector2, radius: float, needle: float, k: flo
 
 func _draw_overlay(o: Overlay, k: float) -> void:
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
-		var a := clampf(phase_time / 0.6, 0.0, 1.0) * clampf((INTRO - phase_time) / 0.6, 0.0, 1.0)
+		var a := RSIntro.fade(phase_time, INTRO)
 		draw_text(o, tr("海滨大坡"), Vector2(o.size.x * 0.5, o.size.y * 0.4), 84 * k, Color(1, 1, 1, a), true)
 		draw_text(o, tr("SEASIDE DOWNHILL  ·  %d 米滑到海边") % roundi(RSSkateCourse.FINISH_S - RSSkateCourse.START_S),
 			Vector2(o.size.x * 0.5, o.size.y * 0.4 + 56 * k), 24 * k, Color(1, 0.9, 0.6, a), true)

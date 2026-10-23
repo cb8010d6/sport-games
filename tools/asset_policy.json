@@ -9,6 +9,11 @@
   ],
   "documented": [
     {
+      "prefix": "docs/screenshots/phase9-intro-",
+      "license": "MIT AND CC0-1.0",
+      "evidence": "docs/PHASE_9_SHARED_INTRO.md"
+    },
+    {
       "prefix": "docs/screenshots/phase3-solo-",
       "license": "MIT",
       "evidence": "docs/PHASE_3_SOLO.md#界面截图"
