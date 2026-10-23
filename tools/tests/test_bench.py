@@ -88,8 +88,11 @@ class BenchTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "sample time"):
             bench.validate_report(payload, bench.Case("ski", 0, 2, 2, 1), arguments())
 
-    def run_fake(self, output, *, code=0, text="RS_BENCH_DONE: ski", payload=None, failure=None, paths=None):
+    def run_fake(self, output, *, code=0, text="RS_BENCH_DONE: ski", payload=None, failure=None, paths=None,
+                 power_states=None, engine_calls=None):
         def engine(command, env, timeout):
+            if engine_calls is not None:
+                engine_calls.append(command)
             self.assertNotIn("--headless", command)
             self.assertNotIn("--fixed-fps", command)
             self.assertEqual(command[command.index("--resolution") + 1], "1600x900")
@@ -109,9 +112,70 @@ class BenchTests(unittest.TestCase):
         with mock.patch.object(bench, "run_engine", side_effect=engine), \
              mock.patch.object(bench, "find_godot", return_value="fake-godot"), \
              mock.patch.object(bench, "source_revision", return_value={"source_commit": "a" * 40, "source_dirty": True}), \
-             mock.patch.object(bench, "power_status", return_value={"ac": "ONLINE", "battery_percent": 95}):
+             mock.patch.object(bench, "power_status", side_effect=power_states,
+                               return_value={"ac": "ONLINE", "battery_percent": 95}):
             return bench.main(["--games", "ski", "--players", "2", "--repeat", "2" if paths is not None else "1",
                                "--duration", "1", "--warmup", "0", "--gpu-index", "1", "--expect-gpu", "780M", "--output", str(output)])
+
+    def test_offline_before_launch_rejects_without_starting_engine(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp)
+            # A previous successful report must not survive the rejected retry.
+            self.assertEqual(self.run_fake(output), 0)
+            calls = []
+            self.assertEqual(self.run_fake(output, engine_calls=calls,
+                                          power_states=[{"ac": "OFFLINE", "battery_percent": 60}] * 2), 1)
+            self.assertEqual(calls, [])
+            summary = json.loads((output / "summary.json").read_text())
+            row = summary["runs"][0]
+            raw = json.loads((output / row["raw"]).read_text())
+            self.assertEqual(raw["status"], "FAIL")
+            self.assertTrue(any("OFFLINE" in error and "before" in error for error in raw["errors"]))
+            self.assertEqual(raw["samples"], [])
+            self.assertIsNone(raw["runner_status"])
+            self.assertIsNone(raw["exit_code"])
+            self.assertEqual(raw["metadata"]["source_commit"], "a" * 40)
+            self.assertEqual(raw["metadata"]["power_before"]["ac"], "OFFLINE")
+            self.assertIsNone(raw["metadata"]["power_after"])
+            self.assertFalse(raw["metadata"]["power_endpoints_online"])
+            self.assertEqual((raw["game"], raw["map"], raw["players"], raw["quality"]), ("ski", 0, 2, 2))
+            self.assertIsNone(row["statistics"])
+            self.assertEqual(summary["groups"][0]["target_status"], "INVALID")
+            self.assertFalse((output / "ski-m0-p2-q2-r1/engine-output.txt").exists())
+
+    def test_offline_after_launch_rejects_valid_engine_samples(self):
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp)
+            calls = []
+            self.assertEqual(self.run_fake(output, engine_calls=calls, power_states=[
+                {"ac": "ONLINE", "battery_percent": 95}, {"ac": "OFFLINE", "battery_percent": 94}]), 1)
+            self.assertEqual(len(calls), 1)
+            summary = json.loads((output / "summary.json").read_text())
+            row = summary["runs"][0]
+            raw = json.loads((output / row["raw"]).read_text())
+            self.assertEqual(raw["status"], "FAIL")
+            self.assertEqual(raw["runner_status"], "PASS")
+            self.assertEqual(raw["samples"], report()["samples"])
+            self.assertTrue(any("OFFLINE" in error and "after" in error for error in raw["errors"]))
+            self.assertEqual(raw["metadata"]["power_before"]["ac"], "ONLINE")
+            self.assertEqual(raw["metadata"]["power_after"]["ac"], "OFFLINE")
+            self.assertFalse(raw["metadata"]["power_endpoints_online"])
+            self.assertIsNone(row["statistics"])
+            self.assertIsNone(summary["groups"][0]["statistics"])
+            self.assertEqual(summary["groups"][0]["target_status"], "INVALID")
+
+    def test_unavailable_power_is_recorded_without_claiming_online(self):
+        for state in ("UNKNOWN", "UNAVAILABLE"):
+            with self.subTest(state=state), tempfile.TemporaryDirectory() as temp:
+                output = Path(temp)
+                power = {"ac": state, "battery_percent": None}
+                self.assertEqual(self.run_fake(output, power_states=[power, power]), 0)
+                summary = json.loads((output / "summary.json").read_text())
+                row = summary["runs"][0]
+                self.assertEqual(row["metadata"]["power_before"], power)
+                self.assertEqual(row["metadata"]["power_after"], power)
+                self.assertFalse(row["metadata"]["power_endpoints_online"])
+                self.assertIsNotNone(row["statistics"])
 
     def test_success_preserves_samples_isolates_each_repeat_and_reports_targets(self):
         with tempfile.TemporaryDirectory() as temp:
@@ -126,6 +190,7 @@ class BenchTests(unittest.TestCase):
             raw = json.loads((output / summary["runs"][0]["raw"]).read_text())
             self.assertEqual(raw["samples"], report()["samples"])
             self.assertEqual(raw["metadata"]["power_before"]["ac"], "ONLINE")
+            self.assertTrue(raw["metadata"]["power_endpoints_online"])
             self.assertIsNone(raw["samples"][0]["gpu_ms"])
             self.assertIn("Repeat FPS range", (output / "summary.md").read_text(encoding="utf-8"))
 
