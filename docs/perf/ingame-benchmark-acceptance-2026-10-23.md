@@ -25,6 +25,7 @@
 - [验收原始 JSON/CSV、日志、图片及失败诊断 ZIP](ingame-benchmark-acceptance-2026-10-23.zip)，SHA-256：`20648cdadd08436ce239d5126052bc42aebf52cea59f41b62519b4eb832804ef`。manifest 逐文件列出 SHA-256；full-attempt 目录均为失败尝试，不是完整时长 PASS。
 - 窗口诊断的可还原代码为 `90c23649495c160fd55963c1aa911fb4cc11078b`；初次完整尝试来源 `ea65c8cb4e01aa25c7ccb010268898816666db7e`。短测的生产代码与其相同，后续仅补窗口诊断字段；实际 source_commit=null 的短测元数据未伪造补写。
 - 用户目录中的 benchmark 输出只在点击导出后写入；完整源码接口及统计规则见 [PERFORMANCE.md](../PERFORMANCE.md)。
+- 四张独立 PNG 是实际界面与曲线的直接截图，未使用外部图像或生成新游戏素材；[生成记录、许可与哈希](ingame-benchmark-2026-10-23/CREDITS.md)。
 
 ```sh
 python tools/test_benchmark.py --godot <GODOT_4_7_2_CONSOLE> --screenshots --players 2 4 --gpu-index <INDEX>

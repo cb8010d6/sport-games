@@ -9,6 +9,12 @@
   ],
   "documented": [
     {
+      "prefix": "docs/perf/ingame-benchmark-2026-10-23/",
+      "extensions": [".png"],
+      "license": "MIT",
+      "evidence": "docs/perf/ingame-benchmark-2026-10-23/CREDITS.md"
+    },
+    {
       "prefix": "docs/screenshots/phase3-solo-",
       "license": "MIT",
       "evidence": "docs/PHASE_3_SOLO.md#界面截图"
