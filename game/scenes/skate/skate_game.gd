@@ -68,7 +68,7 @@ var _lobby_s := 0.0
 var _beep := 4
 var _crowd: AudioStreamPlayer
 var _rng := RandomNumberGenerator.new()
-var _podium: Node3D
+var _podium: RSPodium
 var _podium_on := false
 var _podium_at := 0.0
 var _podium_order: Array = []
@@ -183,6 +183,7 @@ func _player_button(p: Player, button: int, pressed: bool) -> void:
 
 
 func _round_started(list: Array) -> void:
+	_podium.reset()
 	_time_left = TIME_LIMIT
 	_finishers = 0
 	_all_done_t = -1.0
@@ -220,7 +221,7 @@ func _round_started(list: Array) -> void:
 
 func _to_lobby() -> void:
 	super._to_lobby()
-	_podium.visible = false
+	_podium.reset()
 	_podium_on = false
 	for p: Player in players.values():
 		var r := _rider(p)
@@ -751,63 +752,29 @@ func _draw_replay(h: PlayerHud, p: Player, k: float) -> void:
 # ------------------------------------------------------------------------- podium ----
 
 func _build_podium() -> void:
-	_podium = Node3D.new()
+	_podium = RSPodium.new()
 	_podium.position = _course.world(0.0, PODIUM_S, 0.0)
-	_podium.visible = false
 	add_child(_podium)
-	var body := StandardMaterial3D.new()
-	body.albedo_color = Color(0.93, 0.93, 0.92)
-	body.roughness = 0.35
-	var trims := [Color(1.0, 0.78, 0.25), Color(0.78, 0.8, 0.84), Color(0.8, 0.5, 0.28)]
-	for i in 3:
-		var x: float = PODIUM[i][0]
-		var hgt: float = PODIUM[i][1]
-		var box := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(1.3, hgt, 1.2)
-		box.mesh = bm
-		box.material_override = body
-		box.position = Vector3(x, hgt * 0.5, 0.0)
-		_podium.add_child(box)
-		var band := MeshInstance3D.new()
-		var band_mesh := BoxMesh.new()
-		band_mesh.size = Vector3(1.32, 0.06, 1.22)
-		band.mesh = band_mesh
-		var trim := StandardMaterial3D.new()
-		trim.albedo_color = trims[i]
-		trim.metallic = 0.9
-		trim.roughness = 0.25
-		band.material_override = trim
-		band.position = Vector3(x, hgt - 0.03, 0.0)
-		_podium.add_child(band)
-		var num := Label3D.new()
-		num.text = str(i + 1)
-		num.font = font
-		num.font_size = 120
-		num.pixel_size = 0.004
-		num.modulate = (trims[i] as Color).darkened(0.25)
-		num.outline_size = 10
-		num.outline_modulate = Color(0.25, 0.22, 0.2)
-		num.position = Vector3(x, hgt * 0.5, 0.61)
-		_podium.add_child(num)
+	_podium.configure(PODIUM, Vector2(1.3, 1.2), Vector3(2.4, 0, 0.6), 0.9, font, 0.0)
 
 
 func _podium_spot(i: int) -> Vector3:
-	if i < 3:
-		return _podium.position + Vector3(PODIUM[i][0], PODIUM[i][1], 0.0)
-	return _podium.position + Vector3(2.4 + (i - 3) * 0.9, 0.0, 0.6)
+	var at := _podium.spot(i)
+	return at
 
 
 func _podium_start() -> void:
 	_podium_on = true
-	_podium.visible = true
 	views.visible = false
 	lobby_cam.current = true
 	lobby_cam.fov = 42.0
 	# The results panel sits on the right half; the podium is framed on the left.
 	ui.results_on_right(true)
-	_podium_order = ordered()
-	_podium_order.sort_custom(func(a: Player, b: Player) -> bool: return a.score > b.score)
+	_podium_order = ranked_players()
+	var scores := PackedInt64Array()
+	for p: Player in _podium_order:
+		scores.append(p.score)
+	_podium.present(scores)
 	for i in _podium_order.size():
 		var rig := _rider(_podium_order[i]).sk.rig
 		rig.set_layers(1)
@@ -826,16 +793,13 @@ func _podium_start() -> void:
 		rig.push = -1.0
 		rig.grab = 0
 		rig.wheel_speed = 0.0
-		rig.cheer = 1.0 if i == 0 else (0.5 if i < 3 else 0.0)
+		rig.cheer = _podium.cheer(i)
 	RSSfx.play(self, "chime", -4.0)
 
 
 func _podium_step(delta: float) -> void:
-	var t := phase_time - _podium_at
-	var c := _podium.position
-	var d := 8.5 - minf(t, 6.0) * 0.3
-	lobby_cam.position = c + Vector3(1.6 - minf(t, 6.0) * 0.12, 1.7, d)
-	lobby_cam.look_at(c + Vector3(1.75 * d / 8.5, 1.35, 0.0))
+	_podium.apply_camera(lobby_cam, phase_time - _podium_at, 1.6, -0.12, 8.5, -0.3, 1.7, 1.75, 1.35)
+	_podium.fit_left(lobby_cam)
 	for p: Player in players.values():
 		_rider(p).sk.rig.update(delta)
 	_crowd.volume_db = lerpf(_crowd.volume_db, -9.0, 1.0 - exp(-delta * 1.5))
