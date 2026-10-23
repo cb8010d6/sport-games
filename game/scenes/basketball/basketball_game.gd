@@ -95,7 +95,7 @@ class Shooter:
 	var clip: Array = []
 	var clip_pts := 0
 	var clip_name := ""
-	var rp_i := 0
+	var replay := RSReplay.new()
 	var rp_ball: RSBasketball
 
 
@@ -107,7 +107,7 @@ var _buzzed := false
 var _ambience: AudioStreamPlayer
 var _crowd: AudioStreamPlayer
 var _rng := RandomNumberGenerator.new()
-var _podium: Node3D
+var _podium: RSPodium
 var _podium_on := false
 var _podium_at := 0.0
 var _podium_order: Array = []
@@ -152,7 +152,7 @@ func _setup_world() -> void:
 	RSSfx.warm_up(SFX)
 	_ambience = RSSfx.loop(self, "city_amb")
 	_crowd = RSSfx.loop(self, "applause")
-	_podium = Node3D.new()
+	_podium = RSPodium.new()
 	add_child(_podium)
 	_build_podium()
 	lobby_cam.far = 4000
@@ -238,7 +238,7 @@ func _player_button(p: Player, button: int, pressed: bool) -> void:
 	var s := _sh(p)
 	if pressed and s.st == St.READY:
 		_to(s, St.SET)
-		s.set_yaw = _heading(p.c.orientation)
+		s.set_yaw = _heading(p.c.motion_orientation())
 		s.rig.play(RSBallerRig.Move.SET)
 	elif not pressed and s.st == St.SET:
 		s.rel_t = p.c.sample_time
@@ -246,6 +246,7 @@ func _player_button(p: Player, button: int, pressed: bool) -> void:
 
 
 func _round_started(list: Array) -> void:
+	_podium.reset()
 	_time_left = TIME_LIMIT
 	_beep = 4
 	_buzzed = false
@@ -278,6 +279,7 @@ func _round_started(list: Array) -> void:
 		s.pend.clear()
 		s.post = -1.0
 		s.clip = []
+		s.replay.reset(s.clip)
 		s.clip_pts = 0
 		s.bot = p.fake
 		s.rng.seed = 77 + p.c.player * 31 + _rng.randi_range(0, 9999)
@@ -296,7 +298,7 @@ func _round_started(list: Array) -> void:
 
 func _to_lobby() -> void:
 	super._to_lobby()
-	_podium.visible = false
+	_podium.reset()
 	_podium_on = false
 	ui.results_on_right(false)
 	for p: Player in players.values():
@@ -516,10 +518,10 @@ func _read_flick(p: Player, s: Shooter) -> void:
 			break
 		peak = maxf(peak, c.hist_gyro[i].length())
 		if t <= s.rel_t - 0.25 and not have_turn:
-			turn_at = _heading(c.hist_quat[i])
+			turn_at = _heading(c.motion_pose(c.hist_quat[i]))
 			have_turn = true
 	if not have_turn:
-		turn_at = _heading(c.orientation)
+		turn_at = _heading(c.motion_orientation())
 	s.peak = peak
 	s.e_raw = (peak - P_IDEAL) / P_IDEAL
 	s.lat_raw = clampf(-wrapf(turn_at - s.set_yaw, -PI, PI) / LAT_FULL, -1.5, 1.5)
@@ -645,7 +647,7 @@ func _made(p: Player, s: Shooter, b: RSBasketball) -> void:
 	_log(p, "MADE %s +%d" % ["swish" if swish else "rim", pts])
 	if pts > maxi(s.clip_pts, s.pend_pts if s.post >= 0.0 else 0) or pts == s.clip_pts and b.money:
 		var t0 := float(b.get_meta("t0")) - 1.1
-		s.pend = s.rec.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= t0)
+		s.pend = RSReplay.since(s.rec, t0)
 		s.pend_pts = pts
 		s.pend_name = label.trim_suffix("！").trim_suffix("!")   # no-i18n
 		s.pend_ball = b.get_instance_id()
@@ -743,13 +745,10 @@ func _camera(p: Player, s: Shooter, dt: float, snap: bool) -> void:
 	p.cam.fov = 47.0
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
 		# Intro: from high over the city edge, swooping down behind the shooter.
-		var u := smoothstep(0.0, INTRO, phase_time)
 		var p0 := Vector3(RSBallCourt.court_x(s.court) * 0.4, 26.0, 46.0)
 		var p1 := s.pos + back * 9.0 + Vector3.UP * 5.0
-		var at := p0.lerp(p1, u).lerp(p1.lerp(s.cam_pos, u), u)
-		p.cam.global_position = at
-		p.cam.look_at(Vector3(RSBallCourt.court_x(s.court), 1.0, 2.0).lerp(s.cam_look, smoothstep(0.4, 1.0, u)))
-		p.cam.fov = lerpf(50.0, 47.0, u)
+		RSIntro.apply(p.cam, phase_time, INTRO, p0, p1, s.cam_pos,
+			Vector3(RSBallCourt.court_x(s.court), 1.0, 2.0), s.cam_look, 50.0, 47.0, 0.4)
 
 
 # ------------------------------------------------------------------- hints / OLED ----
@@ -812,9 +811,7 @@ func _record(s: Shooter, dt: float) -> void:
 	for b in s.flying:
 		if _clock - float(b.get_meta("t0", 0.0)) < 4.0:
 			balls[b.get_instance_id()] = [b.global_transform, b.money]
-	s.rec.append({"t": _clock, "xf": s.rig.global_transform, "pose": s.rig.capture(), "balls": balls})
-	while not s.rec.is_empty() and _clock - float(s.rec[0]["t"]) > CLIP_KEEP:
-		s.rec.pop_front()
+	RSReplay.record(s.rec, {"t": _clock, "xf": s.rig.global_transform, "pose": s.rig.capture(), "balls": balls}, CLIP_KEEP)
 	if s.post >= 0.0:
 		s.pend.append(s.rec.back())
 		s.post -= dt
@@ -832,22 +829,18 @@ func _keep_clip(s: Shooter) -> void:
 	s.post = -1.0
 
 
-func _clip_len(s: Shooter) -> float:
-	return float(s.clip.back()["t"]) - float(s.clip[0]["t"]) if s.clip.size() > 1 else 0.0
-
-
 func finish_round() -> void:
 	var longest := 0.0
 	for p: Player in players.values():
 		var s := _sh(p)
 		if s.post >= 0.0:
 			_keep_clip(s)
-		longest = maxf(longest, _clip_len(s) / SLOW)
-		s.rp_i = 0
+		longest = maxf(longest, RSReplay.duration(s.clip) / SLOW)
+		s.replay.reset(s.clip)
 		_clear_balls(s)
 		if s.clip.size() > 1:
 			s.rig.set_layers(1 << p.c.player)
-	_podium_at = minf(longest, 9.0) + (0.3 if longest > 0.0 else 0.0)
+	_podium_at = RSReplay.lead_out(longest, 9.0)
 	results_delay = _podium_at + 1.6
 	_podium_on = false
 	super.finish_round()
@@ -855,17 +848,13 @@ func finish_round() -> void:
 
 func _replay_step(p: Player, delta: float) -> void:
 	var s := _sh(p)
-	if s.clip.size() < 2:
+	if not s.replay.sample(phase_time, SLOW):
 		s.rig.update(delta)
 		_camera(p, s, delta, false)
 		return
-	var t := float(s.clip[0]["t"]) + minf(phase_time * SLOW, _clip_len(s))
-	while s.rp_i + 1 < s.clip.size() and float(s.clip[s.rp_i + 1]["t"]) <= t:
-		s.rp_i += 1
-	var fa: Dictionary = s.clip[s.rp_i]
-	var fb: Dictionary = s.clip[mini(s.rp_i + 1, s.clip.size() - 1)]
-	var span := maxf(float(fb["t"]) - float(fa["t"]), 1e-4)
-	var u := clampf((t - float(fa["t"])) / span, 0.0, 1.0)
+	var fa := s.replay.a
+	var fb := s.replay.b
+	var u := s.replay.weight
 	s.rig.global_transform = (fa["xf"] as Transform3D).interpolate_with(fb["xf"], u)
 	s.rig.show_pose(fa["pose"])
 	var ball_at := Vector3.ZERO
@@ -914,76 +903,40 @@ func _draw_replay(h: PlayerHud, p: Player, k: float) -> void:
 # ------------------------------------------------------------------------- podium ----
 
 func _build_podium() -> void:
-	_podium.visible = false
 	_podium.position = PODIUM_AT
-	var body := StandardMaterial3D.new()
-	body.albedo_color = Color(0.93, 0.93, 0.92)
-	body.roughness = 0.35
-	var trims := [Color(1.0, 0.78, 0.25), Color(0.78, 0.8, 0.84), Color(0.8, 0.5, 0.28)]
-	for i in 3:
-		var x: float = PODIUM[i][0]
-		var hgt: float = PODIUM[i][1]
-		var box := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(1.4, hgt, 1.6)
-		box.mesh = bm
-		box.material_override = body
-		box.position = Vector3(x, hgt * 0.5, 0.0)
-		_podium.add_child(box)
-		var band := MeshInstance3D.new()
-		var band_mesh := BoxMesh.new()
-		band_mesh.size = Vector3(1.42, 0.06, 1.62)
-		band.mesh = band_mesh
-		var trim := StandardMaterial3D.new()
-		trim.albedo_color = trims[i]
-		trim.metallic = 0.9
-		trim.roughness = 0.25
-		band.material_override = trim
-		band.position = Vector3(x, hgt - 0.03, 0.0)
-		_podium.add_child(band)
-		var num := Label3D.new()
-		num.text = str(i + 1)
-		num.font = font
-		num.font_size = 120
-		num.pixel_size = 0.004
-		num.modulate = (trims[i] as Color).darkened(0.25)
-		num.outline_size = 10
-		num.outline_modulate = Color(0.25, 0.22, 0.2)
-		num.position = Vector3(x, hgt * 0.5, 0.81)
-		_podium.add_child(num)
+	_podium.configure(PODIUM, Vector2(1.4, 1.6), Vector3(2.7, 0, 0.7), 1.0, font, 0.0)
 
 
 func _podium_spot(i: int) -> Vector3:
-	if i < 3:
-		return PODIUM_AT + Vector3(PODIUM[i][0], PODIUM[i][1], 0.0)
-	return PODIUM_AT + Vector3(2.7 + (i - 3) * 1.0, 0.0, 0.7)
+	var at := _podium.spot(i)
+	return at
 
 
 func _podium_start() -> void:
 	_podium_on = true
-	_podium.visible = true
 	for p: Player in players.values():
 		_sh(p).rp_ball.visible = false
 	views.visible = false
 	lobby_cam.current = true
 	lobby_cam.fov = 42.0
 	ui.results_on_right(true)
-	_podium_order = ordered()
-	_podium_order.sort_custom(func(a: Player, b: Player) -> bool: return a.score > b.score)
+	_podium_order = ranked_players()
+	var scores := PackedInt64Array()
+	for p: Player in _podium_order:
+		scores.append(p.score)
+	_podium.present(scores)
 	for i in _podium_order.size():
 		var rig := _sh(_podium_order[i]).rig
 		rig.set_layers(1)
 		rig.global_transform = Transform3D(Basis(Vector3.UP, PI), _podium_spot(i))
-		rig.play(RSBallerRig.Move.CHEER if i == 0 else (RSBallerRig.Move.CELEBRATE if i < 3 else RSBallerRig.Move.SAD))
+		rig.play(RSBallerRig.Move.CHEER if _podium.rank(i) == 1 else (RSBallerRig.Move.CELEBRATE if _podium.rank(i) <= 3 else RSBallerRig.Move.SAD))
 	RSSfx.play(self, "chime", -4.0)
 
 
 func _podium_step(delta: float) -> void:
-	var t := phase_time - _podium_at
-	var c := PODIUM_AT
-	var d := 6.2 - minf(t, 6.0) * 0.15
-	lobby_cam.position = c + Vector3(-2.6 + minf(t, 6.0) * 0.12, 1.9, d)
-	lobby_cam.look_at(c + Vector3(1.4 * d / 6.2, 1.25, 0.0))
+	# Framing four players retreats beyond the roof edge; film over the glass handrail.
+	_podium.apply_camera(lobby_cam, phase_time - _podium_at, -2.6, 0.12, 6.2, -0.15, 3.5, 1.4, 1.25)
+	_podium.fit_left(lobby_cam)
 	for p: Player in players.values():
 		_sh(p).rig.update(delta)
 	_crowd.volume_db = lerpf(_crowd.volume_db, -12.0, 1.0 - exp(-delta * 1.5))

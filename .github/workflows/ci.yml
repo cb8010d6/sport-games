@@ -105,7 +105,17 @@ jobs:
       - name: Test music buses, fades, pause and scene lifecycle
         run: python tools/test_music.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
       - run: python tools/i18n_check.py
+      - name: Test per-player hand preferences, mirrored motion and tutorials
+        run: python tools/test_left_hand.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --ui-only
       - name: Test bilingual menu previews and input navigation
         run: python tools/test_menu_preview.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
       - name: Test camera accessibility settings and reload
         run: python tools/test_camera_comfort.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --ui-only
+      - name: Test shared podium ranks, geometry and results framing
+        run: python tools/test_podium.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --math-only
+      - name: Test shared slow-motion timing and recording windows
+        run: python tools/test_replay.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --math-only
+      - name: Test shared opening geometry and boundary cases
+        run: python tools/test_intro.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --math-only
+      - name: Test bilingual text sizes, live menus and reload
+        run: python tools/test_text_size.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --ui-only

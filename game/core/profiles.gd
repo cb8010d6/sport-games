@@ -23,6 +23,7 @@ static func load_once() -> void:
 			"avatar": clampi(RSSave.integer(cf, key, "avatar", slot - 1), 0, 3),
 			"phone_name": RSSave.string_value(cf, key, "phone_name", ""),
 			"tutorials": _tutorial_ids(cf.get_value(key, "tutorials", [])),
+			"left_handed": RSSave.boolean(cf, key, "left_handed", false),
 		}
 
 
@@ -63,13 +64,23 @@ static func avatar(slot: int) -> int:
 	return int(profile(slot)["avatar"])
 
 
-static func update(slot: int, name: String, color: int, look: int) -> Error:
+static func left_handed(slot: int) -> bool:
+	load_once()
+	return bool(_slots[slot]["left_handed"]) if slot >= 1 and slot <= 4 else false
+
+
+static func update(slot: int, name: String, color: int, look: int, hand: int = -1) -> Error:
+	## hand: -1 preserves the current preference, 0 = right, 1 = left.
+	if hand < -1 or hand > 1:
+		return ERR_INVALID_PARAMETER
 	load_once()
 	slot = clampi(slot, 1, 4)
 	var previous: Dictionary = _slots[slot].duplicate(true)
 	_slots[slot]["name"] = clean_name(name, slot)
 	_slots[slot]["color"] = clampi(color, 0, COLORS.size() - 1)
 	_slots[slot]["avatar"] = clampi(look, 0, 3)
+	if hand >= 0:
+		_slots[slot]["left_handed"] = hand == 1
 	var err := save()
 	if err != OK:
 		_slots[slot] = previous
