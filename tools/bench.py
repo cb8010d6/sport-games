@@ -208,6 +208,18 @@ def run_case(godot: str, case: Case, args: argparse.Namespace, output: Path) -> 
                 f"--bench-duration={args.duration}", f"--bench-output={pending}", f"--bench-seed={args.seed}"]
     errors: list[str] = []
     before = power_status()
+    if before.get("ac") == "OFFLINE":
+        errors.append("AC power is OFFLINE before launch; engine was not started")
+        metadata = {**source_revision(), "power_before": before, "power_after": None,
+                    "power_endpoints_online": False, "requested_gpu_index": args.gpu_index}
+        write_json(raw_path, {"schema_version": 1, "status": "FAIL", "runner_status": None,
+                              "runner_errors": None, "errors": errors, "exit_code": None, "timeout": False,
+                              **asdict(case), "warmup_seconds": args.warmup, "duration_seconds": args.duration,
+                              "elapsed_seconds": 0.0, "frames": 0, "samples": [], "metadata": metadata})
+        (directory / "run.log").write_text(errors[0] + "\n", encoding="utf-8")
+        return {**asdict(case), "status": "FAIL", "errors": errors, "raw": f"{case.name}/raw.json",
+                "log": f"{case.name}/run.log", "metadata": metadata,
+                "expected_repeats": args.repeat, "statistics": None}
     stdout = stderr = ""
     exit_code = None
     timed_out = False
@@ -249,7 +261,12 @@ def run_case(godot: str, case: Case, args: argparse.Namespace, output: Path) -> 
         pending.unlink(missing_ok=True)
     metadata = report.get("metadata") if isinstance(report.get("metadata"), dict) else {}
     report["metadata"] = metadata
-    metadata.update({**source_revision(), "power_before": before, "power_after": power_status(), "requested_gpu_index": args.gpu_index})
+    after = power_status()
+    if after.get("ac") == "OFFLINE":
+        errors.append("AC power is OFFLINE after engine run; measurement is invalid")
+    metadata.update({**source_revision(), "power_before": before, "power_after": after,
+                     "power_endpoints_online": before.get("ac") == "ONLINE" and after.get("ac") == "ONLINE",
+                     "requested_gpu_index": args.gpu_index})
     runner_status, runner_errors = report.get("status"), report.get("errors")
     report.update({"schema_version": 1, "status": "FAIL" if errors else "PASS", "runner_status": runner_status,
                    "runner_errors": runner_errors, "errors": errors, "exit_code": exit_code, "timeout": timed_out, **asdict(case)})
