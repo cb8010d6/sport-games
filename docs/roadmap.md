@@ -103,6 +103,8 @@ M1 核心 → M2（高尔夫 → 乒乓球 → 网球 → 水上摩托 → 拳�
 - [ ] 公共演出模块（M）
   - 开场飞越 `core/intro.gd`、慢动作回放 `core/replay.gd`、领奖台 `core/podium.gd`
   - 滑板、滑雪、篮球改用公共版
+  - [x] 公共领奖台：三项目共享台阶 / 镜头、同分同高度与庆祝、四人左侧取景；见 [第十一阶段](PHASE_11_SHARED_PODIUM.md)
+  - 公共开场与回放已分别提交 [PR #17](https://github.com/cb8010d6/sport-games/pull/17) / [PR #18](https://github.com/cb8010d6/sport-games/pull/18)，待合入后汇总勾选本总项
 
 **无障碍**
 - [ ] 无障碍选项（S）

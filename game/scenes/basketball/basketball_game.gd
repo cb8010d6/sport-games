@@ -107,7 +107,7 @@ var _buzzed := false
 var _ambience: AudioStreamPlayer
 var _crowd: AudioStreamPlayer
 var _rng := RandomNumberGenerator.new()
-var _podium: Node3D
+var _podium: RSPodium
 var _podium_on := false
 var _podium_at := 0.0
 var _podium_order: Array = []
@@ -152,7 +152,7 @@ func _setup_world() -> void:
 	RSSfx.warm_up(SFX)
 	_ambience = RSSfx.loop(self, "city_amb")
 	_crowd = RSSfx.loop(self, "applause")
-	_podium = Node3D.new()
+	_podium = RSPodium.new()
 	add_child(_podium)
 	_build_podium()
 	lobby_cam.far = 4000
@@ -246,6 +246,7 @@ func _player_button(p: Player, button: int, pressed: bool) -> void:
 
 
 func _round_started(list: Array) -> void:
+	_podium.reset()
 	_time_left = TIME_LIMIT
 	_beep = 4
 	_buzzed = false
@@ -296,7 +297,7 @@ func _round_started(list: Array) -> void:
 
 func _to_lobby() -> void:
 	super._to_lobby()
-	_podium.visible = false
+	_podium.reset()
 	_podium_on = false
 	ui.results_on_right(false)
 	for p: Player in players.values():
@@ -914,76 +915,40 @@ func _draw_replay(h: PlayerHud, p: Player, k: float) -> void:
 # ------------------------------------------------------------------------- podium ----
 
 func _build_podium() -> void:
-	_podium.visible = false
 	_podium.position = PODIUM_AT
-	var body := StandardMaterial3D.new()
-	body.albedo_color = Color(0.93, 0.93, 0.92)
-	body.roughness = 0.35
-	var trims := [Color(1.0, 0.78, 0.25), Color(0.78, 0.8, 0.84), Color(0.8, 0.5, 0.28)]
-	for i in 3:
-		var x: float = PODIUM[i][0]
-		var hgt: float = PODIUM[i][1]
-		var box := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(1.4, hgt, 1.6)
-		box.mesh = bm
-		box.material_override = body
-		box.position = Vector3(x, hgt * 0.5, 0.0)
-		_podium.add_child(box)
-		var band := MeshInstance3D.new()
-		var band_mesh := BoxMesh.new()
-		band_mesh.size = Vector3(1.42, 0.06, 1.62)
-		band.mesh = band_mesh
-		var trim := StandardMaterial3D.new()
-		trim.albedo_color = trims[i]
-		trim.metallic = 0.9
-		trim.roughness = 0.25
-		band.material_override = trim
-		band.position = Vector3(x, hgt - 0.03, 0.0)
-		_podium.add_child(band)
-		var num := Label3D.new()
-		num.text = str(i + 1)
-		num.font = font
-		num.font_size = 120
-		num.pixel_size = 0.004
-		num.modulate = (trims[i] as Color).darkened(0.25)
-		num.outline_size = 10
-		num.outline_modulate = Color(0.25, 0.22, 0.2)
-		num.position = Vector3(x, hgt * 0.5, 0.81)
-		_podium.add_child(num)
+	_podium.configure(PODIUM, Vector2(1.4, 1.6), Vector3(2.7, 0, 0.7), 1.0, font, 0.0)
 
 
 func _podium_spot(i: int) -> Vector3:
-	if i < 3:
-		return PODIUM_AT + Vector3(PODIUM[i][0], PODIUM[i][1], 0.0)
-	return PODIUM_AT + Vector3(2.7 + (i - 3) * 1.0, 0.0, 0.7)
+	var at := _podium.spot(i)
+	return at
 
 
 func _podium_start() -> void:
 	_podium_on = true
-	_podium.visible = true
 	for p: Player in players.values():
 		_sh(p).rp_ball.visible = false
 	views.visible = false
 	lobby_cam.current = true
 	lobby_cam.fov = 42.0
 	ui.results_on_right(true)
-	_podium_order = ordered()
-	_podium_order.sort_custom(func(a: Player, b: Player) -> bool: return a.score > b.score)
+	_podium_order = ranked_players()
+	var scores := PackedInt64Array()
+	for p: Player in _podium_order:
+		scores.append(p.score)
+	_podium.present(scores)
 	for i in _podium_order.size():
 		var rig := _sh(_podium_order[i]).rig
 		rig.set_layers(1)
 		rig.global_transform = Transform3D(Basis(Vector3.UP, PI), _podium_spot(i))
-		rig.play(RSBallerRig.Move.CHEER if i == 0 else (RSBallerRig.Move.CELEBRATE if i < 3 else RSBallerRig.Move.SAD))
+		rig.play(RSBallerRig.Move.CHEER if _podium.rank(i) == 1 else (RSBallerRig.Move.CELEBRATE if _podium.rank(i) <= 3 else RSBallerRig.Move.SAD))
 	RSSfx.play(self, "chime", -4.0)
 
 
 func _podium_step(delta: float) -> void:
-	var t := phase_time - _podium_at
-	var c := PODIUM_AT
-	var d := 6.2 - minf(t, 6.0) * 0.15
-	lobby_cam.position = c + Vector3(-2.6 + minf(t, 6.0) * 0.12, 1.9, d)
-	lobby_cam.look_at(c + Vector3(1.4 * d / 6.2, 1.25, 0.0))
+	# Framing four players retreats beyond the roof edge; film over the glass handrail.
+	_podium.apply_camera(lobby_cam, phase_time - _podium_at, -2.6, 0.12, 6.2, -0.15, 3.5, 1.4, 1.25)
+	_podium.fit_left(lobby_cam)
 	for p: Player in players.values():
 		_sh(p).rig.update(delta)
 	_crowd.volume_db = lerpf(_crowd.volume_db, -12.0, 1.0 - exp(-delta * 1.5))

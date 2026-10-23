@@ -9,6 +9,11 @@
   ],
   "documented": [
     {
+      "prefix": "docs/screenshots/phase11-podium-",
+      "license": "MIT AND CC0-1.0",
+      "evidence": "docs/PHASE_11_SHARED_PODIUM.md"
+    },
+    {
       "prefix": "docs/screenshots/phase3-solo-",
       "license": "MIT",
       "evidence": "docs/PHASE_3_SOLO.md#界面截图"

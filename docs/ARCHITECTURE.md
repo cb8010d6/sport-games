@@ -82,9 +82,12 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 | 文案 | 节点里 `tr("中文")`，静态代码里 `RSLang.t("中文")`；英文在 `game/i18n/en.json` | 直接写英文、拼接句子 |
 | 材质、道具 | `RSPbr.surface / standard`，`RSProps.place`（MultiMesh 批量） | 每个物体一个材质、一个节点 |
 | 人物 | `RSHumanRig` 子类（MPFB 角色，FK / IK 姿态） | 另做一套骨骼控制 |
+| 领奖台 | `RSPodium.configure(steps, footprint, extra, spacing, font, buried)` 在场景加载时建模；`present(scores)`、`rank(i)`、`cheer(i)`、`spot(i)`、`apply_camera(...)` 共用名次、台面、世界坐标站位和推进镜头；`fit_left(camera)` 为右侧成绩留出空间，`reset()` 隐藏并清除上一局名次 | 三个项目重复搭建台阶、计算名次与镜头公式 |
 | 存档 | 只在 `core` 里读写 `user://`（ARCH-SAVE）：`RSSettings`（settings.cfg），PR #2 合并后还有 `RSProfiles`（profiles.cfg）、`RSRecords`（records.cfg）、`RSTournament`（内存中的派对赛） | 项目自己写文件 |
 
 ## 4. 数据与接口
+
+公共领奖台由滑板、滑雪、篮球各自持有，不增加 autoload。项目传入台阶尺寸、地下埋深、第四名站位与镜头参数，以 `ranked_players()` 的稳定顺序向 `present` 提供 64 位分数；并列名次沿用成绩页的竞赛排名（1、1、3），同名次使用同台面高度、奖牌色和庆祝等级。第四位并列前三时显示额外台阶，并向外留出间隔；普通第四名仍站在原地面位置，滑雪继续负责地形高度修正。`fit_left` 在配置的镜头上平移 / 后退，保持朝向与 FOV，让台面、人物和编号落在画面左半侧，避免被右侧成绩挡住；篮球将初始机位抬到 3.5 米，避免后退后被楼顶护栏遮挡。公共层不依赖项目类，不计分、不改变派对积分或存档。人物姿势、场景 / 分屏切换、音效与雪粒子仍由项目处理。所有模型 / 材质只在加载时建立，领奖时调整已有网格；每帧只更新相机数学，时间由原有成绩阶段驱动。
 
 无障碍的镜头晃动开关由 `RSSettings.camera_shake` 统一保存到现有 `settings.cfg`，主菜单和游戏暂停菜单共用无障碍页面。滑板、滑雪在生成原有随机偏移后决定是否应用，保持原随机数消耗顺序，关闭抖动不改变运动物理、机器人决策或计分。
 
