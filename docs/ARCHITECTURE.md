@@ -75,6 +75,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 | 手柄屏幕 | `send_ui(p, {...})`（自动去重） | 每帧发同样的内容 |
 | 音效 | `RSSfx.play(node, id)`、`RSSfx.loop(node, id)`，加载时 `RSSfx.warm_up([...])` | 自己 new AudioStreamPlayer（ARCH-AUDIO）；所有声音必须走 `RSAudio` 的总线，音量设置才有效 |
 | 音乐 | `RSMusic.attach(parent)` 创建随场景释放的公共播放器，`play_track("menu" / "lobby" / "victory")`、`silence()`，统一走 `RSAudio.MUSIC` 总线 | 项目自己放背景音乐 |
+| 退出 | `RSExit.quit(get_tree(), code)`：暂停场景、停掉所有声音、按真实时间等 350 ms 让音频线程释放，再退出。菜单和 `RSPartyGame` 调用 `RSExit.install(tree)`，关窗口也走这条路 | 直接 `get_tree().quit()`（ARCH-QUIT），退出时会报音频资源泄漏 |
 | 界面 | `RSUi.theme / label / panel_style`；大厅、成绩、暂停在 `RSPartyUi`、`RSPauseMenu` | 每个项目自建一套面板样式 |
 | 分屏 | `RSPartyViews`（`views`）；每个玩家的相机在 `p.cam`，可见层为 `1 | 1 << 玩家号` | 自建 SubViewport |
 | 画面设置 | `RSSettings.apply(tree)`、`apply_viewport(vp)`、`environment(env)`、`sun_shadows(sun)` | 写死阴影、抗锯齿、帧率 |
