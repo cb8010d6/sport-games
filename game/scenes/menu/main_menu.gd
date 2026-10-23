@@ -99,6 +99,7 @@ func _ready() -> void:
 	var title := RSUi.label("Regina Sports", 64)
 	col.add_child(title)
 	var sub := RSUi.label(tr("体感运动游戏 · 拿起手柄就能玩"), 22, Color(0.85, 0.9, 1.0))
+	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(sub)
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 6)
@@ -112,17 +113,23 @@ func _ready() -> void:
 	for s: StyleBox in [normal, hover, focus]:
 		s.content_margin_top = 6
 		s.content_margin_bottom = 6
+	var scroll := ScrollContainer.new()
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	col.add_child(scroll)
 	_menu_grid = GridContainer.new()
+	_menu_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	_menu_grid.columns = 2
 	_menu_grid.add_theme_constant_override("h_separation", 12)
 	_menu_grid.add_theme_constant_override("v_separation", 8)
-	col.add_child(_menu_grid)
+	scroll.add_child(_menu_grid)
 	for i in GAMES.size():
 		var b := Button.new()
 		b.text = "  " + _name(i)
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.custom_minimum_size = Vector2(324, 48)
-		b.add_theme_font_size_override("font_size", 22)
+		RSUi.set_text_size(b, 22)
 		b.add_theme_stylebox_override("normal", normal)
 		b.add_theme_stylebox_override("hover", hover)
 		b.add_theme_stylebox_override("pressed", hover)
@@ -137,6 +144,7 @@ func _ready() -> void:
 	_desc.custom_minimum_size = Vector2(660, 72)
 	col.add_child(_desc)
 	var hint := RSUi.label(tr("手柄：B / C 选择，A 进入　　键盘：方向键 + 回车\n游戏里短按 D 或 Esc 打开暂停菜单：重新开始、画面设置、语言、回主菜单"), 15, Color(0.88, 0.92, 1.0, 0.8))
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(hint)
 	_status = RSUi.label("", 15)
 	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

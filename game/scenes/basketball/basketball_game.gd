@@ -238,7 +238,7 @@ func _player_button(p: Player, button: int, pressed: bool) -> void:
 	var s := _sh(p)
 	if pressed and s.st == St.READY:
 		_to(s, St.SET)
-		s.set_yaw = _heading(p.c.orientation)
+		s.set_yaw = _heading(p.c.motion_orientation())
 		s.rig.play(RSBallerRig.Move.SET)
 	elif not pressed and s.st == St.SET:
 		s.rel_t = p.c.sample_time
@@ -516,10 +516,10 @@ func _read_flick(p: Player, s: Shooter) -> void:
 			break
 		peak = maxf(peak, c.hist_gyro[i].length())
 		if t <= s.rel_t - 0.25 and not have_turn:
-			turn_at = _heading(c.hist_quat[i])
+			turn_at = _heading(c.motion_pose(c.hist_quat[i]))
 			have_turn = true
 	if not have_turn:
-		turn_at = _heading(c.orientation)
+		turn_at = _heading(c.motion_orientation())
 	s.peak = peak
 	s.e_raw = (peak - P_IDEAL) / P_IDEAL
 	s.lat_raw = clampf(-wrapf(turn_at - s.set_yaw, -PI, PI) / LAT_FULL, -1.5, 1.5)

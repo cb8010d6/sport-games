@@ -1,4 +1,9 @@
 {
+  "右手": "Right hand",
+  "左手": "Left hand",
+  "惯用手": "Preferred hand",
+  "左手模式会镜像左右手势；按键、前后倾斜与起跳不变。可分别为四位玩家设置。": "Left-hand mode mirrors sideways gestures. Buttons, forward/back tilt and upward flicks stay the same. Set each player separately.",
+  "向左倾斜手柄，并保持片刻": "Tilt the controller left and hold briefly",
  "电脑 · %s": "CPU · %s",
  "挑战星数：%d / 3（地图 1 个人最佳）": "Challenge stars: %d / 3 (Map 1 personal best)",
  "单人挑战 · %s · P%d 对战电脑": "Solo challenge · %s · P%d vs CPU",
@@ -383,5 +388,8 @@
  "全部 6 项": "All 6",
  "开始大赛": "Start tournament",
  "请选择 3–6 个项目，并连接至少一个已分配玩家编号的手柄。": "Choose 3–6 events and connect at least one controller assigned to a player slot.",
- "Regina Sports 原创代码与维护者声明的 AI 原创素材：MIT。\n\nGodot Engine：MIT；Jolt Physics：MIT。\n背景音乐：本项目乐谱与合成，CC0。\nPoly Haven：CC0 天空、材质、模型及树木素材。\nMakeHuman / MPFB：使用官方 CC0 系统素材导出的角色。\n角色素材历史署名：Data Collection AB、Joel Palmius、Jonas Hauquier。\n\n当前音效、手柄模型与涂鸦的 AI 原创声明见 ASSET_PROVENANCE.md。\n逐项作者、素材 ID 与来源见 docs/THIRD_PARTY.md 和素材目录中的 CREDITS.md。\n打包发布时仍需汇总实际捆绑依赖的完整许可。": "Regina Sports original code and maintainer-declared AI originals: MIT.\n\nGodot Engine: MIT; Jolt Physics: MIT.\nBackground music: project score and synthesis, CC0.\nPoly Haven: CC0 skies, materials, models and trees.\nMakeHuman / MPFB: characters exported from official CC0 system assets.\nHistorical character asset credits: Data Collection AB, Joel Palmius, Jonas Hauquier.\n\nSee ASSET_PROVENANCE.md for the AI originality declarations covering sound effects, the controller model and decals.\nPer-asset authors, IDs and sources: docs/THIRD_PARTY.md and CREDITS.md files in the asset folders.\nBinary releases must also include the full notices for their bundled dependencies."
+ "Regina Sports 原创代码与维护者声明的 AI 原创素材：MIT。\n\nGodot Engine：MIT；Jolt Physics：MIT。\n背景音乐：本项目乐谱与合成，CC0。\nPoly Haven：CC0 天空、材质、模型及树木素材。\nMakeHuman / MPFB：使用官方 CC0 系统素材导出的角色。\n角色素材历史署名：Data Collection AB、Joel Palmius、Jonas Hauquier。\n\n当前音效、手柄模型与涂鸦的 AI 原创声明见 ASSET_PROVENANCE.md。\n逐项作者、素材 ID 与来源见 docs/THIRD_PARTY.md 和素材目录中的 CREDITS.md。\n打包发布时仍需汇总实际捆绑依赖的完整许可。": "Regina Sports original code and maintainer-declared AI originals: MIT.\n\nGodot Engine: MIT; Jolt Physics: MIT.\nBackground music: project score and synthesis, CC0.\nPoly Haven: CC0 skies, materials, models and trees.\nMakeHuman / MPFB: characters exported from official CC0 system assets.\nHistorical character asset credits: Data Collection AB, Joel Palmius, Jonas Hauquier.\n\nSee ASSET_PROVENANCE.md for the AI originality declarations covering sound effects, the controller model and decals.\nPer-asset authors, IDs and sources: docs/THIRD_PARTY.md and CREDITS.md files in the asset folders.\nBinary releases must also include the full notices for their bundled dependencies.",
+  "标准（100%）": "Standard (100%)",
+  "大（125%）": "Large (125%)",
+  "界面字号　◀ %s ▶": "Text size  ◀ %s ▶"
 }

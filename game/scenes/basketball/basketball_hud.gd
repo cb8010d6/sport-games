@@ -2,6 +2,11 @@ class_name RSBasketballHud
 extends RefCounted
 ## Basketball HUD and replay overlays. Gameplay state remains owned by the game.
 
+
+static func power_meter_rect(size: Vector2, k: float) -> Rect2:
+	return Rect2(Vector2(size.x - 54 * k, size.y * 0.28), Vector2(16 * k, size.y * 0.4))
+
+
 static func draw_hud(game: RSBasketballGame, h: RSPartyGame.PlayerHud, p: RSPartyGame.Player, k: float) -> void:
 	var s := game._sh(p)
 	var sz := h.size
@@ -61,7 +66,7 @@ static func draw_hud(game: RSBasketballGame, h: RSPartyGame.PlayerHud, p: RSPart
 	var age := game._clock - s.meter_t
 	if age < 1.8:
 		var a := clampf((1.8 - age) / 0.4, 0.0, 1.0)
-		var bar := Rect2(Vector2(sz.x - 54 * k, sz.y * 0.28), Vector2(16 * k, sz.y * 0.4))
+		var bar := power_meter_rect(sz, k)
 		h.draw_style_box(game._pill, Rect2(bar.position - Vector2(16, 34) * k, bar.size + Vector2(32, 60) * k))
 		var span := 0.8
 		var ycol := func(e: float) -> float: return bar.end.y - bar.size.y * clampf((e + span) / (span * 2.0), 0.0, 1.0)
@@ -79,12 +84,13 @@ static func draw_hud(game: RSBasketballGame, h: RSPartyGame.PlayerHud, p: RSPart
 	if fa < 1.3:
 		var a := clampf((1.3 - fa) / 0.4, 0.0, 1.0)
 		var grow := 1.0 + 0.25 * maxf(0.0, 1.0 - fa * 6.0)
-		game.draw_text(h, s.flash, Vector2(sz.x * 0.5, sz.y * 0.3), 46 * k * grow, Color(s.flash_col, a), true)
+		# Keep verdicts below the shared rising score popups, including large text.
+		game.draw_text(h, s.flash, Vector2(sz.x * 0.5, sz.y * 0.52), 46 * k * grow, Color(s.flash_col, a), true)
 
 	if s.st == RSBasketballGame.St.SET and not p.fake:
 		game.draw_text(h, game.tr("甩手腕 + 松开 B 出手"), Vector2(sz.x * 0.5, sz.y - 66 * k), 20 * k, Color(1, 1, 1, 0.8), true)
 	if s.st == RSBasketballGame.St.DONE and game.phase == RSBasketballGame.Phase.PLAY:
-		game.draw_text(h, game.tr("投完了！"), Vector2(sz.x * 0.5, sz.y * 0.55), 44 * k, RSBasketballGame.GOLD, true)
+		game.draw_text(h, game.tr("投完了！"), Vector2(sz.x * 0.5, sz.y * 0.72), 44 * k, RSBasketballGame.GOLD, true)
 	if s.hint_t > 0.0:
 		var a := clampf(s.hint_t, 0.0, 1.0)
 		game.draw_pill(h, s.hint, Vector2(sz.x * 0.5, sz.y * 0.16), 17 * k, Color(1, 1, 1, a))
@@ -101,7 +107,7 @@ static func draw_overlay(game: RSBasketballGame, o: RSPartyGame.Overlay, k: floa
 	elif game.phase == RSBasketballGame.Phase.COUNTDOWN:
 		game.draw_text(o, game.tr("按住 B 举球，往上甩手腕 + 松开 B 出手"), Vector2(o.size.x * 0.5, o.size.y * 0.45 + 60 * k), 26 * k, Color(0.92, 0.95, 1.0), true)
 	elif game.phase == RSBasketballGame.Phase.PLAY:
-		game.draw_clock(o, game._time_left, k)
+		game.draw_clock(o, game._time_left, k, 10.0, 0.83)
 	elif game.phase == RSBasketballGame.Phase.RESULTS and game._podium_on:
 		game._draw_podium_tags(o, k)
 
