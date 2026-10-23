@@ -1,0 +1,150 @@
+# #24 性能优化设计与执行方案（提案，未实现）
+
+状态：2026-10-24，仅完成源码核实与方案准备。没有实施优化、运行渲染测试或生成新性能数字；#24 尚未完成。完整性能序列仍按用户要求推迟，本方案中的命令是以后获准恢复测量时的操作说明。
+
+核实基点：`dev` 的 `ac4a3ec01abcf05db82a13294ce960ec3b9aad7a`；只读检查 [PR #22](https://github.com/cb8010d6/sport-games/pull/22) 的 `dc8d33370cdfa6b3368543f774c2d24166a12ba2`（`claude/bench-theme`），没有合入。实现与正式测量依赖 #22 先进入 `dev`，届时重新核对其最终 SHA、CLI 和采样器。以下路径未标注来源时属于上述 `dev`；标注“#22”的文件目前不在本分支。
+
+## 先确认的决策与开工门槛
+
+| 待维护者确认 | 本提案的选择 | 影响的后续步骤 |
+|---|---|---|
+| 参考硬件与目标 | 把 Radeon 780M、1600×900、官方 Godot 4.7.2、Forward+ / Vulkan 明确定为参考条件；2P 每次平均 ≥60 FPS、4P ≥45 FPS | P0 与最终验收；硬件型号是候选参考规格，不代表本轮使用了实机 |
+| “推荐设置”含义 | 允许参考核显选择中档（`quality=1`）；3–4 个本机玩家视口的超分方案由测量决定，暂不承诺 FSR2 优于原生 | 自动档位表、roadmap 的自动 FSR 要求；若候选失败，先报告，再由维护者决定是否调整要求 |
+| 框架范围与负责人 | 由维护者实现或逐项确认下文接口；本 issue 负责人先承担滑板 / 滑雪场景及文档 | `core`、菜单、`project.godot`、架构说明均有分区限制；本提案不构成跨区授权 |
+| 测量恢复与执行环境 | 完整序列继续暂停；恢复后使用专用测量机或另行审阅的独立桌面运行器 | 不能在使用者桌面弹窗；不能用 `--headless` 替代正式 FPS；不能仅隐藏 / 最小化窗口而假定负载等价 |
+
+不升级 Godot、不换后端、不改六项目玩法 / 物理 / 机器人 / 计分、不新增依赖、autoload、业务存档或外部素材。不修改飞机、射箭、保龄球、篮球及高尔夫场景；高尔夫原型不计入六项目验收。#22 的主题与框架改动合入后再 rebase，不能在这里擅自合并依赖 PR。
+
+## 源码核实与待证假设
+
+| 已核实的结构（定位到函数） | 优化假设与限制 |
+|---|---|
+| `game/scenes/skate/skate_course.gd` 的 `_ready()` / `_commit()`：按材质把缓冲提交到一个 `ArrayMesh`、一个 `MeshInstance3D`；`course`、`city`、`props` 各只提交一次。城市左侧覆盖 `s=-90` 到 `END_S=584` 附近，右侧到约 300 m；`_facade_relief()` 栏杆立柱步长 0.13 m | 大包围盒可能让多个视口 / 阴影级联处理不可见细节；先检查实际 pass 与剔除量，不能仅由节点结构断言瓶颈占比 |
+| 同文件 `_build_props()` 的棕榈是一组 MultiMesh，道具调用 `RSProps.place()`；`game/core/props.gd:place()` 每种 prefab 的每个部件生成一个 MultiMesh，默认投影 | 按段批量保留材质复用，避免退回每实例一个节点；分块也可能增加 draw calls，必须测量取舍 |
+| 滑板 `setup_environment()` 请求 SSR（56 steps）、SSAO、SSIL、glow；太阳阴影距离 110 m、4 级级联。`RSSettings.environment()` 会进一步按档位关闭效果 | 请求效果不等于当前有效效果；高档 SSIL 仍被设置层关闭，极高才保留。不能把 4 级 × 人数写成实际测得的 pass 数 |
+| `game/scenes/ski/ski_course.gd` 的 `_build_terrain()` 每 2 m 一行、每 50 行提交；`_build_far()` 使用 45 m 网格、`FAR=4200`，单个远山网格不投影 | 地形已有约 100 m 分块，优先研究树和阴影，避免重复重构已分块地形 |
+| 滑雪 `_build_trees()` 有 4 种程序树，近处每 150 m 分组、每组最多尝试 `300 × trees` 个位置（存在跳过条件），默认投影；远处最多尝试 `2600 × trees`，不投影。未生成程序网格 LOD / 设置可见距离 | 实际树数不能直接写成尝试次数；地图 1 的密度为 1.0、地图 2 为 1.8，需分别取样；`mesh_lod_threshold` 本身不会生成缺失的网格 LOD |
+| 滑雪太阳 140 m、4 级级联；`ski_game.gd:_make_snow()` / `_player_added()` 每玩家建立相机专用雪粒子，夜场 / 风雪按地图改变密度；夜场泛光灯关闭阴影 | 风雪和夜场各有独立风险，不能仅测晴空后外推全部地图 |
+| `game/core/settings.gd` 默认高档 `quality=2`、原生 `upscale=0`；`apply()` 遍历 root、SubViewport、环境与太阳；`sun_shadows()` 目前只保存 / 切换角半径，不调距离 / 级联 | 新策略必须保存场景原值并可逆地重新应用，不能把降档后的值当作原值再次缓存 |
+| `game/core/party_views.gd:add()` 每玩家创建视口，立即调用 `apply_viewport(vp)`；`layout()` 按 `game.ordered()` 布局，2P 左右、3/4P 四格。`party_game.gd` 添加视口发生在 `players` 插入前、移除使用 `queue_free()` | 简单在 `add()` 读取玩家字典会少算一人，在移除当帧遍历树又可能多算；需要布局完成后的本机视口数契约 |
+| `game/core/pbr.gd:maps()` 按 4K→2K→1K 选可用资源，缓存仅以素材 ID 为键；`pbr_surface.gdshader:fragment()` 有两套 albedo / normal / ORM，共 6 次显式采样 | 加分辨率上限须同时处理缓存键、已持有材质和场地重载；本轮没有测量带宽或显存收益 |
+
+历史数字仍以 #22 的 `docs/perf/baseline-Radeon780M-2026-10-23.md` 与冻结证据为准，本方案不复制成新基线。每视口时间和接近墙钟帧时间只能提出 GPU / 阴影假设；两个人数点不能证明固定开销模型，更不能据此承诺收益。
+
+### 全部地图索引
+
+`RSCatalog.GAMES` 注册六项目；飞机 / 射箭 / 保龄球 / 滑板未覆盖 `RSPartyGame._maps()`，按默认单场地 `0` 测量。滑雪来自 `RSSkiMaps.MAPS`，篮球来自 `RSBallCourt.MAPS`。总计 **10 个有效项目 / 地图组合**。
+
+| 项目 | CLI 的 0 基索引 → 玩家界面地图 |
+|---|---|
+| `plane`、`archery`、`bowling`、`skate` | 各 `0` → 唯一场地 |
+| `ski` | `0` → 阿尔卑斯晴空；`1` → 松林黄昏；`2` → 夜场灯光；`3` → 冰川风雪 |
+| `basketball` | `0` → 天台日落；`1` → 暮光停车楼 |
+
+## P0：先冻结测量契约
+
+#22 的 `tools/bench.py:build_parser()` 已有 `--maps`、`--quality` 多值选项，`expand_matrix()` 对项目 / 地图 / 人数 / 档位做笛卡尔积并去重。不要再把“新增 --maps”当成缺失功能；也不要运行 `--games skate ski --maps 0 1 2 3`：它会为滑板创建非法组合，由 `configure_benchmark()` 拒绝。当前人数只有 1/2/4，**不支持 3P 基准**；3P 设置转换用独立功能测试覆盖。
+
+真实缺口是**超分矩阵**：CLI / runner 强制原生；`RSBenchmark._health_error()` 和元数据也固定 `upscale=0`。不能靠预先修改用户设置或给 CLI 添加不存在的 `--upscale` 来测试“推荐设置”。`summary.md` / Python 汇总目前没有逐视口均值与覆盖率列，应从 raw 统计或在独立工具 PR 增加，不能称为现有 CLI 汇总字段。当前也不收集 primitives、分 pass GPU、完整 GPU 帧、温度 / 频率或热稳定证据。
+
+### 恢复测量后可复制的原生矩阵
+
+从仓库根目录执行；先将 `GODOT` 设为官方 4.7.2 控制台程序，并根据**本次实际后端枚举**设置 `BENCH_GPU_INDEX`、`BENCH_EXPECT_GPU`（参考规格填 `780M`）、`BENCH_RUN`（唯一的提交 / 日期批次标识）。这些变量不保存到仓库。下列调用会渲染窗口，只有满足前述恢复门槛后才执行。所有输出目录必须此前不存在，防止覆盖已有 raw。
+
+```powershell
+python tools/bench.py --help
+foreach ($key in @('GODOT', 'BENCH_GPU_INDEX', 'BENCH_EXPECT_GPU', 'BENCH_RUN')) {
+    if ([string]::IsNullOrWhiteSpace([Environment]::GetEnvironmentVariable($key))) { throw "Set $key first." }
+}
+if (-not (Test-Path -LiteralPath $env:GODOT -PathType Leaf)) { throw 'GODOT must name an existing executable file.' }
+if ($env:BENCH_GPU_INDEX -notmatch '^[0-9]+$') { throw 'BENCH_GPU_INDEX must be a nonnegative integer.' }
+if ($env:BENCH_RUN -notmatch '^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$') { throw 'BENCH_RUN must be a simple unique batch name.' }
+$benchRoot = "audit-output/issue-24/$env:BENCH_RUN"
+if (Test-Path -LiteralPath $benchRoot) { throw 'Choose a new BENCH_RUN; preserve existing evidence.' }
+$benchCommon = @('--godot', $env:GODOT, '--gpu-index', $env:BENCH_GPU_INDEX,
+    '--expect-gpu', $env:BENCH_EXPECT_GPU, '--seed', '20261023',
+    '--players', '2', '4', '--repeat', '3', '--warmup', '10', '--duration', '30')
+
+# A：目标项目的所有地图 × 所有画质
+python tools/bench.py @benchCommon --games skate --maps 0 --quality 0 1 2 3 --output "$benchRoot/A-skate-tiers"
+if ($LASTEXITCODE -ne 0) { throw 'A-skate failed; retain evidence and diagnose.' }
+python tools/bench.py @benchCommon --games ski --maps 0 1 2 3 --quality 0 1 2 3 --output "$benchRoot/A-ski-tiers"
+if ($LASTEXITCODE -ne 0) { throw 'A-ski failed; retain evidence and diagnose.' }
+
+# B：其余四项目的所有地图，高档原生对照
+python tools/bench.py @benchCommon --games plane archery bowling --maps 0 --quality 2 --output "$benchRoot/B-single-map-controls"
+if ($LASTEXITCODE -ne 0) { throw 'B-single failed; retain evidence and diagnose.' }
+python tools/bench.py @benchCommon --games basketball --maps 0 1 --quality 2 --output "$benchRoot/B-basketball-controls"
+if ($LASTEXITCODE -ne 0) { throw 'B-basketball failed; retain evidence and diagnose.' }
+```
+
+档位 ID：0 低、1 中、2 高、3 极高；超分 ID 是另一轴，0 原生、1–4 为 FSR2 的 0.77 / 0.67 / 0.59 / 0.50。正式输出 1600×900 不等于各玩家内部渲染尺寸；记录每格实际尺寸、scale、AA 以及有效阴影 / 环境配置。
+
+| 每 GPU 的 P0 分组 | 配置组数（不含重复） | 进程试验数（每组 3 次） | 仅 PLAY 预热 + 采样下限 |
+|---|---:|---:|---:|
+| A 滑板：1 地图 × 2 人数 × 4 档 | 8 | 24 | 16 分钟 |
+| A 滑雪：4 地图 × 2 人数 × 4 档 | 32 | 96 | 64 分钟 |
+| B 飞机 / 射箭 / 保龄球：3 地图 × 2 人数 × 1 档 | 6 | 18 | 12 分钟 |
+| B 篮球：2 地图 × 2 人数 × 1 档 | 4 | 12 | 8 分钟 |
+| **P0 合计** | **50** | **150** | **100 分钟 / GPU** |
+
+每次下限为 10+30=40 s，未计导入、加载、大厅、倒数、退出、冷却、失败重跑和 profiler。单 GPU 预算可先预留 2–3 小时，但这是调度估算，须以短测实测启动开销修正。可选第二 GPU 复用同一矩阵时再加 150 次 / 至少 100 分钟，两 GPU 串行总计 300 次 / 至少 200 分钟；独显数据不替代参考核显验收。CLI 默认超时为每次预热 + 采样 +120 s，即 160 s，150 次全触发超时约 6 小时 40 分钟，不能当正常预计时长或热稳定证明。
+
+### 指标、归因与证据
+
+- **wall-frame**：#22 在 `frame_post_draw` 用单调时间记录 `frame_ms`；FPS=`1000*N/Σms`。输出各重复的平均、R7 p95 / p99、最差帧、重复间范围；1% low=`1000/mean(最慢 ceil(N×0.01) 帧时间)`，不等于 `1000/p99`。汇集原始帧后重算分位数，不平均三个 p95。
+- **CPU**：`cpu_process_ms` 是 `Performance.TIME_PROCESS`，包含引擎等待影响的可能，不能由“接近帧时间”推断 CPU 满载。逐视口 CPU render 不含完整脚本 / 物理；共享 frame-setup CPU 若新增采集，每帧只计一次。需要 CPU profiler 才归因到具体逻辑。
+- **GPU**：列出 root 及每个 `player_N` 的有效均值和覆盖率=`有效正有限读数数/总采样帧数`，不可用写 null；预期视口完全缺失也要报告。不能把视口和称为完整 GPU 帧或用其倒数代替 FPS，不能相加各视口 p95。#22 的 `gpu_ms` / `gpu_ms_avg` 保持 null；UI 的 50% 覆盖率阈值只是一条估计显示规则。用于本 issue 归因时建议每个预期视口至少 95% 有效覆盖，否则标注“GPU 归因不足”并补查，不因此篡改 wall-frame 的有效性。
+- **定位实验**：先在滑板 0、滑雪 1 / 3、2P / 4P、高档原生各 3 次（6 组、18 次、至少 12 分钟 / 版本）建立同仪器锚点；在 profiler / RenderDoc 中分别检查阴影、主 pass、SSR / SSAO 的事件与时长。抓帧独立于正式 FPS 采样；临时消融必须记录差异、独立提交 / 配置，不进入产品与原生基线。primitives 若增加采集需写明引擎全局计数口径，不能加总子视口重复计数。上述 18 次可复用 P0 A 的完全相同记录，不重复计入 150；抓帧本身没有预估固定次数或耗时。
+- **可比性**：前后同采样器提交、CLI / 游戏内入口与overlay开销、官方引擎、GPU / 驱动、后端、供电 / 性能模式、分辨率、地图 / 人数 / seed / 时窗 / 请求设置、缓存状态与后台条件。保存干净源码 SHA、有效设置、raw、日志、汇总及证据包 SHA-256；公开报告只保留参考硬件规格与必要元数据，清除本机路径 / 身份。OS 的 active-adapter 驱动查询可能不对应选中的渲染卡，驱动版本需按实际 adapter 独立核对。
+- **有效性**：`PASS` 只是数据有效，`MET` 要求组内三次各达人数目标。提前结束、超时、错误 GPU、缺采样或离线供电均保留 FAIL，不续接成绩页补时。若某地图无法完成 10/30 s，先报告；经确认后对前后可比组统一缩短并重跑，不能静默混用窗口。固定 seed 不保证跨帧率机器人轨迹完全一致，提升必须超出重复波动。
+
+## P1 与后续最小 PR 切片
+
+每片都独立审查 / 可回退；先做 P0，再拆分，最后逐项优化，不把所有旋钮堆在一个 PR 中。每片只改变表中一类因素；收益不明确或画面退化时停在上一片，保留失败证据。
+
+| 顺序 / PR | 具体交付 | 入场与出场条件 |
+|---|---|---|
+| P0 原生基线 | #22 合入后冻结仪器；完成 A/B 与必要 profiler 归因，报告推荐候选、未验证条件 | 测量恢复获准、参考规格确认；有效记录齐全，不能只拿历史独立采样器与新仪器直接做差 |
+| P1a 滑板纯拆分 | 城市、海边、道具拆为项目专用构建器；保留场地坐标 / 材质 / 生成顺序与公共查询接口，目标每脚本 <1000 行 | 不改变 RNG 消耗、几何、投影、碰撞、玩法数据；2/4P 同时点截图与全地图原生对照一致，差异在重复波动内 |
+| P1b 滑雪纯拆分 | 树 / 远山 / 村庄构建移到本项目文件；地形查询、门 / 跳台 / 缆车状态仍归 course | 四地图全覆盖；拆分与低模 / 分块策略不能混在同片 |
+| P2a 滑板视觉分块 | 以 50 m 为首个候选（40–60 m 以后实测），分别提交 course / city / props；整栋楼归单块、跨块地面切片共享边界，AABB 包住全部几何 | 不截断栏杆 / 碰撞 / 计分边界，不重抽随机场景；检查接缝、远眺、阴影与 draw calls |
+| P2b 道具分组（需要时） | 先由场景分组调用现有 `RSProps.place()`；只有共享需求成立才提默认关闭的通用分桶接口 | 维护者确认后才动 core；旧调用的实例 / 材质 / transform / layers / shadows 保持 |
+| P3a 框架阴影策略；P3b 场景小件投影 | 各一片；按档位和本机视口数提供 opt-in 预算，先只接滑板 / 滑雪；随后单独测试小件 / 远物关闭投影 | 维护者先确认接口；以已测太阳原值为上限，距离 / 级联由 P0 定，不写死未经验证的“3 级级联”配置；升档 / 4→2→1 / 返回菜单可恢复 |
+| P4a 滑板细节范围；P4b 滑雪树 LOD | 各一片；按段保留近景高模、远景低模，阴影与可见范围分别控制，渐变交接；所有网格只在载入时创建 | 确认近景高 / 极高观感、切换无破洞 / 明显跳变；不从高尔夫导入或修改 shader；impostor 需另提素材 / 烘焙方案 |
+| P5a 屏幕空间；P5b 纹理上限 | 分别实验 SSR / SSAO / glow 与素材分辨率，避免混淆归因；全局 SSAO 质量不按视口重复切换 | 维护者确认跨区；默认值保持六项目现有行为。纹理变更增加六项目低 / 中 / 高 / 极高画面对照，不能承诺缩小包体（没有改发布资产） |
+| P6a 超分测量扩展；P6b 自动分屏策略 | 先扩展 instrument，再比较原生 / 双线性0.77 / FSR1 0.77 / FSR2 0.77；随后仅启用实测通过的自动规则 | 当前 CLI 不具备该能力；先更新 runner、共享采样器校验 / 元数据、临时恢复和测试。手动超分优先，小视口拖影 / 稳定性纳入验收 |
+| 可选 P7 遮挡剔除 | 独立提出 project 设置与静态建筑遮挡体实验 | 先确认主 pass / CPU 收益；不预设阴影 pass 收益；没有收益就不合入 |
+| P8 首次启动自动选档 | 维护者实现持久化意图、实际 adapter 规则与“恢复自动”入口、中文 / 英文文案及存档测试 | 档位表绑定正式证据；未知设备中档只作候选，不能凭厂商 / 型号中的数字推断性能或认定所有独显都适合高档 |
+| P9 收尾验收 | 写新报告，链接旧冻结基线与新证据，之后才更新 roadmap | 满足下文验收，保留所有未验证项；本设计 PR 不勾 roadmap 或关闭 #24 |
+
+纯拆分 / 单场景片的完整前后比较：目标 5 地图 ×2 人数 ×高档 ×3 次 =30 次 / 版本，前后60次、至少40分钟 / GPU（已有完全同条件数据可复用）。框架共享片：全部10地图 ×2人数 ×高档 ×3次 =60次 / 版本，前后120次、至少80分钟 / GPU。功能 / 截图验收与 profiler 另计，不把这些时长加进 P0 的150次。
+
+## 请求维护者提供的框架契约（名称 / 类型均为提案）
+
+1. **本机视口预算**：`RSPartyViews.local_viewport_count() -> int` 返回当前已提交布局中实际启用的玩家3D视口数，不包括 root、大厅相机、隐藏/待删除格子，也不从网络总玩家数计算。菜单 / 大厅有效场景预算回到1；本地机器人只要确实有视口也计数。`RSSettings.set_local_viewport_count(count: int = 1)` 在布局稳定后由框架事件调用，并重应用受管效果，不逐帧扫树。0、1、2、3、4都定义结果；0表示没有玩家格子、使用单视口场景预算。#23 只需将来传本机值，不要求本 issue 实现联机。`RSSettings.apply_viewport(vp)` 原调用继续有效。
+2. **opt-in、可恢复的场景预算**：为太阳 / 环境提供注册入口（例如 `register_scene_budget(node, limits: Dictionary = {})`）；空字典完全沿用现有行为，滑板 / 滑雪显式登记可降级项。首次登记保留原始阴影距离 / 级联 / 效果参数，重应用从原始值计算，不累积缩短。共享世界的太阳只应用一次，不能按每格轮流覆盖。释放地图清理注册项；大厅 / 开场 / 回放 / 成绩是否继续沿用玩家预算必须写入测试，以实际渲染视口为准。具体数值随 P0 评审，接口不得引用项目类。
+3. **道具分组**：优先让场景按 `s` 分组多次调用现有 `place()`，无需先改 core；若证明需要共享分块，则在现签名末尾增加 `chunk_size_m: float = 0.0`。0保持一次调用每部件一组；>0按传入父节点局部坐标的固定空间格分桶，父变换 / layers / shadows 与实例数量保持，不假设所有项目赛道轴相同。材质 / 导入缓存继续复用，调用不改变原 transform 数组。core 只提供通用分桶，曲线赛道的 `s` 仍归项目。
+4. **纹理请求**：候选 `maps(id, max_resolution: int = 0)`，`surface()` / `standard()` 在末尾加同样默认参数；0严格保留现有“最高可用”行为，非0选择不超过上限的现有资源，无可用版本明确警告 / 使用约定回退，不下载。缓存键至少含 ID +有效上限；全局画质不能在无参调用时偷偷改变六项目资源。若采用全项目低 / 中上限，由维护者统一迁移调用；首片建议场地重新载入时生效，避免现有材质仍引用旧贴图却报告新上限。高 / 极高保持原素材选择，缓存释放与内存峰值也要验收。
+5. **实际渲染卡与设置意图**：独立于性能规则读取 `RenderingServer.get_video_adapter_name()`、`get_video_adapter_vendor()`、`get_video_adapter_type()`；[官方 stable API](https://docs.godotengine.org/en/stable/classes/class_renderingserver.html#class-renderingserver-method-get-video-adapter-type)列出了类型查询与手动覆盖要求，落地前仍核对锁定的Godot4.7.2绑定。headless / 未就绪只跳过，不落盘。使用渲染 adapter 的规范化名称 / 厂商 / 类型指纹，不能使用 OS active-adapter 驱动信息决定档位；不持久化设备序列号 / 地址。只给已测规格放规则，保留规则版本与基线引用。
+6. **旧档与手动优先**：只在 `settings.cfg` 新增意图键（候选 `auto_quality`、`auto_upscale`、`auto_adapter`、`auto_rule_version`），不改现有 quality/upscale枚举含义。有效旧档无新键时按手动处理（包括仅有音频等段的旧档），原值不动；只有存档读取确认所有副本“确实不存在”才默认自动。损坏恢复 / 未来版本只读保护不能被误判为新用户；`game/core/save_store.gd:RSSave.read()` 对不存在、全损坏、未来版本均可能返回空配置，需维护者确认一项**超出 issue 原文件列表的范围扩展**：提供只读结果接口，例如 `read_result(path)` 区分 missing / valid / recovered / corrupt / future；旧 `read()` 签名和 `write()` 的未来版本保护不变。未确认此接口前不实现自动落盘。自动画质与自动超分分别禁用：玩家手改哪个轴就只关闭该轴；原生也算明确手选。adapter变化只重算仍处自动的轴；“恢复自动”显式恢复两轴，并显示生效结果。
+7. **临时设置与恢复**：有效渲染设置与持久化玩家意图分开，人数变化不得保存降档值。新键必须进入 `save/load`、临时 snapshot/restore 和相应测试；#22 session目前只快照既有字段，不能让后续自动策略在性能测试中悄悄写档。测试 / benchmark入口在 `load_once()` 之前注入禁用自动检测与保存的上下文，`RS_TEST_MODE=1`不触发首次初始化。成功、取消、失败、退出、导出失败都恢复窗口、VSync、帧率上限、画质、超分、预算 / 元数据及自动意图；设置 / 档案 / 纪录 / 教学及备份文件清单和hash保持。`override.cfg`继续是现有派生文件，不新增文件，不承诺跨文件原子事务。
+
+### 超分扩展的可审阅最小范围
+
+建议工具片新增命名 profile 轴（例如 `--render-profile native bilinear-077 fsr1-077 fsr2-077`，**这是拟议 CLI，当前不可执行**）；profile进入 Case身份、目录名、raw、组键、有效配置与health检查。native输出保持旧语义，新profile显式指定实际scaling mode / scale / AA，不复用“玩家upscale ID”伪装FSR1。同片扩展共享采样器、CLI适配器及菜单session的覆盖 / 恢复契约，保留原生兼容测试；不要只改Python参数层。
+
+候选试验固定中档 `quality=1`，目标5地图 ×2人数 ×4profiles ×3重复=40组、120次、至少80分钟 / GPU / 版本。原生profile的30次仅在源码、采样器、设置和条件完全相同时可复用P0中档；复用后新增90次、至少60分钟。需要调其他scale时另列矩阵，不让它隐式乘进本表。FSR1 / 双线性需明确AA配置，profile比较代表有效配置整体取舍，不声称只测一个shader开销。
+
+## 前后验证与关闭条件
+
+正式收尾每版本覆盖：10地图 ×2人数 ×3重复的**高档原生60次**，加同样地图 / 人数的**已确认推荐有效配置60次**（每人数可有不同profile，按人数分两批运行）。两配置完全相同时去重；不同则120次 / 至少80分钟 / GPU / 版本，前后240次 / 至少160分钟。推荐配置只有在超分扩展经审查并通过后才可自动测量；当前原生CLI不能完成这一半。共享设置改变时，四个对照项目必须同样测推荐配置，不能只证明滑板 / 滑雪达标。
+
+- 滑板唯一地图、滑雪四地图：每组3次均有效；推荐设置2P每次平均≥60、4P≥45。4P 1%low以35 FPS为卡顿参考，低于时写出原因与处理决定，不能隐藏；同时报告p95/p99及每视口GPU覆盖率。高档原生也给数字与画面对照，不要求它达标。
+- 其余四项目的5地图全部MET；与同仪器、同设置前版本平均FPS退化不超过5%，也检查1%low / 尾延迟。历史2026-10-23基线只覆盖地图0且是独立仪器，不能直接把新仪器或新地图的差值当回归；若要严格对历史5%门槛作结论，另在冻结历史源码与相同仪器 / 环境建立桥接证据，否则明确“历史门槛尚未可比验证”，由维护者决定是否接受新基线。
+- 画面对照：目标5地图 ×2人数=10组 / 版本，用相同 `--shots`时刻、1600×900、相同档位 / 意图，输出放独立批次目录；滑雪自带时刻不同于其他项目，不能把它们混成一个时间轴。`--shots`不是bench CLI选项，且benchmark_mode会禁用截图；另用普通 `--demo=N --map=N --shots=<prefix>`入口。RNG / 粒子不完全确定时人工核查几何与可见细节，不把像素差全判回归。高 / 极高近景风格保持；阴影闪烁、LOD跳变、雪天气可读性、FSR拖影逐项记录。
+- 功能测试：0/1/2/3/4本机视口、4→2→1→4、加入 / 移除 / 待删除格子、地图重载、暂停 / 重开 / 回放 / 成绩 / 返回菜单；联机总4人但本机1/2视口的注入测试。六项目计分 / 物理 / 机器人、存档与纪录写入规则、教学、无障碍镜头晃动随机序列保持。
+- 设置测试：新用户 / 旧手动 / 自动两轴混合 / adapter变化 / 未知设备 / 软件设备 / headless / 损坏恢复 / 未来版本保护；手动原生优先、恢复自动；benchmark成功 / 失败 / 取消 / 退出及导出错误后内存与持久化内容恢复。参考 `game/tests/test_<主题>.gd` + `.tscn`及隔离启动器，不能靠截图证明存档兼容。
+- 每片跑AGENTS规定检查；运行时代码片另跑官方4.7.2受影响项目2/4人流程、`tools/smoke_game.py`与六项目`tools/smoke_test.py --all-maps`的2/4人无头功能冒烟（20例）。无头通过只证明功能，不证明渲染、FPS、BLE、HDR或实机手感。纯文档片仅声明静态检查，保持未实现状态。
+
+正式证据以新的 `docs/perf/<日期>-skate-ski-tiers.md`及最终基线报告交付，列明命令、源码 / 仪器SHA、GPU / 驱动 / 供电、有效配置、试验总数 / 失败项、原始数据关联与哈希、截图、热稳定和其他硬件未验证项。只有依赖、维护者决策、全部必要测量和回归都解决后，才讨论关闭#24与勾选roadmap。
