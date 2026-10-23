@@ -100,7 +100,7 @@ static func draw_hud(game: RSBasketballGame, h: RSPartyGame.PlayerHud, p: RSPart
 static func draw_overlay(game: RSBasketballGame, o: RSPartyGame.Overlay, k: float) -> void:
 	var m := game._court.map
 	if game.phase == RSBasketballGame.Phase.COUNTDOWN and game.phase_time < RSBasketballGame.INTRO:
-		var a := clampf(game.phase_time / 0.6, 0.0, 1.0) * clampf((RSBasketballGame.INTRO - game.phase_time) / 0.6, 0.0, 1.0)
+		var a := RSIntro.fade(game.phase_time, RSBasketballGame.INTRO)
 		game.draw_text(o, game.tr(str(m["name"])), Vector2(o.size.x * 0.5, o.size.y * 0.4), 84 * k, Color(1, 1, 1, a), true)
 		game.draw_text(o, game.tr("%s  ·  三分大赛  ·  5 架 × 5 球  ·  %d 秒") % [m["en"], int(RSBasketballGame.TIME_LIMIT)],
 			Vector2(o.size.x * 0.5, o.size.y * 0.4 + 56 * k), 24 * k, Color(1, 0.9, 0.6, a), true)
