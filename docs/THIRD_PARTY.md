@@ -115,6 +115,13 @@ see [capture provenance](../game/assets/previews/CREDITS.md), the retained captu
 and SHA-256 manifest. UI evidence in `docs/screenshots/phase5-menu-*.png` additionally
 contains the project MIT menu. The combined scene exports are recorded as MIT AND CC0-1.0.
 
+## UI fonts
+
+`game/assets/fonts/` bundles Noto Sans SC (a subset of the variable font) and three Barlow
+Condensed styles from google/fonts, both under the SIL Open Font License 1.1. The license texts
+ship beside the fonts; source commit, subset method and Reserved Font Name notes are in the
+[font credits](../game/assets/fonts/CREDITS.md).
+
 ## Runtime and build dependencies
 
 Godot is an external MIT-licensed engine; see <https://godotengine.org/license/>.

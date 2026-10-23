@@ -24,7 +24,7 @@ static func draw_hud(game: RSBasketballGame, h: RSPartyGame.PlayerHud, p: RSPart
 	var w := group * RSBasketballGame.RACKS
 	var x0 := sz.x * 0.5 - w * 0.5
 	var y := sz.y - 30.0 * k
-	game._pill.set_corner_radius_all(int(14 * k))
+	game._pill.set_corner_radius_all(RSUi.RADIUS)
 	h.draw_style_box(game._pill, Rect2(Vector2(x0 - 12 * k, y - 20 * k), Vector2(w + 10 * k, 40 * k)))
 	for r in RSBasketballGame.RACKS:
 		for b in RSBasketballGame.BALLS:
@@ -101,9 +101,7 @@ static func draw_overlay(game: RSBasketballGame, o: RSPartyGame.Overlay, k: floa
 	var m := game._court.map
 	if game.phase == RSBasketballGame.Phase.COUNTDOWN and game.phase_time < RSBasketballGame.INTRO:
 		var a := RSIntro.fade(game.phase_time, RSBasketballGame.INTRO)
-		game.draw_text(o, game.tr(str(m["name"])), Vector2(o.size.x * 0.5, o.size.y * 0.4), 84 * k, Color(1, 1, 1, a), true)
-		game.draw_text(o, game.tr("%s  ·  三分大赛  ·  5 架 × 5 球  ·  %d 秒") % [m["en"], int(RSBasketballGame.TIME_LIMIT)],
-			Vector2(o.size.x * 0.5, o.size.y * 0.4 + 56 * k), 24 * k, Color(1, 0.9, 0.6, a), true)
+		game.draw_title_card(o, game.tr(str(m["name"])), game.tr("%s  ·  三分大赛  ·  5 架 × 5 球  ·  %d 秒") % [m["en"], int(RSBasketballGame.TIME_LIMIT)], a, k)
 	elif game.phase == RSBasketballGame.Phase.COUNTDOWN:
 		game.draw_text(o, game.tr("按住 B 举球，往上甩手腕 + 松开 B 出手"), Vector2(o.size.x * 0.5, o.size.y * 0.45 + 60 * k), 26 * k, Color(0.92, 0.95, 1.0), true)
 	elif game.phase == RSBasketballGame.Phase.PLAY:
