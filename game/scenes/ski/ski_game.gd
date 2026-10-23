@@ -60,7 +60,7 @@ class Racer:
 	var clip: Array = []
 	var clip_pts := 0
 	var clip_names := ""
-	var rp_i := 0
+	var replay := RSReplay.new()
 	var rp_side := Vector3.RIGHT
 
 
@@ -278,11 +278,11 @@ func _player_removed(p: Player) -> void:
 
 func _player_ready(p: Player, is_ready: bool) -> void:
 	if is_ready:
-		_racer(p).gest.capture(p.c.orientation)
+		_racer(p).gest.capture(p.c.motion_orientation())
 
 
 func _player_recentered(p: Player) -> void:
-	_racer(p).gest.capture(p.c.orientation)
+	_racer(p).gest.capture(p.c.motion_orientation())
 	p.popup(tr("已重设“平”的姿势"))
 
 
@@ -316,6 +316,7 @@ func _round_started(list: Array) -> void:
 		r.pend.clear()
 		r.post = -1.0
 		r.clip = []
+		r.replay.reset(r.clip)
 		r.clip_pts = 0
 		r.air_from = 0.0
 		r.sk.rig.cheer = 0.0
@@ -448,7 +449,7 @@ func _on_trick(points: int, names: PackedStringArray, sketchy: bool, p: Player) 
 	r.banked_sketchy = sketchy
 	r.banked_names = " + ".join(names)
 	if points > maxi(r.clip_pts, r.pend_pts if r.post >= 0.0 else 0):
-		r.pend = r.rec.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= r.air_from - PRE_ROLL)
+		r.pend = RSReplay.since(r.rec, r.air_from - PRE_ROLL)
 		r.pend_pts = points
 		r.pend_names = r.banked_names
 		r.post = POST_ROLL
@@ -494,7 +495,7 @@ func _on_finished(p: Player) -> void:
 	_course.set_board("\n".join(_board_lines.slice(maxi(0, _board_lines.size() - 4))))
 	# No jump to show in the replay: show crossing the line instead.
 	if r.clip.is_empty() and r.post < 0.0:
-		r.pend = r.rec.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= _clock - 2.6)
+		r.pend = RSReplay.since(r.rec, _clock - 2.6)
 		r.pend_pts = 0
 		r.pend_names = tr("冲过终点  ") + _fmt_time(r.sk.finish_time)
 		r.post = POST_ROLL
@@ -574,15 +575,10 @@ func _camera(p: Player, r: Racer, dt: float, snap: bool) -> void:
 	p.cam.fov = lerpf(p.cam.fov, 62.0 + clampf(spd - 8.0, 0.0, 18.0) * 0.6, 1.0 if snap else 1.0 - exp(-dt * 2.0))
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
 		# Intro: high over the run looking down the valley, then swooping in behind the racer.
-		var u := smoothstep(0.0, INTRO, phase_time)
 		var ahead := _course.world(0.0, 180.0, 0.0)
 		var p0 := _course.world(-40.0, -60.0, 60.0)
 		var p1 := sk.pos + Vector3(6.0 * signf(sk.pos.x - _course.centre(0.0) + 0.01), 4.0, 12.0)
-		var at := p0.lerp(p1, u).lerp(p1.lerp(r.cam_pos, u), u)
-		var lk := ahead.lerp(r.cam_look, smoothstep(0.3, 1.0, u))
-		p.cam.global_position = at
-		p.cam.look_at(lk)
-		p.cam.fov = lerpf(55.0, 64.0, u)
+		RSIntro.apply(p.cam, phase_time, INTRO, p0, p1, r.cam_pos, ahead, r.cam_look, 55.0, 64.0, 0.3)
 	_follow_snow(r.snow, p.cam)
 
 
@@ -654,15 +650,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 		return
 	var pale := Color(0.92, 0.95, 1.0)
 
-	# Gates and run time under the score, speed at the bottom, on dark panels (white snow).
-	_pill.set_corner_radius_all(int(10 * k))
-	h.draw_style_box(_pill, Rect2(Vector2(12, 68) * k, Vector2(150, 54) * k))
-	h.draw_style_box(_pill, Rect2(Vector2(12 * k, sz.y - 46 * k), Vector2(170, 36) * k))
-	var gt := tr("旗门 %d/%d") % [sk.gates_hit, _course.gates.size()]
-	if sk.gates_missed > 0:
-		gt += tr("  漏 %d") % sk.gates_missed
-	draw_text(h, gt, Vector2(20 * k, 88 * k), 19 * k, pale)
-	draw_text(h, _fmt_time(sk.finish_time if sk.finished else sk.run_time), Vector2(20 * k, 114 * k), 19 * k, GOLD if sk.finished else pale)
+	RSSkiHud.draw_stats(self, h, sk, _course.gates.size(), _fmt_time(sk.finish_time if sk.finished else sk.run_time), k, GOLD)
 
 	# Run progress: everyone's position on the way to the finish.
 	var bar := Rect2(Vector2(sz.x - 250 * k, 30 * k), Vector2(220 * k, 8 * k))
@@ -677,10 +665,6 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 	h.draw_rect(Rect2(bar.end - Vector2(0, 14 * k), Vector2(3 * k, 16 * k)), Color.WHITE)
 	var to_go := maxi(0, roundi(_course.length - sk.s()))
 	draw_text(h, tr("终点 %d m") % to_go if not sk.finished else tr("已到终点"), bar.position + Vector2(bar.size.x, 32 * k), 15 * k, pale, false, true)
-
-	draw_text(h, "%d km/h" % roundi(sk.current_speed() * 3.6), Vector2(22 * k, sz.y - 20 * k), 22 * k, pale)
-	if sk.tuck > 0.5 and sk.mode == RSSkier.Mode.RIDE:
-		draw_text(h, tr("团身"), Vector2(130 * k, sz.y - 20 * k), 16 * k, GOLD)
 
 	# Next gate: a marker over it in its colour.
 	if sk.next_gate < _course.gates.size() and not sk.finished:
@@ -744,7 +728,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 func _draw_overlay(o: Overlay, k: float) -> void:
 	var m := _course.map
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
-		var a := clampf(phase_time / 0.6, 0.0, 1.0) * clampf((INTRO - phase_time) / 0.6, 0.0, 1.0)
+		var a := RSIntro.fade(phase_time, INTRO)
 		draw_text(o, tr(str(m["name"])), Vector2(o.size.x * 0.5, o.size.y * 0.4), 84 * k, Color(1, 1, 1, a), true)
 		draw_text(o, tr("%s  ·  %d 米  ·  %d 道旗门  ·  难度 %s") % [m["en"], roundi(_course.length), _course.gates.size(), RSSkiMaps.stars(map_index)],
 			Vector2(o.size.x * 0.5, o.size.y * 0.4 + 56 * k), 24 * k, Color(1, 0.9, 0.6, a), true)
@@ -760,12 +744,10 @@ func _draw_overlay(o: Overlay, k: float) -> void:
 
 func _record(r: Racer, dt: float) -> void:
 	var rig := r.sk.rig
-	r.rec.append({"t": _clock, "xf": rig.global_transform, "imp": rig.impacts, "in": [rig.crouch, rig.tuck, rig.lean,
+	RSReplay.record(r.rec, {"t": _clock, "xf": rig.global_transform, "imp": rig.impacts, "in": [rig.crouch, rig.tuck, rig.lean,
 		rig.edge, rig.yaw, rig.wedge, rig.grounded, rig.plant, rig.plant_side, rig.push, rig.grab, rig.feet_lift, rig.arms,
-		1.0 if rig.is_crashing() else 0.0]})
+		1.0 if rig.is_crashing() else 0.0]}, CLIP_MAX + PRE_ROLL + POST_ROLL + 1.0)
 	rig.impacts = 0.0
-	while not r.rec.is_empty() and _clock - float(r.rec[0]["t"]) > CLIP_MAX + PRE_ROLL + POST_ROLL + 1.0:
-		r.rec.pop_front()
 	if r.post >= 0.0:
 		r.pend.append(r.rec.back())
 		r.post -= dt
@@ -777,16 +759,12 @@ func _record(r: Racer, dt: float) -> void:
 
 func _keep_clip(r: Racer) -> void:
 	var end := float(r.pend.back()["t"]) if not r.pend.is_empty() else 0.0
-	r.clip = r.pend.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= end - CLIP_MAX - POST_ROLL)
+	r.clip = RSReplay.since(r.pend, end - CLIP_MAX - POST_ROLL)
 	r.clip_pts = r.pend_pts
 	r.clip_names = r.pend_names
 	r.pend = []
 	r.pend_pts = 0
 	r.post = -1.0
-
-
-func _clip_len(r: Racer) -> float:
-	return float(r.clip.back()["t"]) - float(r.clip[0]["t"]) if r.clip.size() > 1 else 0.0
 
 
 func finish_round() -> void:
@@ -795,8 +773,8 @@ func finish_round() -> void:
 		var r := _racer(p)
 		if r.post >= 0.0:
 			_keep_clip(r)
-		longest = maxf(longest, _clip_len(r) / SLOW)
-		r.rp_i = 0
+		longest = maxf(longest, RSReplay.duration(r.clip) / SLOW)
+		r.replay.reset(r.clip)
 		r.sk.quiet()
 		r.sk.rig.end_crash()
 		if r.clip.size() > 1:
@@ -812,7 +790,7 @@ func finish_round() -> void:
 				r.rp_side = -r.rp_side
 			r.cam_pos = a + r.rp_side * 6.0 + Vector3.UP * 1.5
 			r.cam_look = a + Vector3.UP * 0.8
-	_podium_at = minf(longest, 9.0) + (0.3 if longest > 0.0 else 0.0)
+	_podium_at = RSReplay.lead_out(longest, 9.0)
 	results_delay = _podium_at + 1.6
 	_podium_on = false
 	super.finish_round()
@@ -821,22 +799,21 @@ func finish_round() -> void:
 func _replay_step(p: Player, delta: float) -> void:
 	var r := _racer(p)
 	var rig := r.sk.rig
-	if r.clip.size() < 2:
+	if not r.replay.sample(phase_time, SLOW):
 		rig.update(delta)
 		_camera(p, r, delta, false)
 		return
-	var t := float(r.clip[0]["t"]) + minf(phase_time * SLOW, _clip_len(r))
-	while r.rp_i + 1 < r.clip.size() and float(r.clip[r.rp_i + 1]["t"]) <= t:
-		r.rp_i += 1
-		var imp := float(r.clip[r.rp_i]["imp"])
+	var crossed := r.replay.crossed_from
+	while crossed <= r.replay.index:
+		var imp := float(r.clip[crossed]["imp"])
 		if imp > 0.0:
 			rig.impact(imp)
 			if imp > 0.9:
 				RSSfx.play(self, "snowland", -10.0 + r.sk.gain_db, 0.75)
-	var fa: Dictionary = r.clip[r.rp_i]
-	var fb: Dictionary = r.clip[mini(r.rp_i + 1, r.clip.size() - 1)]
-	var span := maxf(float(fb["t"]) - float(fa["t"]), 1e-4)
-	var u := clampf((t - float(fa["t"])) / span, 0.0, 1.0)
+		crossed += 1
+	var fa := r.replay.a
+	var fb := r.replay.b
+	var u := r.replay.weight
 	rig.global_transform = (fa["xf"] as Transform3D).interpolate_with(fb["xf"], u)
 	var ia: Array = fa["in"]
 	var ib: Array = fb["in"]

@@ -36,6 +36,7 @@ var _peak := 0.0
 var _sample_at_start := 0.0
 var _last_sample := -1.0
 var _stale := 0.0
+var _left_hand := false
 
 
 func _init(game_id: String) -> void:
@@ -47,7 +48,8 @@ func start(c: RSController) -> void:
 	if started or finished:
 		return
 	started = true
-	_neutral = c.orientation
+	_left_hand = c.left_handed()
+	_neutral = c.motion_orientation()
 	_stick.capture(_neutral)
 	_begin_step(c)
 
@@ -65,6 +67,8 @@ func _begin_step(c: RSController) -> void:
 
 
 func instruction() -> String:
+	if not finished and _left_hand and steps[index]["kind"] == "right":
+		return RSLang.t("向左倾斜手柄，并保持片刻")
 	return RSLang.t(steps[index]["text"]) if not finished else RSLang.t("教学完成，回到舒适握姿后按 A 准备")
 
 
@@ -85,7 +89,7 @@ func update(c: RSController, delta: float) -> void:
 		_held_for = 0.0
 		return
 	if c.sample_time < _last_sample:
-		_neutral = c.orientation
+		_neutral = c.motion_orientation()
 		_stick.capture(_neutral)
 		_begin_step(c)
 		return
@@ -108,7 +112,7 @@ func update(c: RSController, delta: float) -> void:
 	if _held:
 		_held_for += delta
 	var fresh := c.sample_time > _sample_at_start and _stale < 0.3
-	var tilt := _stick.stick(c.orientation)
+	var tilt := _stick.stick(c.motion_orientation())
 	var correct := false
 	match kind:
 		"right":
@@ -116,7 +120,7 @@ func update(c: RSController, delta: float) -> void:
 		"forward":
 			correct = fresh and tilt.y < -0.3
 		"aim":
-			correct = fresh and _neutral.angle_to(c.orientation) > deg_to_rad(10.0)
+			correct = fresh and _neutral.angle_to(c.motion_orientation()) > deg_to_rad(10.0)
 		"hold_b":
 			correct = _held
 		"throw":
@@ -165,8 +169,8 @@ func _motion_peak(c: RSController, upward: bool) -> float:
 		if c.hist_time[i] <= _sample_at_start:
 			break
 		if upward:
-			var q: Quaternion = c.hist_quat[i]
-			result = maxf(result, (q * c.hist_gyro[i]).dot(_stick.frame(q)[0]))
+			var q := c.motion_pose(c.hist_quat[i])
+			result = maxf(result, (q * c.motion_gyro(c.hist_gyro[i])).dot(_stick.frame(q)[0]))
 			if c.hist_lin[i].y >= 13.0:
 				result = maxf(result, 4.0)
 		else:
@@ -198,6 +202,8 @@ class Demo extends Control:
 		var phase := fmod(float(lesson.elapsed) / DEMO_SECONDS, 1.0) if lesson != null else 0.0
 		var wave := sin(phase * TAU)
 		var angle := 0.35 * maxf(wave, 0.0) if kind == "right" else (0.35 * wave if kind == "aim" else 0.0)
+		if lesson != null and lesson._left_hand:
+			angle = -angle
 		var at := size * 0.5 + Vector2(0, -16.0 * maxf(wave, 0.0) if kind in ["jump", "throw"] else 0.0)
 		var scale_y := 1.0 - 0.35 * maxf(wave, 0.0) if kind == "forward" else 1.0
 		draw_set_transform(at, angle, Vector2(1, scale_y))

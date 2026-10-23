@@ -77,7 +77,9 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 | 音乐 | `RSMusic.attach(parent)` 创建随场景释放的公共播放器，`play_track("menu" / "lobby" / "victory")`、`silence()`，统一走 `RSAudio.MUSIC` 总线 | 项目自己放背景音乐 |
 | 退出 | `RSExit.quit(get_tree(), code)`：暂停场景、停掉所有声音、按真实时间等 350 ms 让音频线程释放，再退出。菜单和 `RSPartyGame` 调用 `RSExit.install(tree)`，关窗口也走这条路 | 直接 `get_tree().quit()`（ARCH-QUIT），退出时会报音频资源泄漏 |
 | 界面 | `RSUi.theme / label / panel_style`；大厅、成绩、暂停在 `RSPartyUi`、`RSPauseMenu` | 每个项目自建一套面板样式 |
+| 开场飞越 | `RSIntro.apply(camera, elapsed, duration, start, via, end, look_start, look_end, fov_start, fov_end, look_delay)`：公共二次 Bézier 飞越、视线过渡与 FOV；`RSIntro.fade` 提供标题淡入淡出 | 项目各自重写相同插值公式 |
 | 分屏 | `RSPartyViews`（`views`）；每个玩家的相机在 `p.cam`，可见层为 `1 | 1 << 玩家号` | 自建 SubViewport |
+| 慢动作回放 | `RSReplay.record / since / duration / lead_out` 管理内存中的时间窗口与片段；每玩家一个 `RSReplay`，`reset(clip)` 后以成绩阶段秒数 `sample(elapsed, speed)` 取得帧对、插值和新跨越的帧范围 | 项目各自维护播放游标和相同的时间采样算法 |
 | 画面设置 | `RSSettings.apply(tree)`、`apply_viewport(vp)`、`environment(env)`、`sun_shadows(sun)` | 写死阴影、抗锯齿、帧率 |
 | 文案 | 节点里 `tr("中文")`，静态代码里 `RSLang.t("中文")`；英文在 `game/i18n/en.json` | 直接写英文、拼接句子 |
 | 材质、道具 | `RSPbr.surface / standard`，`RSProps.place`（MultiMesh 批量） | 每个物体一个材质、一个节点 |
@@ -89,7 +91,16 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 公共领奖台由滑板、滑雪、篮球各自持有，不增加 autoload。项目传入台阶尺寸、地下埋深、第四名站位与镜头参数，以 `ranked_players()` 的稳定顺序向 `present` 提供 64 位分数；并列名次沿用成绩页的竞赛排名（1、1、3），同名次使用同台面高度、奖牌色和庆祝等级。第四位并列前三时显示额外台阶，并向外留出间隔；普通第四名仍站在原地面位置，滑雪继续负责地形高度修正。`fit_left` 在配置的镜头上平移 / 后退，保持朝向与 FOV，让台面、人物和编号落在画面左半侧，避免被右侧成绩挡住；篮球将初始机位抬到 3.5 米，避免后退后被楼顶护栏遮挡。公共层不依赖项目类，不计分、不改变派对积分或存档。人物姿势、场景 / 分屏切换、音效与雪粒子仍由项目处理。所有模型 / 材质只在加载时建立，领奖时调整已有网格；每帧只更新相机数学，时间由原有成绩阶段驱动。
 
+回放帧是按非递减 `t`（比赛时钟秒数）排列的字典，另含项目自定的变换、姿势、冲量或球体快照；只存在内存，不是录像文件或输入重放。`reset(clip)` 后到下次重设之间，调用者不修改片段容器或帧内容。`RSReplay` 不依赖项目类，不更新物理、分数或全局时间缩放。各项目仍负责最佳片段选择、姿势 / 相机 / 音效与领奖台；公共层只裁剪时间窗口、采样和报告新跨越帧。重复采样不重复触发冲量；向后采样本次只重新定位，恢复向前后重新报告再次经过的帧。每次重开与开始成绩回放均重置独立游标，暂停沿用冻结的 `phase_time`。
+
+开场由项目在原有 COUNTDOWN 阶段调用无状态的 `RSIntro`，时间仍为 `phase_time`（秒），不增加计时器或 autoload。项目只提供当前世界坐标中的起点、控制点、跟随终点与视线目标；公共层不依赖场地、人物或游戏类。滑板、滑雪、篮球保留各自的时长、动态锚点、视线延迟与 FOV 参数，暂停冻结、重开归零及地图切换仍遵循 `RSPartyGame`。零或负时长直接落到终点；目标与相机重合时保留朝向，垂直视线使用备用上方向，避免无效相机变换。
+
+左手手势偏好按 P1–P4 保存在现有 `RSProfiles`，旧档案默认右手。`RSController` 的原始姿态、角速度和历史保持协议原值，调试与录制不受影响；游戏通过 `motion_orientation / motion_pose / motion_gyro / motion_roll` 读取镜像后的输入。左右镜像使用 `M=diag(-1,1,1)`：旋转为 `M R M`，轴向角速度为 `-M g`，保持抬腕方向、速度和手势时序。六项目与教学统一消费这层输入，同一局不同玩家可选不同手。
+
+篮球改动时按 SIZE 规则抽出 `RSBasketballHud`，与阶段三 PR #7 的同名模块保持一致；控制输入与运动状态仍由游戏持有。
 无障碍的镜头晃动开关由 `RSSettings.camera_shake` 统一保存到现有 `settings.cfg`，主菜单和游戏暂停菜单共用无障碍页面。滑板、滑雪在生成原有随机偏移后决定是否应用，保持原随机数消耗顺序，关闭抖动不改变运动物理、机器人决策或计分。
+
+界面字号由 `RSSettings.text_size` 保存在同一设置文件，标准为 100%，大号为 125%。`RSUi` 保留控件、Theme 和成绩富文本的原始字号，切换时一次更新现有界面，新控件按当前设置创建；不重载比赛、不逐帧遍历节点、不重复累乘。主菜单项目列表和菜单子页滚动跟随焦点。六项目通过 `RSPartyGame.draw_text / draw_pill` 统一放大 HUD，受分屏宽度与屏幕边缘限制的单行文字按实际字体度量适配；3D 世界标签和手柄 OLED 保持原尺寸。
 
 - **中枢 ↔ 游戏**：只有 [protocol.md](protocol.md) 定义的 UDP 消息。新增字段要同时改协议文档、hub 和 `ControllerHub`，并保持旧字段兼容。
 - **存档**：`user://*.cfg`（ConfigFile）。`RSSave.read(path)` 读原文件、`.bak`、`.tmp` 中的有效副本；`RSSave.write(path, config)` 使用版本 1 元数据、SHA-256 校验、验证后的临时文件和上一份有效备份。无版本旧档按版本 0 读取，下次成功保存时升级。未知版本只读保护，不用旧备份覆盖；所有副本损坏时返回默认配置并记录警告。备份与临时文件是现有存档的恢复副本，不新增业务存档或 autoload。Windows 替换目标文件存在短暂间隙，因此承诺可恢复写入，不承诺断电原子性或磁盘硬件损坏恢复。`override.cfg` 仍是启动时派生的渲染设置；两份设置文件无法构成跨文件事务，驱动变更保存失败时返回错误。

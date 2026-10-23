@@ -29,6 +29,7 @@ const WINDOW_NAMES := ["窗口", "全屏", "独占全屏"]
 ## anti-aliasing replaces MSAA / FXAA). Scales are AMD's presets.
 const UPSCALE_NAMES := ["原生", "FSR 质量", "FSR 均衡", "FSR 性能", "FSR 超级性能"]
 const UPSCALE_SCALES := [1.0, 0.77, 0.67, 0.59, 0.5]
+const TEXT_SCALES := [1.0, 1.25]
 
 static var fps := 0                          ## index into FPS
 static var quality := 2                      ## index into QUALITY_NAMES
@@ -38,6 +39,7 @@ static var language := 0                     ## index into RSLang.CODES
 static var hdr := false
 static var color_safe := false
 static var camera_shake := true              ## cosmetic impact jitter; existing behavior by default
+static var text_size := 0                    ## standard / large; existing saves default to standard
 static var volumes := [10, 7, 10, 8]         ## 0..10 per RSAudio.BUSES (master, music, sfx, ambience)
 static var _loaded := false
 
@@ -51,6 +53,7 @@ static func load_once() -> void:
 	RSLang.apply(language)
 	color_safe = RSSave.boolean(cf, "accessibility", "color_safe", false)
 	camera_shake = RSSave.boolean(cf, "accessibility", "camera_shake", true)
+	text_size = clampi(RSSave.integer(cf, "accessibility", "text_size", 0), 0, TEXT_SCALES.size() - 1)
 	for i in volumes.size():
 		volumes[i] = clampi(RSSave.integer(cf, "audio", (RSAudio.BUSES[i] as String).to_lower(), volumes[i]), 0, RSAudio.STEPS)
 	if not cf.has_section("display"):
@@ -75,6 +78,7 @@ static func save() -> Error:
 	cf.set_value("general", "language", language)
 	cf.set_value("accessibility", "color_safe", color_safe)
 	cf.set_value("accessibility", "camera_shake", camera_shake)
+	cf.set_value("accessibility", "text_size", text_size)
 	for i in volumes.size():
 		cf.set_value("audio", (RSAudio.BUSES[i] as String).to_lower(), volumes[i])
 	var err := RSSave.write(PATH, cf)
@@ -167,6 +171,10 @@ static func language_name() -> String:
 	return RSLang.NAMES[language]
 
 
+static func text_size_name() -> String:
+	return RSLang.t("大（125%）") if text_size == 1 else RSLang.t("标准（100%）")
+
+
 static func next_language() -> void:
 	## Switch the language and save it; the caller reloads its scene so every text is redone.
 	language = (language + 1) % RSLang.CODES.size()
@@ -198,6 +206,7 @@ static func apply(tree: SceneTree) -> void:
 	if mode != want and not DisplayServer.get_name().contains("headless"):
 		DisplayServer.window_set_mode(want)
 	apply_volumes()
+	RSUi.apply_text_sizes(tree.root)
 	# HDR output (the viewports' HDR 2D buffers are set below).
 	tree.root.hdr_output_requested = hdr_active()
 	# Frame rate.
