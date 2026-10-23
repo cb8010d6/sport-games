@@ -79,6 +79,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 | 界面 | `RSUi.theme / label / panel_style`；大厅、成绩、暂停在 `RSPartyUi`、`RSPauseMenu` | 每个项目自建一套面板样式 |
 | 开场飞越 | `RSIntro.apply(camera, elapsed, duration, start, via, end, look_start, look_end, fov_start, fov_end, look_delay)`：公共二次 Bézier 飞越、视线过渡与 FOV；`RSIntro.fade` 提供标题淡入淡出 | 项目各自重写相同插值公式 |
 | 分屏 | `RSPartyViews`（`views`）；每个玩家的相机在 `p.cam`，可见层为 `1 | 1 << 玩家号` | 自建 SubViewport |
+| 慢动作回放 | `RSReplay.record / since / duration / lead_out` 管理内存中的时间窗口与片段；每玩家一个 `RSReplay`，`reset(clip)` 后以成绩阶段秒数 `sample(elapsed, speed)` 取得帧对、插值和新跨越的帧范围 | 项目各自维护播放游标和相同的时间采样算法 |
 | 画面设置 | `RSSettings.apply(tree)`、`apply_viewport(vp)`、`environment(env)`、`sun_shadows(sun)` | 写死阴影、抗锯齿、帧率 |
 | 文案 | 节点里 `tr("中文")`，静态代码里 `RSLang.t("中文")`；英文在 `game/i18n/en.json` | 直接写英文、拼接句子 |
 | 材质、道具 | `RSPbr.surface / standard`，`RSProps.place`（MultiMesh 批量） | 每个物体一个材质、一个节点 |
@@ -86,6 +87,8 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 | 存档 | 只在 `core` 里读写 `user://`（ARCH-SAVE）：`RSSettings`（settings.cfg），PR #2 合并后还有 `RSProfiles`（profiles.cfg）、`RSRecords`（records.cfg）、`RSTournament`（内存中的派对赛） | 项目自己写文件 |
 
 ## 4. 数据与接口
+
+回放帧是按非递减 `t`（比赛时钟秒数）排列的字典，另含项目自定的变换、姿势、冲量或球体快照；只存在内存，不是录像文件或输入重放。`reset(clip)` 后到下次重设之间，调用者不修改片段容器或帧内容。`RSReplay` 不依赖项目类，不更新物理、分数或全局时间缩放。各项目仍负责最佳片段选择、姿势 / 相机 / 音效与领奖台；公共层只裁剪时间窗口、采样和报告新跨越帧。重复采样不重复触发冲量；向后采样本次只重新定位，恢复向前后重新报告再次经过的帧。每次重开与开始成绩回放均重置独立游标，暂停沿用冻结的 `phase_time`。
 
 开场由项目在原有 COUNTDOWN 阶段调用无状态的 `RSIntro`，时间仍为 `phase_time`（秒），不增加计时器或 autoload。项目只提供当前世界坐标中的起点、控制点、跟随终点与视线目标；公共层不依赖场地、人物或游戏类。滑板、滑雪、篮球保留各自的时长、动态锚点、视线延迟与 FOV 参数，暂停冻结、重开归零及地图切换仍遵循 `RSPartyGame`。零或负时长直接落到终点；目标与相机重合时保留朝向，垂直视线使用备用上方向，避免无效相机变换。
 

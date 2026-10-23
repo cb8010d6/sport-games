@@ -56,7 +56,7 @@ class Rider:
 	var clip: Array = []
 	var clip_pts := 0
 	var clip_names := ""
-	var rp_i := 0
+	var replay := RSReplay.new()
 	var rp_side := Vector3.RIGHT
 
 
@@ -204,6 +204,7 @@ func _round_started(list: Array) -> void:
 		r.pend.clear()
 		r.post = -1.0
 		r.clip = []
+		r.replay.reset(r.clip)
 		r.clip_pts = 0
 		r.combo_from = 0.0
 		r.sk.rig.cheer = 0.0
@@ -330,7 +331,7 @@ func _on_banked(points: int, names: PackedStringArray, sketchy: bool, p: Player)
 	r.banked_names = _trick_line(names)
 	# Best so far: cut the replay from the recording once the landing has run on a little.
 	if points > maxi(r.clip_pts, r.pend_pts if r.post >= 0.0 else 0):
-		r.pend = r.rec.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= r.combo_from - PRE_ROLL)
+		r.pend = RSReplay.since(r.rec, r.combo_from - PRE_ROLL)
 		r.pend_pts = points
 		r.pend_names = _trick_line(names, 3)
 		r.post = POST_ROLL
@@ -629,12 +630,10 @@ func _draw_overlay(o: Overlay, k: float) -> void:
 
 func _record(r: Rider, dt: float) -> void:
 	var rig := r.sk.rig
-	r.rec.append({"t": _clock, "xf": rig.global_transform, "imp": rig.impacts, "in": [rig.crouch, rig.lean,
+	RSReplay.record(r.rec, {"t": _clock, "xf": rig.global_transform, "imp": rig.impacts, "in": [rig.crouch, rig.lean,
 		rig.yaw, rig.flip, rig.board_pitch, rig.board_lift, rig.feet_lift, rig.arms, rig.balance, rig.push,
-		rig.grab, rig.wheel_speed]})
+		rig.grab, rig.wheel_speed]}, CLIP_MAX + PRE_ROLL + POST_ROLL + 1.0)
 	rig.impacts = 0.0
-	while not r.rec.is_empty() and _clock - float(r.rec[0]["t"]) > CLIP_MAX + PRE_ROLL + POST_ROLL + 1.0:
-		r.rec.pop_front()
 	if r.post >= 0.0:
 		r.pend.append(r.rec.back())
 		r.post -= dt
@@ -646,16 +645,12 @@ func _record(r: Rider, dt: float) -> void:
 
 func _keep_clip(r: Rider) -> void:
 	var end := float(r.pend.back()["t"]) if not r.pend.is_empty() else 0.0
-	r.clip = r.pend.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= end - CLIP_MAX - POST_ROLL)
+	r.clip = RSReplay.since(r.pend, end - CLIP_MAX - POST_ROLL)
 	r.clip_pts = r.pend_pts
 	r.clip_names = r.pend_names
 	r.pend = []
 	r.pend_pts = 0
 	r.post = -1.0
-
-
-func _clip_len(r: Rider) -> float:
-	return float(r.clip.back()["t"]) - float(r.clip[0]["t"]) if r.clip.size() > 1 else 0.0
 
 
 func finish_round() -> void:
@@ -664,8 +659,8 @@ func finish_round() -> void:
 		var r := _rider(p)
 		if r.post >= 0.0:
 			_keep_clip(r)
-		longest = maxf(longest, _clip_len(r) / SLOW)
-		r.rp_i = 0
+		longest = maxf(longest, RSReplay.duration(r.clip) / SLOW)
+		r.replay.reset(r.clip)
 		r.sk.quiet()
 		r.sk.rig.end_bail()
 		if r.clip.size() > 1:
@@ -680,7 +675,7 @@ func finish_round() -> void:
 				r.rp_side = -r.rp_side
 			r.cam_pos = a + r.rp_side * 3.6 + Vector3.UP * 1.0
 			r.cam_look = a + Vector3.UP * 0.8
-	_podium_at = minf(longest, 8.5) + (0.3 if longest > 0.0 else 0.0)
+	_podium_at = RSReplay.lead_out(longest, 8.5)
 	results_delay = _podium_at + 1.6
 	_podium_on = false
 	super.finish_round()
@@ -689,22 +684,21 @@ func finish_round() -> void:
 func _replay_step(p: Player, delta: float) -> void:
 	var r := _rider(p)
 	var rig := r.sk.rig
-	if r.clip.size() < 2:
+	if not r.replay.sample(phase_time, SLOW):
 		rig.update(delta)
 		_camera(p, r, delta, false)
 		return
-	var t := float(r.clip[0]["t"]) + minf(phase_time * SLOW, _clip_len(r))
-	while r.rp_i + 1 < r.clip.size() and float(r.clip[r.rp_i + 1]["t"]) <= t:
-		r.rp_i += 1
-		var imp := float(r.clip[r.rp_i]["imp"])
+	var crossed := r.replay.crossed_from
+	while crossed <= r.replay.index:
+		var imp := float(r.clip[crossed]["imp"])
 		if imp > 0.0:
 			rig.impact(imp)
 			if imp > 0.9:
 				RSSfx.play(self, "land", -14.0 + r.sk.gain_db, 0.7)
-	var fa: Dictionary = r.clip[r.rp_i]
-	var fb: Dictionary = r.clip[mini(r.rp_i + 1, r.clip.size() - 1)]
-	var span := maxf(float(fb["t"]) - float(fa["t"]), 1e-4)
-	var u := clampf((t - float(fa["t"])) / span, 0.0, 1.0)
+		crossed += 1
+	var fa := r.replay.a
+	var fb := r.replay.b
+	var u := r.replay.weight
 	rig.global_transform = (fa["xf"] as Transform3D).interpolate_with(fb["xf"], u)
 	var ia: Array = fa["in"]
 	var ib: Array = fb["in"]
