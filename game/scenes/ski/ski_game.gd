@@ -60,7 +60,7 @@ class Racer:
 	var clip: Array = []
 	var clip_pts := 0
 	var clip_names := ""
-	var rp_i := 0
+	var replay := RSReplay.new()
 	var rp_side := Vector3.RIGHT
 
 
@@ -315,6 +315,7 @@ func _round_started(list: Array) -> void:
 		r.pend.clear()
 		r.post = -1.0
 		r.clip = []
+		r.replay.reset(r.clip)
 		r.clip_pts = 0
 		r.air_from = 0.0
 		r.sk.rig.cheer = 0.0
@@ -447,7 +448,7 @@ func _on_trick(points: int, names: PackedStringArray, sketchy: bool, p: Player) 
 	r.banked_sketchy = sketchy
 	r.banked_names = " + ".join(names)
 	if points > maxi(r.clip_pts, r.pend_pts if r.post >= 0.0 else 0):
-		r.pend = r.rec.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= r.air_from - PRE_ROLL)
+		r.pend = RSReplay.since(r.rec, r.air_from - PRE_ROLL)
 		r.pend_pts = points
 		r.pend_names = r.banked_names
 		r.post = POST_ROLL
@@ -493,7 +494,7 @@ func _on_finished(p: Player) -> void:
 	_course.set_board("\n".join(_board_lines.slice(maxi(0, _board_lines.size() - 4))))
 	# No jump to show in the replay: show crossing the line instead.
 	if r.clip.is_empty() and r.post < 0.0:
-		r.pend = r.rec.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= _clock - 2.6)
+		r.pend = RSReplay.since(r.rec, _clock - 2.6)
 		r.pend_pts = 0
 		r.pend_names = tr("冲过终点  ") + _fmt_time(r.sk.finish_time)
 		r.post = POST_ROLL
@@ -759,12 +760,10 @@ func _draw_overlay(o: Overlay, k: float) -> void:
 
 func _record(r: Racer, dt: float) -> void:
 	var rig := r.sk.rig
-	r.rec.append({"t": _clock, "xf": rig.global_transform, "imp": rig.impacts, "in": [rig.crouch, rig.tuck, rig.lean,
+	RSReplay.record(r.rec, {"t": _clock, "xf": rig.global_transform, "imp": rig.impacts, "in": [rig.crouch, rig.tuck, rig.lean,
 		rig.edge, rig.yaw, rig.wedge, rig.grounded, rig.plant, rig.plant_side, rig.push, rig.grab, rig.feet_lift, rig.arms,
-		1.0 if rig.is_crashing() else 0.0]})
+		1.0 if rig.is_crashing() else 0.0]}, CLIP_MAX + PRE_ROLL + POST_ROLL + 1.0)
 	rig.impacts = 0.0
-	while not r.rec.is_empty() and _clock - float(r.rec[0]["t"]) > CLIP_MAX + PRE_ROLL + POST_ROLL + 1.0:
-		r.rec.pop_front()
 	if r.post >= 0.0:
 		r.pend.append(r.rec.back())
 		r.post -= dt
@@ -776,16 +775,12 @@ func _record(r: Racer, dt: float) -> void:
 
 func _keep_clip(r: Racer) -> void:
 	var end := float(r.pend.back()["t"]) if not r.pend.is_empty() else 0.0
-	r.clip = r.pend.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= end - CLIP_MAX - POST_ROLL)
+	r.clip = RSReplay.since(r.pend, end - CLIP_MAX - POST_ROLL)
 	r.clip_pts = r.pend_pts
 	r.clip_names = r.pend_names
 	r.pend = []
 	r.pend_pts = 0
 	r.post = -1.0
-
-
-func _clip_len(r: Racer) -> float:
-	return float(r.clip.back()["t"]) - float(r.clip[0]["t"]) if r.clip.size() > 1 else 0.0
 
 
 func finish_round() -> void:
@@ -794,8 +789,8 @@ func finish_round() -> void:
 		var r := _racer(p)
 		if r.post >= 0.0:
 			_keep_clip(r)
-		longest = maxf(longest, _clip_len(r) / SLOW)
-		r.rp_i = 0
+		longest = maxf(longest, RSReplay.duration(r.clip) / SLOW)
+		r.replay.reset(r.clip)
 		r.sk.quiet()
 		r.sk.rig.end_crash()
 		if r.clip.size() > 1:
@@ -811,7 +806,7 @@ func finish_round() -> void:
 				r.rp_side = -r.rp_side
 			r.cam_pos = a + r.rp_side * 6.0 + Vector3.UP * 1.5
 			r.cam_look = a + Vector3.UP * 0.8
-	_podium_at = minf(longest, 9.0) + (0.3 if longest > 0.0 else 0.0)
+	_podium_at = RSReplay.lead_out(longest, 9.0)
 	results_delay = _podium_at + 1.6
 	_podium_on = false
 	super.finish_round()
@@ -820,22 +815,21 @@ func finish_round() -> void:
 func _replay_step(p: Player, delta: float) -> void:
 	var r := _racer(p)
 	var rig := r.sk.rig
-	if r.clip.size() < 2:
+	if not r.replay.sample(phase_time, SLOW):
 		rig.update(delta)
 		_camera(p, r, delta, false)
 		return
-	var t := float(r.clip[0]["t"]) + minf(phase_time * SLOW, _clip_len(r))
-	while r.rp_i + 1 < r.clip.size() and float(r.clip[r.rp_i + 1]["t"]) <= t:
-		r.rp_i += 1
-		var imp := float(r.clip[r.rp_i]["imp"])
+	var crossed := r.replay.crossed_from
+	while crossed <= r.replay.index:
+		var imp := float(r.clip[crossed]["imp"])
 		if imp > 0.0:
 			rig.impact(imp)
 			if imp > 0.9:
 				RSSfx.play(self, "snowland", -10.0 + r.sk.gain_db, 0.75)
-	var fa: Dictionary = r.clip[r.rp_i]
-	var fb: Dictionary = r.clip[mini(r.rp_i + 1, r.clip.size() - 1)]
-	var span := maxf(float(fb["t"]) - float(fa["t"]), 1e-4)
-	var u := clampf((t - float(fa["t"])) / span, 0.0, 1.0)
+		crossed += 1
+	var fa := r.replay.a
+	var fb := r.replay.b
+	var u := r.replay.weight
 	rig.global_transform = (fa["xf"] as Transform3D).interpolate_with(fb["xf"], u)
 	var ia: Array = fa["in"]
 	var ib: Array = fb["in"]

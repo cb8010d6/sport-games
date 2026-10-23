@@ -95,7 +95,7 @@ class Shooter:
 	var clip: Array = []
 	var clip_pts := 0
 	var clip_name := ""
-	var rp_i := 0
+	var replay := RSReplay.new()
 	var rp_ball: RSBasketball
 
 
@@ -278,6 +278,7 @@ func _round_started(list: Array) -> void:
 		s.pend.clear()
 		s.post = -1.0
 		s.clip = []
+		s.replay.reset(s.clip)
 		s.clip_pts = 0
 		s.bot = p.fake
 		s.rng.seed = 77 + p.c.player * 31 + _rng.randi_range(0, 9999)
@@ -645,7 +646,7 @@ func _made(p: Player, s: Shooter, b: RSBasketball) -> void:
 	_log(p, "MADE %s +%d" % ["swish" if swish else "rim", pts])
 	if pts > maxi(s.clip_pts, s.pend_pts if s.post >= 0.0 else 0) or pts == s.clip_pts and b.money:
 		var t0 := float(b.get_meta("t0")) - 1.1
-		s.pend = s.rec.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= t0)
+		s.pend = RSReplay.since(s.rec, t0)
 		s.pend_pts = pts
 		s.pend_name = label.trim_suffix("！").trim_suffix("!")   # no-i18n
 		s.pend_ball = b.get_instance_id()
@@ -812,9 +813,7 @@ func _record(s: Shooter, dt: float) -> void:
 	for b in s.flying:
 		if _clock - float(b.get_meta("t0", 0.0)) < 4.0:
 			balls[b.get_instance_id()] = [b.global_transform, b.money]
-	s.rec.append({"t": _clock, "xf": s.rig.global_transform, "pose": s.rig.capture(), "balls": balls})
-	while not s.rec.is_empty() and _clock - float(s.rec[0]["t"]) > CLIP_KEEP:
-		s.rec.pop_front()
+	RSReplay.record(s.rec, {"t": _clock, "xf": s.rig.global_transform, "pose": s.rig.capture(), "balls": balls}, CLIP_KEEP)
 	if s.post >= 0.0:
 		s.pend.append(s.rec.back())
 		s.post -= dt
@@ -832,22 +831,18 @@ func _keep_clip(s: Shooter) -> void:
 	s.post = -1.0
 
 
-func _clip_len(s: Shooter) -> float:
-	return float(s.clip.back()["t"]) - float(s.clip[0]["t"]) if s.clip.size() > 1 else 0.0
-
-
 func finish_round() -> void:
 	var longest := 0.0
 	for p: Player in players.values():
 		var s := _sh(p)
 		if s.post >= 0.0:
 			_keep_clip(s)
-		longest = maxf(longest, _clip_len(s) / SLOW)
-		s.rp_i = 0
+		longest = maxf(longest, RSReplay.duration(s.clip) / SLOW)
+		s.replay.reset(s.clip)
 		_clear_balls(s)
 		if s.clip.size() > 1:
 			s.rig.set_layers(1 << p.c.player)
-	_podium_at = minf(longest, 9.0) + (0.3 if longest > 0.0 else 0.0)
+	_podium_at = RSReplay.lead_out(longest, 9.0)
 	results_delay = _podium_at + 1.6
 	_podium_on = false
 	super.finish_round()
@@ -855,17 +850,13 @@ func finish_round() -> void:
 
 func _replay_step(p: Player, delta: float) -> void:
 	var s := _sh(p)
-	if s.clip.size() < 2:
+	if not s.replay.sample(phase_time, SLOW):
 		s.rig.update(delta)
 		_camera(p, s, delta, false)
 		return
-	var t := float(s.clip[0]["t"]) + minf(phase_time * SLOW, _clip_len(s))
-	while s.rp_i + 1 < s.clip.size() and float(s.clip[s.rp_i + 1]["t"]) <= t:
-		s.rp_i += 1
-	var fa: Dictionary = s.clip[s.rp_i]
-	var fb: Dictionary = s.clip[mini(s.rp_i + 1, s.clip.size() - 1)]
-	var span := maxf(float(fb["t"]) - float(fa["t"]), 1e-4)
-	var u := clampf((t - float(fa["t"])) / span, 0.0, 1.0)
+	var fa := s.replay.a
+	var fb := s.replay.b
+	var u := s.replay.weight
 	s.rig.global_transform = (fa["xf"] as Transform3D).interpolate_with(fb["xf"], u)
 	s.rig.show_pose(fa["pose"])
 	var ball_at := Vector3.ZERO
