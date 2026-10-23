@@ -9,6 +9,11 @@
   ],
   "documented": [
     {
+      "prefix": "docs/screenshots/phase8-text-",
+      "license": "MIT",
+      "evidence": "docs/PHASE_8_TEXT_SIZE.md"
+    },
+    {
       "prefix": "docs/screenshots/phase7-hand-",
       "license": "MIT",
       "evidence": "docs/PHASE_7_LEFT_HAND.md"

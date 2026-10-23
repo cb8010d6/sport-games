@@ -33,6 +33,7 @@ func _ready() -> void:
 	center.add_child(panel)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	scroll.follow_focus = true
 	panel.add_child(scroll)
 	_col = VBoxContainer.new()
 	_col.size_flags_horizontal = SIZE_EXPAND_FILL
