@@ -90,7 +90,24 @@ raw 顶层包括 `game`、`map`、`players`、`quality`、`warmup_seconds`、`du
 
 快速序列使用滑板、滑雪、篮球地图 1 的真实机器人场景，每段 PLAY 预热 10 秒、采样 30 秒，通常约 2–3 分钟加加载时间。它固定地图和起始种子，但不是跨帧率完全确定的录像回放；场景、物理和粒子限制同上。
 
-运行界面显示当前阶段、进度、FPS 和帧时间曲线。结果页显示每场的平均 FPS、1% low、p95/p99、最差帧、CPU process 与独立视口 GPU 均值/有效覆盖率。结果曲线把该场全部真实帧按顺序等帧数分成最多 96 箱，显示各箱最大帧时间；纵轴 0–60 ms，超出截顶，精确最差值和原始数据另保留。图中的箱最大值不是逐帧原图或新的百分位。
+界面使用统一主题（[UI_THEME.md](UI_THEME.md)）：配置页顶部是返回按钮和标题，人数、画质、分辨率各占一张卡片，“开始性能测试”是该页唯一的主要按钮。运行时左上角浮层显示当前场景、阶段（预热 / 采样）、进度、FPS 和帧时间曲线，可随时取消。
+
+结果页参考常见大作的测试结果页布局：
+
+- 每个场景一张汇总卡片：大字平均 FPS、参考目标是否达标、1% low、p95 / p99 帧时间、最差帧和 CPU process。
+- 帧时间曲线：把该场全部真实帧按顺序等帧数分成最多 96 箱，显示各箱最大帧时间；纵轴 0–60 ms，超出截顶，虚线是双人 60 / 四人 45 FPS 的参考帧时间。精确最差值和原始数据另保留。图中的箱最大值不是逐帧原图或新的百分位。
+- 瓶颈估计：把各视口 GPU 渲染时间均值相加，与 CPU process 均值比较，较大的一方标为“估计：GPU 受限”或“估计：CPU 受限”。视口时间不是整帧 GPU 时间，不含驱动和呈现等待，CPU process 也不含渲染线程，所以只是估计；任一有读数的视口有效覆盖率低于 50% 或没有 GPU 读数时显示“无法估计瓶颈”。卡片同时列出各视口 GPU 均值和有效覆盖率。
+- 系统与设置：CPU（`OS.get_processor_name()`）、GPU、驱动（与 JSON 的 `metadata.driver` 同源，即 `OS.get_video_adapter_driver_info()`）、内存（`OS.get_memory_info()`）、渲染后端、分辨率、画质、超分（测试期间固定为原生）和采样时长。不显示 GPU 温度、频率或占用率：Godot 没有这些接口，需要厂商 SDK。
+
+结果页的“再测一次”用同样的配置重新开始，“更改设置”回到配置页，“返回”回到设置菜单。
+
+| 中文 | English |
+|---|---|
+| ![配置页](screenshots/bench-ui-config-zh.png) | ![Config page](screenshots/bench-ui-config-en.png) |
+| ![结果页](screenshots/bench-ui-results-zh.png) | ![Results page](screenshots/bench-ui-results-en.png) |
+| ![结果页下半部分](screenshots/bench-ui-results-end-zh.png) | ![Results page, lower half](screenshots/bench-ui-results-end-en.png) |
+
+截图为 1600×900、Godot 4.7.2 实际渲染，由 `python tools/test_benchmark.py --godot <GODOT> --screenshots --players 2` 生成（每场预热 0.1 秒、采样 0.3 秒、低画质的短验收，数字不是性能基线；本次截图的渲染卡是默认选择的 RTX 4060 Laptop，不是参考机的 780M）。
 
 完成、失败或取消后恢复本次临时改变的画质、帧率、超分和实际窗口状态，不保存玩家设置，不写档案、个人最佳或教学进度。结果导出只在点击“导出 JSON / CSV”时发生，写到 `user://benchmarks/<时间标识>/results.json` 和 `samples.csv`，不属于业务存档。JSON 同时保留原始样本与共享统计结果；CSV 按帧和视口展开，null GPU 值为空单元格；写入或 flush 失败明确报告失败。
 

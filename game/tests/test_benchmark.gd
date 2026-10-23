@@ -110,6 +110,17 @@ func _statistics_tests() -> void:
 	var partial_stats := RSBenchmark.statistics(partial)
 	_check(is_equal_approx(float(partial_stats["gpu_viewports_coverage"]["player_1"]), 0.5), "zero/null GPU samples reduce coverage")
 	_check(is_equal_approx(float(partial_stats["gpu_viewports_ms_avg"]["player_1"]), 1.2), "missing GPU samples do not bias average toward zero")
+	var estimate := RSBenchmarkMenu.bound_estimate(stats)
+	_check(estimate["verdict"] == "cpu" and is_equal_approx(float(estimate["gpu_ms"]), 1.2) and is_equal_approx(float(estimate["cpu_ms"]), 2.0), "null viewport is skipped; CPU process above GPU viewport sum estimates CPU-bound")
+	_check(is_equal_approx(float(estimate["frame_ms"]), 25.0), "estimate frame time is the reciprocal of average FPS")
+	var gpu_heavy := _fixture()
+	for sample: Dictionary in gpu_heavy["samples"]:
+		sample["gpu_viewports_ms"]["player_1"] = 3.0
+	_check(RSBenchmarkMenu.bound_estimate(RSBenchmark.statistics(gpu_heavy))["verdict"] == "gpu", "GPU viewport sum above CPU process estimates GPU-bound")
+	var sparse := _fixture()
+	for i in 3:
+		sparse["samples"][i]["gpu_viewports_ms"]["player_1"] = null
+	_check(RSBenchmarkMenu.bound_estimate(RSBenchmark.statistics(sparse))["verdict"] == "unknown", "low GPU coverage withholds the estimate")
 	_check(RSBenchmark.statistics({"samples": []}).is_empty(), "empty samples do not produce statistics")
 	for status: String in ["FAIL", "CANCELLED"]:
 		var failed := _fixture()

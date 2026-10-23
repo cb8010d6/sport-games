@@ -2,6 +2,8 @@ class_name RSBenchmarkMenu
 extends Control
 ## Settings-only benchmark host. Real games are children; cleanup precedes settings restore.
 ## Wall-clock warmup/sample defaults stay 10/30 s; tests may inject shorter durations explicitly.
+## Three views share one themed layer: the config page, the run overlay and the results page.
+## Every look comes from RSUi (docs/UI_THEME.md); buttons stay outside the result scroll area.
 
 signal run_completed(reports: Array[Dictionary])
 signal _case_finished(report: Dictionary)
@@ -9,6 +11,7 @@ signal _case_finished(report: Dictionary)
 const CASES := ["skate", "ski", "basketball"]
 const RESOLUTIONS := [Vector2i(1600, 900), Vector2i(1920, 1080)]
 const BENCH_SEED := 20261023
+const MIN_GPU_COVERAGE := 0.5     ## below this share of valid viewport readings the estimate is withheld
 static var return_to_settings := false
 var warmup_seconds := 10.0
 var duration_seconds := 30.0
@@ -20,27 +23,40 @@ var _sampler: RSBenchmark
 var _cancelled := false
 var _closing := false
 var _case_name := ""
+var _run_config: Dictionary = {}
 var _players: OptionButton
 var _quality: OptionButton
 var _resolution: OptionButton
+var _backdrop: ColorRect
 var _config: PanelContainer
+var _results: PanelContainer
 var _overlay: PanelContainer
+var _message: Label
 var _status: Label
+var _detail: Label
+var _stage: PanelContainer
 var _progress: ProgressBar
 var _graph: FrameGraph
-var _result_text: Label
+var _results_subtitle: Label
+var _results_status: PanelContainer
 var _results_scroll: ScrollContainer
 var _results_column: VBoxContainer
-var _result_navigation: HBoxContainer
+var _export_message: Label
 var _export: Button
+var _start: Button
+var _again: Button
+var _cancel: Button
 var _controls: Array[BaseButton] = []
 
 class FrameGraph extends Control:
 	const CAPACITY := 96
+	const MAX_MS := 60.0          ## vertical scale; slower frames are clipped at the top
+	const GRID_MS := [20.0, 40.0]
 	var values := PackedFloat32Array()
 	var count := 0
 	var cursor := 0
 	var stretch_history := false
+	var target_ms := 0.0          ## reference frame budget line; 0 hides it
 
 	func _init() -> void:
 		values.resize(CAPACITY)
@@ -58,14 +74,31 @@ class FrameGraph extends Control:
 		cursor = 0
 		queue_redraw()
 
+	func _y(ms: float) -> float:
+		return size.y * (1.0 - minf(ms / MAX_MS, 1.0))
+
 	func _draw() -> void:
-		draw_rect(Rect2(Vector2.ZERO, size), Color(0.02, 0.03, 0.05, 0.9))
+		draw_rect(Rect2(Vector2.ZERO, size), RSUi.SCRIM)
+		var font := RSUi.font()
+		var font_size := RSUi.text_size(12)
+		for ms: float in GRID_MS:
+			draw_line(Vector2(0, _y(ms)), Vector2(size.x, _y(ms)), RSUi.STROKE, 1.0)
+			draw_string(font, Vector2(6, _y(ms) - 4), "%.0f ms" % ms, HORIZONTAL_ALIGNMENT_LEFT, -1, font_size, RSUi.TEXT_MUTED)
+		if target_ms > 0.0:
+			draw_dashed_line(Vector2(0, _y(target_ms)), Vector2(size.x, _y(target_ms)), RSUi.HIGHLIGHT, 1.5, 8.0)
+			draw_string(font, Vector2(0, _y(target_ms) - 4), "%.0f FPS" % (1000.0 / target_ms), HORIZONTAL_ALIGNMENT_RIGHT, size.x - 6, font_size, RSUi.HIGHLIGHT)
+		if count < 2:
+			return
 		var width_steps := maxi(1, count - 1) if stretch_history else CAPACITY - 1
-		for i in range(1, count):
-			var previous := values[posmod(cursor - count + i - 1, CAPACITY)]
-			var current := values[posmod(cursor - count + i, CAPACITY)]
-			draw_line(Vector2((i - 1) * size.x / width_steps, size.y * (1.0 - minf(previous / 60.0, 1.0))),
-				Vector2(i * size.x / width_steps, size.y * (1.0 - minf(current / 60.0, 1.0))), Color(0.3, 0.85, 1.0), 2.0)
+		var line := PackedVector2Array()
+		line.resize(count)
+		for i in count:
+			line[i] = Vector2(i * size.x / width_steps, _y(values[posmod(cursor - count + i, CAPACITY)]))
+		var area := line.duplicate()
+		area.append(Vector2(line[-1].x, size.y))
+		area.append(Vector2(0, size.y))
+		draw_colored_polygon(area, Color(RSUi.ACCENT, 0.16))
+		draw_polyline(line, RSUi.ACCENT, 2.0, true)
 
 
 func _ready() -> void:
@@ -77,85 +110,210 @@ func _ready() -> void:
 	var layer := CanvasLayer.new()
 	layer.layer = 20
 	add_child(layer)
-	var center := CenterContainer.new()
-	center.set_anchors_preset(Control.PRESET_FULL_RECT)
-	layer.add_child(center)
-	_config = PanelContainer.new()
-	_config.theme = theme
-	_config.custom_minimum_size = Vector2(1000, 0)
-	_config.add_theme_stylebox_override("panel", RSUi.panel_style())
-	center.add_child(_config)
-	var column := VBoxContainer.new()
-	column.add_theme_constant_override("separation", 8)
-	_config.add_child(column)
-	column.add_child(RSUi.label(tr("性能测试"), 36))
+	# A CanvasLayer interrupts theme inheritance, so the layer's root carries the theme again.
+	var ui := Control.new()
+	ui.theme = theme
+	ui.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ui.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	layer.add_child(ui)
+	_backdrop = ColorRect.new()
+	_backdrop.color = Color(RSUi.SCRIM, 1.0)
+	_backdrop.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_backdrop.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(_backdrop)
+	_build_config(ui)
+	_build_results(ui)
+	_build_overlay(ui)
+	_results.hide()
+	_overlay.hide()
+	_players.grab_focus()
+
+
+func _build_config(ui: Control) -> void:
+	_config = _modal(ui, Vector2(1120, 0))
+	var column := _column(_config, 14)
 	var device := "%s · %s / %s" % [RenderingServer.get_video_adapter_name(), RenderingServer.get_current_rendering_method(), RenderingServer.get_current_rendering_driver_name()]
-	column.add_child(_label(device))
-	column.add_child(_label(tr("滑板 → 滑雪 → 篮球 · 地图 1 · 约 2–3 分钟（加载另计）")))
-	column.add_child(_label(tr("临时关闭垂直同步与帧率上限，使用原生分辨率；完成或取消后恢复设置，不保存偏好。")))
-	column.add_child(_label(tr("固定场景与起始种子；轨迹和粒子可能随帧率变化。曲线界面的开销计入测量。")))
-	_players = _option(column, tr("人数"), [tr("双人"), tr("四人")], 0)
+	var header := _header(column, tr("性能测试"), tr("滑板 → 滑雪 → 篮球 · 地图 1 · 约 2–3 分钟（加载另计）"))
+	header.add_child(_chip(device, RSUi.ACCENT))
+	column.add_child(HSeparator.new())
+	_players = _option(column, tr("人数"), tr("双人或四人分屏；四人同时渲染更多视口。"), [tr("双人"), tr("四人")], 0)
 	var qualities: Array[String] = []
 	for quality: String in RSSettings.QUALITY_NAMES:
 		qualities.append(tr(quality))
-	_quality = _option(column, tr("画质"), qualities, RSSettings.quality)
-	_resolution = _option(column, tr("分辨率"), ["1600 × 900", "1920 × 1080"], 1 if get_tree().root.size == RESOLUTIONS[1] else 0)
-	_button(column, tr("开始性能测试"), begin_run)
-	_export = _button(column, tr("导出 JSON / CSV"), export_results)
-	_export.disabled = true
-	_button(column, tr("返回设置"), _back)
-	_result_text = _label("")
-	_result_text.add_theme_font_size_override("font_size", 16)
+	_quality = _option(column, tr("画质"), tr("只在测试期间临时使用，不改变你的画面设置。"), qualities, RSSettings.quality)
+	_resolution = _option(column, tr("分辨率"), tr("窗口模式输出；测试期间关闭超分，使用原生分辨率渲染。"), ["1600 × 900", "1920 × 1080"], 1 if get_tree().root.size == RESOLUTIONS[1] else 0)
+	var notes := _card(column, 6)
+	notes.add_child(RSUi.label(tr("临时关闭垂直同步与帧率上限，使用原生分辨率；完成或取消后恢复设置，不保存偏好。"), 16, RSUi.TEXT_MUTED, true))
+	notes.add_child(RSUi.label(tr("固定场景与起始种子；轨迹和粒子可能随帧率变化。曲线界面的开销计入测量。"), 16, RSUi.TEXT_MUTED, true))
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 14)
+	column.add_child(footer)
+	_message = RSUi.label("", 17, RSUi.HIGHLIGHT, true)
+	_message.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(_message)
+	_start = _button(footer, tr("开始性能测试"), begin_run)
+	_start.theme_type_variation = &"RSPrimary"
+	_start.custom_minimum_size.x = 240
+	column.add_child(RSUi.label(tr("手柄：B / C 选择，A 确认，D 取消 / 返回；键盘：方向键、回车、Esc。"), 15, RSUi.TEXT_MUTED, true))
+
+
+func _build_results(ui: Control) -> void:
+	_results = _modal(ui, Vector2(1480, 820))
+	var column := _column(_results, 12)
+	var header := _header(column, tr("测试结果"), "")
+	_results_subtitle = header.get_child(1).get_child(1) as Label
+	_results_status = _chip("", RSUi.GOOD)
+	header.add_child(_results_status)
+	column.add_child(HSeparator.new())
 	_results_scroll = ScrollContainer.new()
-	_results_scroll.custom_minimum_size.y = 200
-	_results_column = VBoxContainer.new()
-	_results_column.add_theme_constant_override("separation", 8)
-	_results_scroll.add_child(_results_column)
-	_results_column.add_child(_result_text)
+	_results_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	_results_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	column.add_child(_results_scroll)
-	_results_scroll.hide()
-	_result_navigation = HBoxContainer.new()
-	column.add_child(_result_navigation)
-	_button(_result_navigation, tr("上一页结果"), _scroll_results.bind(-1)).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_button(_result_navigation, tr("下一页结果"), _scroll_results.bind(1)).size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_result_navigation.hide()
-	column.add_child(_label(tr("手柄：B / C 选择，A 确认，D 取消 / 返回；键盘：方向键、回车、Esc。")))
+	_results_column = VBoxContainer.new()
+	_results_column.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_results_column.add_theme_constant_override("separation", 14)
+	_results_scroll.add_child(_results_column)
+	var footer := HBoxContainer.new()
+	footer.add_theme_constant_override("separation", 12)
+	column.add_child(footer)
+	_export_message = RSUi.label("", 15, RSUi.TEXT_MUTED, true)
+	_export_message.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	footer.add_child(_export_message)
+	_button(footer, tr("上一页结果"), _scroll_results.bind(-1))
+	_button(footer, tr("下一页结果"), _scroll_results.bind(1))
+	_button(footer, tr("更改设置"), _show_config)
+	_export = _button(footer, tr("导出 JSON / CSV"), export_results)
+	_export.disabled = true
+	_again = _button(footer, tr("再测一次"), begin_run)
+	_again.theme_type_variation = &"RSPrimary"
+	_again.custom_minimum_size.x = 180
+
+
+func _build_overlay(ui: Control) -> void:
 	_overlay = PanelContainer.new()
-	_overlay.theme = theme
-	_overlay.position = Vector2(18, 18)
-	_overlay.custom_minimum_size = Vector2(520, 0)
-	_overlay.add_theme_stylebox_override("panel", RSUi.panel_style())
-	layer.add_child(_overlay)
-	var progress_column := VBoxContainer.new()
-	_overlay.add_child(progress_column)
-	_status = _label("")
-	_status.custom_minimum_size.x = 460
-	progress_column.add_child(_status)
+	var style := RSUi.modal_style()
+	style.set_content_margin_all(20)
+	_overlay.add_theme_stylebox_override("panel", style)
+	_overlay.position = Vector2(24, 24)
+	_overlay.custom_minimum_size = Vector2(560, 0)
+	ui.add_child(_overlay)
+	var column := _column(_overlay, 10)
+	var top := HBoxContainer.new()
+	top.add_theme_constant_override("separation", 12)
+	column.add_child(top)
+	_status = _title(tr("性能测试"), 24)
+	_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	top.add_child(_status)
+	_stage = _chip("", RSUi.ACCENT)
+	top.add_child(_stage)
+	_detail = RSUi.label("", 18, RSUi.TEXT)
+	column.add_child(_detail)
 	_progress = ProgressBar.new()
-	progress_column.add_child(_progress)
-	progress_column.add_child(RSUi.label(tr("帧时间曲线 · 0–60 毫秒"), 14))
+	_progress.show_percentage = false
+	_progress.custom_minimum_size.y = 10
+	var track := RSUi.card_style()
+	track.set_content_margin_all(0)
+	_progress.add_theme_stylebox_override("background", track)
+	var fill := RSUi.chip_style(RSUi.ACCENT)
+	fill.bg_color = RSUi.ACCENT
+	fill.set_content_margin_all(0)
+	_progress.add_theme_stylebox_override("fill", fill)
+	column.add_child(_progress)
+	column.add_child(RSUi.label(tr("帧时间曲线 · 0–60 毫秒"), 14, RSUi.TEXT_MUTED))
 	_graph = FrameGraph.new()
-	progress_column.add_child(_graph)
-	_button(progress_column, tr("取消测试"), cancel_run)
-	_overlay.hide()
-	_controls[0].grab_focus()
+	_graph.custom_minimum_size.y = 96
+	column.add_child(_graph)
+	var bottom := HBoxContainer.new()
+	bottom.add_theme_constant_override("separation", 12)
+	column.add_child(bottom)
+	var hint := RSUi.label(tr("Esc / 手柄 D 取消"), 15, RSUi.TEXT_MUTED)
+	hint.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	bottom.add_child(hint)
+	_cancel = _button(bottom, tr("取消测试"), cancel_run)
 
 
-func _label(text: String) -> Label:
-	var label := RSUi.label(text, 18)
-	label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	label.custom_minimum_size.x = 940
+# ------------------------------------------------------------------ widgets ----
+
+func _modal(ui: Control, minimum: Vector2) -> PanelContainer:
+	var center := CenterContainer.new()
+	center.set_anchors_preset(Control.PRESET_FULL_RECT)
+	center.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ui.add_child(center)
+	var panel := PanelContainer.new()
+	panel.custom_minimum_size = minimum
+	panel.add_theme_stylebox_override("panel", RSUi.modal_style())
+	center.add_child(panel)
+	return panel
+
+
+func _column(parent: Control, separation: int) -> VBoxContainer:
+	var column := VBoxContainer.new()
+	column.add_theme_constant_override("separation", separation)
+	parent.add_child(column)
+	return column
+
+
+func _title(text: String, size: int) -> Label:
+	var label := RSUi.label(text, size, RSUi.TEXT)
+	label.add_theme_font_override("font", RSUi.font_bold())
 	return label
 
 
-func _option(parent: Node, title: String, names: Array[String], selected: int) -> OptionButton:
+func _header(parent: Control, title: String, subtitle: String) -> HBoxContainer:
+	## Back button, bold title over a muted subtitle; callers append a status chip on the right.
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 18)
+	parent.add_child(header)
+	_button(header, tr("◀ 返回"), _back).size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	var titles := VBoxContainer.new()
+	titles.add_theme_constant_override("separation", 2)
+	titles.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	header.add_child(titles)
+	titles.add_child(_title(title, 34))
+	titles.add_child(RSUi.label(subtitle, 17, RSUi.TEXT_MUTED, true))
+	return header
+
+
+func _chip(text: String, tint: Color, size: int = 16) -> PanelContainer:
+	var chip := PanelContainer.new()
+	chip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	chip.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	chip.add_child(RSUi.label(text, size, tint))
+	_tint_chip(chip, text, tint)
+	return chip
+
+
+func _tint_chip(chip: PanelContainer, text: String, tint: Color) -> void:
+	chip.add_theme_stylebox_override("panel", RSUi.chip_style(tint))
+	var label := chip.get_child(0) as Label
+	label.text = text
+	label.add_theme_color_override("font_color", tint)
+
+
+func _card(parent: Control, separation: int = 8) -> VBoxContainer:
+	var card := PanelContainer.new()
+	card.add_theme_stylebox_override("panel", RSUi.card_style())
+	card.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	parent.add_child(card)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", separation)
+	card.add_child(box)
+	return box
+
+
+func _option(parent: Control, title: String, hint: String, names: Array[String], selected: int) -> OptionButton:
 	var row := HBoxContainer.new()
-	parent.add_child(row)
-	var label := RSUi.label(title, 20)
-	label.custom_minimum_size.x = 180
-	row.add_child(label)
+	row.add_theme_constant_override("separation", 18)
+	_card(parent).add_child(row)
+	var text := VBoxContainer.new()
+	text.add_theme_constant_override("separation", 2)
+	text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	row.add_child(text)
+	text.add_child(_title(title, 22))
+	text.add_child(RSUi.label(hint, 16, RSUi.TEXT_MUTED, true))
 	var option := OptionButton.new()
-	option.custom_minimum_size = Vector2(480, 36)
+	option.custom_minimum_size = Vector2(380, 44)
+	option.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 	for item_name: String in names:
 		option.add_item(item_name)
 	option.select(selected)
@@ -167,41 +325,67 @@ func _option(parent: Node, title: String, names: Array[String], selected: int) -
 func _button(parent: Node, text: String, action: Callable) -> Button:
 	var button := Button.new()
 	button.text = text
-	button.custom_minimum_size.y = 38
+	button.custom_minimum_size.y = 44
 	button.pressed.connect(action)
 	parent.add_child(button)
 	_controls.append(button)
 	return button
 
 
+func _metric(grid: GridContainer, name: String, value: String, wrap: bool = false) -> void:
+	grid.add_child(RSUi.label(name, 17, RSUi.TEXT_MUTED))
+	var label := RSUi.label(value, 18, RSUi.TEXT, wrap)
+	label.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
+	label.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_child(label)
+
+
+func _metric_grid(parent: Control, pairs: int = 1) -> GridContainer:
+	var grid := GridContainer.new()
+	grid.columns = pairs * 2
+	grid.add_theme_constant_override("h_separation", 16 if pairs == 1 else 28)
+	grid.add_theme_constant_override("v_separation", 6)
+	parent.add_child(grid)
+	return grid
+
+
+# --------------------------------------------------------------------- flow ----
+
 func begin_run() -> void:
 	if running or _closing:
 		return
 	results.clear()
-	_clear_result_graphs()
-	_result_text.text = ""
-	_results_scroll.hide()
-	_result_navigation.hide()
+	_clear_results()
+	_message.text = ""
+	_export_message.text = ""
 	_export.disabled = true
 	_graph.clear()
 	_cancelled = false
 	var resolution: Vector2i = RESOLUTIONS[_resolution.selected]
 	var quality := _quality.selected
 	var players := 2 if _players.selected == 0 else 4
+	_run_config = {"players": players, "quality": quality, "resolution": resolution,
+		"warmup_seconds": warmup_seconds, "duration_seconds": duration_seconds}
 	var error := _session.begin(get_tree(), quality, resolution)
 	if error != OK:
-		_result_text.text = tr("无法开始性能测试（错误 %d）。") % error
-		_results_scroll.show()
+		_show_config()
+		_message.text = tr("无法开始性能测试（错误 %d）。") % error
 		return
 	running = true
+	_graph.target_ms = 1000.0 / _target_fps(players)
+	_backdrop.hide()
 	_config.hide()
+	_results.hide()
 	_overlay.show()
-	_controls[-1].grab_focus()
+	_cancel.grab_focus()
 	for game_id: String in CASES:
 		if _cancelled or _closing:
 			break
 		_case_name = tr(RSCatalog.find_game(game_id)["name"])
-		_status.text = tr("%s · 加载中…") % _case_name
+		_status.text = _case_name
+		_detail.text = tr("加载中…")
+		_tint_chip(_stage, tr("加载"), RSUi.TEXT_MUTED)
+		_progress.value = 0.0
 		seed(BENCH_SEED)
 		var packed := load(RSCatalog.find_game(game_id)["scene"]) as PackedScene
 		if packed == null:
@@ -236,9 +420,7 @@ func begin_run() -> void:
 	running = false
 	if not _closing:
 		_overlay.hide()
-		_config.show()
 		_show_results()
-		_controls[3].grab_focus()
 	run_completed.emit(results)
 
 
@@ -284,34 +466,167 @@ func _stop_case() -> void:
 
 func _on_progress(stage: String, elapsed: float, duration: float, frame_ms: float) -> void:
 	var stage_name := tr("预热") if stage == "warmup" else tr("采样") if stage == "sampling" else tr("等待比赛开始")
-	_status.text = tr("%s · %s · %.1f / %.1f 秒 · %.1f FPS") % [_case_name, stage_name, elapsed, duration, 1000.0 / frame_ms if frame_ms > 0 else 0.0]
+	_tint_chip(_stage, stage_name, RSUi.GOOD if stage == "sampling" else RSUi.HIGHLIGHT if stage == "warmup" else RSUi.TEXT_MUTED)
+	_detail.text = tr("%.1f / %.1f 秒 · %.1f FPS") % [elapsed, duration, 1000.0 / frame_ms if frame_ms > 0 else 0.0]
 	_progress.value = elapsed / duration * 100.0 if duration > 0 else 0.0
 	if frame_ms > 0:
 		_graph.sample(frame_ms)
 
 
+func _show_config() -> void:
+	_results.hide()
+	_backdrop.show()
+	_config.show()
+	_start.grab_focus()
+
+
+static func _target_fps(players: int) -> float:
+	return 60.0 if players == 2 else 45.0
+
+
+static func bound_estimate(stats: Dictionary) -> Dictionary:
+	## Rough GPU-/CPU-bound hint from data the sampler already records: the sum of the per-viewport
+	## GPU render means against the CPU process mean. Viewport timings are not a whole presented
+	## frame and exclude driver/present waits, so the UI always labels this as an estimate.
+	var gpu_ms := 0.0
+	var readings := 0
+	var averages: Dictionary = stats.get("gpu_viewports_ms_avg", {})
+	var coverage: Dictionary = stats.get("gpu_viewports_coverage", {})
+	var covered := true
+	for name: String in averages:
+		if averages[name] != null:
+			gpu_ms += float(averages[name])
+			readings += 1
+			covered = covered and float(coverage.get(name, 0.0)) >= MIN_GPU_COVERAGE
+	var cpu_ms := float(stats.get("cpu_process_ms_avg", 0.0))
+	var avg_fps := float(stats.get("avg_fps", 0.0))
+	var verdict := "unknown"
+	if readings > 0 and covered and avg_fps > 0.0:
+		verdict = "gpu" if gpu_ms >= cpu_ms else "cpu"
+	return {"verdict": verdict, "gpu_ms": gpu_ms, "cpu_ms": cpu_ms, "frame_ms": 1000.0 / avg_fps if avg_fps > 0.0 else 0.0}
+
+
+func _verdict_text(verdict: String) -> String:
+	return {"gpu": tr("估计：GPU 受限"), "cpu": tr("估计：CPU 受限")}.get(verdict, tr("无法估计瓶颈"))
+
+
+func _verdict_tint(verdict: String) -> Color:
+	return {"gpu": RSUi.ACCENT, "cpu": RSUi.HIGHLIGHT}.get(verdict, RSUi.TEXT_MUTED)
+
+
 func _show_results() -> void:
-	_clear_result_graphs()
-	var lines: Array[String] = [tr("测试已取消，结果不完整。") if _cancelled else tr("测试完成，设置已恢复。")
-		if results.size() == CASES.size() and results.all(func(report: Dictionary) -> bool: return report.get("status") == "PASS")
-		else tr("测试未完成，设置已恢复。")]
+	_clear_results()
+	var complete := results.size() == CASES.size() and results.all(func(report: Dictionary) -> bool: return report.get("status") == "PASS")
+	if _cancelled:
+		_tint_chip(_results_status, tr("测试已取消，结果不完整。"), RSUi.HIGHLIGHT)
+	elif complete:
+		_tint_chip(_results_status, tr("测试完成，设置已恢复。"), RSUi.GOOD)
+	else:
+		_tint_chip(_results_status, tr("测试未完成，设置已恢复。"), RSUi.BAD)
+	var players: int = _run_config.get("players", 2)
+	var resolution: Vector2i = _run_config.get("resolution", RESOLUTIONS[0])
+	_results_subtitle.text = tr("%s · 画质 %s · %d × %d") % [tr("双人") if players == 2 else tr("四人"),
+		tr(RSSettings.QUALITY_NAMES[_run_config.get("quality", 0)]), resolution.x, resolution.y]
+	var cards := GridContainer.new()
+	cards.columns = CASES.size()
+	cards.add_theme_constant_override("h_separation", 14)
+	_results_column.add_child(cards)
+	for report: Dictionary in results:
+		_scene_card(cards, report)
+	var lower := HBoxContainer.new()
+	lower.add_theme_constant_override("separation", 14)
+	_results_column.add_child(lower)
+	var graphs := _card(lower, 8)
+	(graphs.get_parent() as Control).size_flags_stretch_ratio = 1.3
+	graphs.add_child(_title(tr("帧时间曲线"), 22))
+	var bounds := _card(lower, 8)
+	bounds.add_child(_title(tr("瓶颈估计"), 22))
+	bounds.add_child(RSUi.label(tr("估计方法：把各视口 GPU 渲染时间相加，与 CPU process 时间比较，较大的一方视为瓶颈。视口时间不是整帧 GPU 时间，也不含驱动与呈现等待，仅供参考。"), 15, RSUi.TEXT_MUTED, true))
 	for report: Dictionary in results:
 		var game_name := tr(RSCatalog.find_game(report["game"])["name"])
-		if report.get("status") != "PASS":
-			lines.append(tr("%s · 测试未完成：%s") % [game_name, tr("已取消") if report.get("status") == "CANCELLED" else _failure_message(report.get("errors", []))])
-			continue
 		var stats := RSBenchmark.statistics(report)
-		lines.append(tr("%s · 平均 %.1f FPS · 1%% low %.1f · p95/p99 %.2f/%.2f ms · 最差 %.2f ms · CPU process %.2f ms") % [game_name,
-			stats["avg_fps"], stats["one_percent_low_fps"], stats["frame_ms_p95"], stats["frame_ms_p99"], stats["frame_ms_worst"], stats["cpu_process_ms_avg"]])
-		lines.append(tr("GPU 各视口均值（毫秒，非整帧）：%s") % str(stats.get("gpu_viewports_ms_avg", {})))
-		lines.append(tr("GPU 各视口有效覆盖率（0–1，有效读数占比）：%s") % str(stats.get("gpu_viewports_coverage", {})))
-		var target := 60.0 if int(report.get("players", 2)) == 2 else 45.0
-		lines.append(tr("参考目标 %.0f FPS：%s") % [target, tr("达标") if float(stats["avg_fps"]) >= target else tr("未达标")])
-		_add_result_graph(report, game_name)
-	_result_text.text = "\n".join(lines)
-	_results_scroll.show()
-	_result_navigation.show()
+		if stats.is_empty():
+			continue
+		_add_result_graph(graphs, report, game_name)
+		var estimate := bound_estimate(stats)
+		bounds.add_child(RSUi.label("%s · %s" % [game_name, _verdict_text(estimate["verdict"])], 18, _verdict_tint(estimate["verdict"])))
+		bounds.add_child(RSUi.label(tr("GPU 视口合计 %.2f ms · CPU process %.2f ms · 平均帧 %.2f ms") % [estimate["gpu_ms"], estimate["cpu_ms"], estimate["frame_ms"]], 15, RSUi.TEXT, true))
+		bounds.add_child(RSUi.label(tr("GPU 各视口均值（毫秒，非整帧）：%s") % _viewport_list(stats.get("gpu_viewports_ms_avg", {}), "%.2f"), 14, RSUi.TEXT_MUTED, true))
+		bounds.add_child(RSUi.label(tr("GPU 各视口有效覆盖率（0–1，有效读数占比）：%s") % _viewport_list(stats.get("gpu_viewports_coverage", {}), "%.2f"), 14, RSUi.TEXT_MUTED, true))
+	if graphs.get_child_count() == 1:
+		graphs.add_child(RSUi.label(tr("没有完整的采样数据。"), 16, RSUi.TEXT_MUTED, true))
+	_system_card(_results_column)
+	_results_scroll.scroll_vertical = 0
+	_backdrop.show()
+	_config.hide()
+	_results.show()
 	_export.disabled = results.is_empty()
+	_again.grab_focus()
+
+
+func _scene_card(parent: Control, report: Dictionary) -> void:
+	var card := _card(parent, 8)
+	var game_name := tr(RSCatalog.find_game(report["game"])["name"])
+	card.add_child(_title(game_name, 26))
+	if report.get("status") != "PASS":
+		card.add_child(_chip(tr("测试未完成"), RSUi.BAD))
+		var reason := tr("已取消") if report.get("status") == "CANCELLED" else _failure_message(report.get("errors", []))
+		card.add_child(RSUi.label(reason, 17, RSUi.TEXT_MUTED, true))
+		return
+	var stats := RSBenchmark.statistics(report)
+	var headline := HBoxContainer.new()
+	headline.add_theme_constant_override("separation", 10)
+	card.add_child(headline)
+	var fps := _title("%.1f" % stats["avg_fps"], 56)
+	headline.add_child(fps)
+	var unit := RSUi.label(tr("平均 FPS"), 18, RSUi.TEXT_MUTED)
+	unit.size_flags_vertical = Control.SIZE_SHRINK_END
+	headline.add_child(unit)
+	var target := _target_fps(int(report.get("players", 2)))
+	var met := float(stats["avg_fps"]) >= target
+	card.add_child(_chip(tr("参考目标 %.0f FPS：%s") % [target, tr("达标") if met else tr("未达标")], RSUi.GOOD if met else RSUi.BAD))
+	var grid := _metric_grid(card)
+	_metric(grid, "1% low", "%.1f FPS" % stats["one_percent_low_fps"])
+	_metric(grid, tr("p95 / p99 帧时间"), "%.2f / %.2f ms" % [stats["frame_ms_p95"], stats["frame_ms_p99"]])
+	_metric(grid, tr("最差帧"), "%.2f ms" % stats["frame_ms_worst"])
+	_metric(grid, "CPU process", "%.2f ms" % stats["cpu_process_ms_avg"])
+	var estimate := bound_estimate(stats)
+	card.add_child(_chip(_verdict_text(estimate["verdict"]), _verdict_tint(estimate["verdict"])))
+
+
+func _system_card(parent: Control) -> void:
+	var card := _card(parent, 8)
+	card.add_child(_title(tr("系统与设置"), 22))
+	var metadata: Dictionary = {}
+	for report: Dictionary in results:
+		var candidate: Dictionary = report.get("metadata", {})
+		if not str(candidate.get("gpu", "")).is_empty():
+			metadata = candidate
+			break
+	var driver: Variant = metadata.get("driver")
+	if driver == null:
+		driver = " ".join(OS.get_video_adapter_driver_info())
+	var memory := int(OS.get_memory_info().get("physical", -1))
+	var resolution: Vector2i = _run_config.get("resolution", RESOLUTIONS[0])
+	var grid := _metric_grid(card, 2)
+	_metric(grid, "CPU", tr("%s · %d 线程") % [OS.get_processor_name(), OS.get_processor_count()], true)
+	_metric(grid, "GPU", str(metadata.get("gpu", RenderingServer.get_video_adapter_name())), true)
+	_metric(grid, tr("驱动"), str(driver) if not str(driver).is_empty() else tr("未知"), true)
+	_metric(grid, tr("内存"), "%.1f GB" % (memory / 1073741824.0) if memory > 0 else tr("未知"))
+	_metric(grid, tr("渲染"), "%s / %s" % [metadata.get("rendering_method", RenderingServer.get_current_rendering_method()), metadata.get("rendering_driver", RenderingServer.get_current_rendering_driver_name())], true)
+	_metric(grid, tr("分辨率"), tr("%d × %d · 窗口") % [resolution.x, resolution.y])
+	_metric(grid, tr("画质"), tr(RSSettings.QUALITY_NAMES[_run_config.get("quality", 0)]))
+	_metric(grid, tr("超分"), tr("%s（测试期间关闭）") % tr(RSSettings.UPSCALE_NAMES[0]))
+	_metric(grid, tr("垂直同步 / 帧率上限"), tr("关闭"))
+	_metric(grid, tr("采样时长"), tr("预热 %s 秒 · 采样 %s 秒") % [str(_run_config.get("warmup_seconds", warmup_seconds)), str(_run_config.get("duration_seconds", duration_seconds))])
+	_metric(grid, "Godot", str(metadata.get("godot_version", Engine.get_version_info()["string"])), true)
+
+
+func _viewport_list(values: Dictionary, format: String) -> String:
+	var parts := PackedStringArray()
+	for name: String in values:
+		parts.append("%s %s" % [name, "—" if values[name] == null else format % float(values[name])])
+	return " · ".join(parts)
 
 
 func _failure_message(errors: Array) -> String:
@@ -341,24 +656,23 @@ func _scroll_results(direction: int) -> void:
 	_results_scroll.scroll_vertical += direction * maxi(1, floori(_results_scroll.size.y * 0.85))
 
 
-func _clear_result_graphs() -> void:
+func _clear_results() -> void:
 	for child: Node in _results_column.get_children():
-		if child != _result_text:
-			_results_column.remove_child(child)
-			child.queue_free()
+		_results_column.remove_child(child)
+		child.queue_free()
 
 
-func _add_result_graph(report: Dictionary, game_name: String) -> void:
+func _add_result_graph(parent: Control, report: Dictionary, game_name: String) -> void:
 	var samples: Array = report.get("samples", [])
 	if samples.is_empty():
 		return
 	var bins := mini(FrameGraph.CAPACITY, samples.size())
-	var title := _label(tr("%s · 全程帧时间：%d 个等帧数箱，每箱最大值（0–60 ms，超出截顶）") % [game_name, bins])
-	title.add_theme_font_size_override("font_size", 15)
-	_results_column.add_child(title)
+	parent.add_child(RSUi.label(tr("%s · 全程帧时间：%d 个等帧数箱，每箱最大值（0–60 ms，超出截顶）") % [game_name, bins], 15, RSUi.TEXT_MUTED, true))
 	var graph := FrameGraph.new()
 	graph.stretch_history = true
-	_results_column.add_child(graph)
+	graph.custom_minimum_size.y = 110
+	graph.target_ms = 1000.0 / _target_fps(int(report.get("players", 2)))
+	parent.add_child(graph)
 	for bin_index in bins:
 		var first := floori(float(bin_index) * samples.size() / bins)
 		var end := floori(float(bin_index + 1) * samples.size() / bins)
@@ -373,7 +687,8 @@ func export_results() -> void:
 		return
 	var directory := RSBenchmarkSession.export_directory()
 	var error := _session.write_results(results, directory)
-	_result_text.text += "\n" + (tr("已导出至：%s") % directory if error == OK else tr("导出失败（错误 %d）。") % error)
+	_export_message.text = tr("已导出至：%s") % directory if error == OK else tr("导出失败（错误 %d）。") % error
+	_export_message.add_theme_color_override("font_color", RSUi.TEXT_MUTED if error == OK else RSUi.BAD)
 
 
 func _back() -> void:
