@@ -96,19 +96,26 @@ func _lane_material() -> ShaderMaterial:
 	return material
 
 
-func _lighting() -> void:
+func _lighting(hdri_path: String = HDRI) -> void:
 	var environment := Environment.new()
-	var panorama := PanoramaSkyMaterial.new()
-	panorama.panorama = load(HDRI) as Texture2D
-	var sky := Sky.new()
-	sky.sky_material = panorama
-	environment.sky = sky
-	environment.background_mode = Environment.BG_SKY
+	if ResourceLoader.exists(hdri_path):
+		var panorama := PanoramaSkyMaterial.new()
+		panorama.panorama = load(hdri_path) as Texture2D
+		var sky := Sky.new()
+		sky.sky_material = panorama
+		environment.sky = sky
+		environment.background_mode = Environment.BG_SKY
+		environment.ambient_light_sky_contribution = 0.25
+		environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
+	else:
+		# Source-only CI omits Poly Haven; retain indoor light without loading absent art.
+		environment.background_mode = Environment.BG_COLOR
+		environment.background_color = Color(0.08, 0.09, 0.16)
+		environment.ambient_light_sky_contribution = 0.0
+		environment.reflected_light_source = Environment.REFLECTION_SOURCE_DISABLED
 	environment.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
 	environment.ambient_light_color = Color(0.63, 0.69, 0.85)
 	environment.ambient_light_energy = 0.55
-	environment.ambient_light_sky_contribution = 0.25
-	environment.reflected_light_source = Environment.REFLECTION_SOURCE_SKY
 	environment.tonemap_mode = Environment.TONE_MAPPER_AGX
 	environment.ssao_enabled = true
 	environment.glow_enabled = true

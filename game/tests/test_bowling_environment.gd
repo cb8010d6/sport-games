@@ -35,6 +35,20 @@ func _wait_phase(phase: int) -> void:
 	_check(false, "bowling reaches the requested real game phase")
 
 
+func _missing_hdri() -> void:
+	var hall := RSBowlingHall.new()
+	add_child(hall)
+	hall._lighting("res://tests/bowling_environment_missing.hdr")
+	var world := hall.find_children("*", "WorldEnvironment", true, false)[0] as WorldEnvironment
+	var environment := world.environment
+	_check(environment.background_mode == Environment.BG_COLOR and environment.background_color == Color(0.08, 0.09, 0.16), "missing optional HDRI uses the explicit indoor background")
+	_check(environment.sky == null, "missing optional HDRI creates no empty sky")
+	_check(environment.ambient_light_source == Environment.AMBIENT_SOURCE_COLOR and environment.ambient_light_energy > 0 and environment.ambient_light_sky_contribution == 0, "missing optional HDRI retains independent indoor ambient light")
+	_check(environment.reflected_light_source == Environment.REFLECTION_SOURCE_DISABLED, "missing optional HDRI disables sky reflections")
+	hall.queue_free()
+	await _frames()
+
+
 func _collision_layout() -> void:
 	var bodies: Array[StaticBody3D] = []
 	for child: Node in _scene.get_children():
@@ -143,6 +157,7 @@ func _hall_capture() -> void:
 
 
 func _run() -> void:
+	await _missing_hdri()
 	_scene = (load("res://scenes/bowling/bowling_game.tscn") as PackedScene).instantiate()
 	get_tree().root.add_child(_scene)
 	get_tree().current_scene = _scene
