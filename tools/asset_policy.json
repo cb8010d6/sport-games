@@ -9,6 +9,11 @@
   ],
   "documented": [
     {
+      "prefix": "docs/screenshots/phase7-hand-",
+      "license": "MIT",
+      "evidence": "docs/PHASE_7_LEFT_HAND.md"
+    },
+    {
       "prefix": "docs/screenshots/phase3-solo-",
       "license": "MIT",
       "evidence": "docs/PHASE_3_SOLO.md#界面截图"
