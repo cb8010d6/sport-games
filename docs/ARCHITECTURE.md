@@ -41,6 +41,8 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 项目注册在游戏目录里（PR #2 合并后是 `game/core/catalog.gd` 的 `RSCatalog.GAMES`；在那之前是 `main_menu.gd` 的 `GAMES`）。
 
+菜单的 `RSGamePreview` 根据目录 ID 显示 `assets/previews/<id>.jpg`，只在焦点切换时加载并缓存。预览由 `tools/capture_previews.py` 从实际运动场景的玩家 3D 视口渲染，不含界面覆盖；运行时不会为选中项目再建一个世界。缺少预览的目录项正常进入，不显示空卡；设置等非运动入口隐藏预览。
+
 ### 回合流程
 
 `RSPartyGame` 负责整个回合：大厅（A 准备、手机二维码、地图卡）→ 3-2-1 倒数 → 比赛 → 成绩（A 再来、C 回菜单）。按一下 D 或 Esc 打开暂停菜单。项目**只重写钩子**，不要自己做大厅、倒数、成绩或暂停。
@@ -57,6 +59,8 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 每个玩家是一个 `RSPartyGame.Player`：`c`（RSController）、`score`、`data`（本项目的玩家状态）、`cam`、`hud`、`fake`（机器人）。机器人由项目自己驱动（`--demo=N`）。
 
+正式单人模式使用 `RSSolo.begin(game_id, slot, difficulty)`：一个已分配本地槽的真人和一个电脑对手，共用原有物理、名次和教学流程；只有真人可以写纪录。电脑独占另一个槽，`RSPartyGame` 保证真人缺席时不会自动开局，其他手柄不会加入。项目通过 `bot_error()` / `bot_ability()` 取得难度参数，演示默认参数保持原样。退出到菜单时清除会话。每项目三个分数挑战基于地图 1 的正式个人最佳导出（每档一星），复用 `records.cfg`，不另加进度文件；主菜单标明规则、个人星数与难度。
+
 调试参数（`--` 之后）只在 `party_game.gd` 和 `main_menu.gd` 里解析（ARCH-ARGS）：`--demo=N`、`--shots=<前缀>`、`--map=N`、`--game=<id>`；项目自己的参数通过 `_parse_arg(arg)` 拿到。
 
 ## 3. 公共模块
@@ -70,7 +74,8 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 | 震动 | `haptic(p, "hit")`、`haptic_all(name)`（名称表是 `ControllerHub.HAPTICS`，新名称加在那里） | 直接 `ControllerHub.vibrate`（ARCH-HAPTIC） |
 | 手柄屏幕 | `send_ui(p, {...})`（自动去重） | 每帧发同样的内容 |
 | 音效 | `RSSfx.play(node, id)`、`RSSfx.loop(node, id)`，加载时 `RSSfx.warm_up([...])` | 自己 new AudioStreamPlayer（ARCH-AUDIO）；所有声音必须走 `RSAudio` 的总线，音量设置才有效 |
-| 音乐（计划中） | `RSAudio.MUSIC` 总线上的公共播放器 | 项目自己放背景音乐 |
+| 音乐 | `RSMusic.attach(parent)` 创建随场景释放的公共播放器，`play_track("menu" / "lobby" / "victory")`、`silence()`，统一走 `RSAudio.MUSIC` 总线 | 项目自己放背景音乐 |
+| 退出 | `RSExit.quit(get_tree(), code)`：暂停场景、停掉所有声音、按真实时间等 350 ms 让音频线程释放，再退出。菜单和 `RSPartyGame` 调用 `RSExit.install(tree)`，关窗口也走这条路 | 直接 `get_tree().quit()`（ARCH-QUIT），退出时会报音频资源泄漏 |
 | 界面 | `RSUi.theme / label / panel_style`；大厅、成绩、暂停在 `RSPartyUi`、`RSPauseMenu` | 每个项目自建一套面板样式 |
 | 分屏 | `RSPartyViews`（`views`）；每个玩家的相机在 `p.cam`，可见层为 `1 | 1 << 玩家号` | 自建 SubViewport |
 | 画面设置 | `RSSettings.apply(tree)`、`apply_viewport(vp)`、`environment(env)`、`sun_shadows(sun)` | 写死阴影、抗锯齿、帧率 |
@@ -84,11 +89,13 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 左手手势偏好按 P1–P4 保存在现有 `RSProfiles`，旧档案默认右手。`RSController` 的原始姿态、角速度和历史保持协议原值，调试与录制不受影响；游戏通过 `motion_orientation / motion_pose / motion_gyro / motion_roll` 读取镜像后的输入。左右镜像使用 `M=diag(-1,1,1)`：旋转为 `M R M`，轴向角速度为 `-M g`，保持抬腕方向、速度和手势时序。六项目与教学统一消费这层输入，同一局不同玩家可选不同手。
 
 篮球改动时按 SIZE 规则抽出 `RSBasketballHud`，与阶段三 PR #7 的同名模块保持一致；控制输入与运动状态仍由游戏持有。
+无障碍的镜头晃动开关由 `RSSettings.camera_shake` 统一保存到现有 `settings.cfg`，主菜单和游戏暂停菜单共用无障碍页面。滑板、滑雪在生成原有随机偏移后决定是否应用，保持原随机数消耗顺序，关闭抖动不改变运动物理、机器人决策或计分。
 
 - **中枢 ↔ 游戏**：只有 [protocol.md](protocol.md) 定义的 UDP 消息。新增字段要同时改协议文档、hub 和 `ControllerHub`，并保持旧字段兼容。
-- **存档**：`user://*.cfg`（ConfigFile）。改格式要能读旧文件；新增存档文件需要维护者同意。之后会加存档版本号和迁移（M1）。
+- **存档**：`user://*.cfg`（ConfigFile）。`RSSave.read(path)` 读原文件、`.bak`、`.tmp` 中的有效副本；`RSSave.write(path, config)` 使用版本 1 元数据、SHA-256 校验、验证后的临时文件和上一份有效备份。无版本旧档按版本 0 读取，下次成功保存时升级。未知版本只读保护，不用旧备份覆盖；所有副本损坏时返回默认配置并记录警告。备份与临时文件是现有存档的恢复副本，不新增业务存档或 autoload。Windows 替换目标文件存在短暂间隙，因此承诺可恢复写入，不承诺断电原子性或磁盘硬件损坏恢复。`override.cfg` 仍是启动时派生的渲染设置；两份设置文件无法构成跨文件事务，驱动变更保存失败时返回错误。
 - **文案**：中文原文就是 key。改中文原文等于换了 key，必须同步 `en.json`，并通过 `python tools/i18n_check.py`。
 - **素材**：`res://assets/...`。新增素材必须记录来源和许可（[ASSETS.md](ASSETS.md)、[THIRD_PARTY.md](THIRD_PARTY.md)）。Poly Haven 原图不进 Git，由 `tools/sync_assets.mjs` 下载并按 `tools/assets.lock.json` 校验。
+- **音乐生命周期**：菜单和大厅循环，倒数开始淡出，比赛保持音乐静默，正式结算播放一次胜利短曲；返回大厅重新播放大厅曲。播放器归当前场景所有，不新增 autoload，暂停跟随场景树。三首程序合成音乐保留完整乐谱与生成脚本，输出以 CC0 提供；来源记录与运行器检查见素材目录。
 
 ## 5. 改框架（core）的规则
 

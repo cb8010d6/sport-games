@@ -2,10 +2,10 @@
 
 unittest style, so it runs under both `pytest` and `python -m unittest`."""
 
-from pathlib import Path
 import sys
 import tempfile
 import unittest
+from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import check_conventions as cc  # noqa: E402
@@ -57,10 +57,13 @@ class ConventionTests(unittest.TestCase):
                    "\tvar cf := 'user://golf.cfg'\n"
                    "\tvar a := OS.get_cmdline_user_args()\n"
                    "\tControllerHub.vibrate(1, 60)\n"
-                   "\tadd_child(AudioStreamPlayer3D.new())\n")
+                   "\tadd_child(AudioStreamPlayer3D.new())\n"
+                   "\tget_tree().quit()\n")
         self.write("game/core/sfx.gd", "extends Node\nfunc f() -> void:\n\tadd_child(AudioStreamPlayer.new())\n")
+        self.write("game/core/app_exit.gd", "extends RefCounted\nstatic func f(tree: SceneTree) -> void:\n\ttree.quit()\n")
+        self.write("game/tests/test_x.gd", "extends Node\nfunc f() -> void:\n\tget_tree().quit(1)\n")
         self.write("game/scenes/debug/dbg.gd", "extends Node\nfunc f() -> void:\n\tControllerHub.vibrate(1, 60)\n")
-        self.assertEqual(self.rules(), ["ARCH-ARGS", "ARCH-AUDIO", "ARCH-HAPTIC", "ARCH-SAVE"])
+        self.assertEqual(self.rules(), ["ARCH-ARGS", "ARCH-AUDIO", "ARCH-HAPTIC", "ARCH-QUIT", "ARCH-SAVE"])
 
     def test_machine_paths(self) -> None:
         # Built from pieces so neither this checker nor the publication audit flags this file itself.

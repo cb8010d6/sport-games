@@ -52,7 +52,7 @@ func _profiles() -> void:
 	var cf := ConfigFile.new()
 	cf.load(RSProfiles.PATH)
 	cf.set_value("2", "left_handed", "true")
-	cf.save(RSProfiles.PATH)
+	RSSave.write(RSProfiles.PATH, cf)
 	RSProfiles._loaded = false
 	_check(not RSProfiles.left_handed(2), "invalid saved type does not enable mirroring")
 
@@ -217,13 +217,8 @@ func _run() -> void:
 		else:
 			await _game(id)
 	if is_instance_valid(_scene):
-		for audio: AudioStreamPlayer in _scene.find_children("*", "AudioStreamPlayer", true, false):
-			audio.stop()
-			audio.stream = null
 		get_tree().current_scene = null
 		_scene.queue_free()
-	var until := Time.get_ticks_msec() + 350
-	while Time.get_ticks_msec() < until:
-		await get_tree().process_frame
+	await get_tree().process_frame
 	print("RS_LEFT_HAND: %d checks, %d failures" % [_checks, _failures])
-	get_tree().quit(1 if _failures else 0)
+	RSExit.quit(get_tree(), 1 if _failures else 0)

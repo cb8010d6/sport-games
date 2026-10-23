@@ -7,7 +7,7 @@ e.g. ["x", "z", "-y"] means canonical X = +src.x, Y = +src.z, Z = -src.y.
 
 from __future__ import annotations
 
-from typing import Callable, Sequence
+from collections.abc import Callable, Sequence
 
 from .quat import Vec3
 

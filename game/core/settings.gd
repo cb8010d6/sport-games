@@ -37,6 +37,7 @@ static var upscale := 0                      ## index into UPSCALE_NAMES
 static var language := 0                     ## index into RSLang.CODES
 static var hdr := false
 static var color_safe := false
+static var camera_shake := true              ## cosmetic impact jitter; existing behavior by default
 static var volumes := [10, 7, 10, 8]         ## 0..10 per RSAudio.BUSES (master, music, sfx, ambience)
 static var _loaded := false
 
@@ -45,26 +46,26 @@ static func load_once() -> void:
 	if _loaded:
 		return
 	_loaded = true
-	var cf := ConfigFile.new()
-	cf.load(PATH)
-	language = clampi(int(cf.get_value("general", "language", 0)), 0, RSLang.CODES.size() - 1)   # Chinese first
+	var cf := RSSave.read(PATH)
+	language = clampi(RSSave.integer(cf, "general", "language", 0), 0, RSLang.CODES.size() - 1)   # Chinese first
 	RSLang.apply(language)
-	color_safe = bool(cf.get_value("accessibility", "color_safe", false))
+	color_safe = RSSave.boolean(cf, "accessibility", "color_safe", false)
+	camera_shake = RSSave.boolean(cf, "accessibility", "camera_shake", true)
 	for i in volumes.size():
-		volumes[i] = clampi(int(cf.get_value("audio", (RSAudio.BUSES[i] as String).to_lower(), volumes[i])), 0, RSAudio.STEPS)
+		volumes[i] = clampi(RSSave.integer(cf, "audio", (RSAudio.BUSES[i] as String).to_lower(), volumes[i]), 0, RSAudio.STEPS)
 	if not cf.has_section("display"):
 		return
-	var mode: int = cf.get_value("display", "frame_rate",
-		OLD_FPS[clampi(int(cf.get_value("display", "fps", 0)), 0, OLD_FPS.size() - 1)])
+	var mode := RSSave.integer(cf, "display", "frame_rate",
+		OLD_FPS[clampi(RSSave.integer(cf, "display", "fps", 0), 0, OLD_FPS.size() - 1)])
 	fps = maxi(FPS.find(mode), 0)
-	quality = clampi(int(cf.get_value("display", "quality", quality)), 0, QUALITY_NAMES.size() - 1)
-	window = clampi(int(cf.get_value("display", "window", 1 if cf.get_value("display", "fullscreen", false) else 0)),
+	quality = clampi(RSSave.integer(cf, "display", "quality", quality), 0, QUALITY_NAMES.size() - 1)
+	window = clampi(RSSave.integer(cf, "display", "window", 1 if RSSave.boolean(cf, "display", "fullscreen", false) else 0),
 		0, WINDOW_NAMES.size() - 1)
-	hdr = bool(cf.get_value("display", "hdr", false))
-	upscale = clampi(int(cf.get_value("display", "upscale", 0)), 0, UPSCALE_NAMES.size() - 1)
+	hdr = RSSave.boolean(cf, "display", "hdr", false)
+	upscale = clampi(RSSave.integer(cf, "display", "upscale", 0), 0, UPSCALE_NAMES.size() - 1)
 
 
-static func save() -> void:
+static func save() -> Error:
 	var cf := ConfigFile.new()
 	cf.set_value("display", "frame_rate", FPS[fps])
 	cf.set_value("display", "quality", quality)
@@ -73,21 +74,25 @@ static func save() -> void:
 	cf.set_value("display", "upscale", upscale)
 	cf.set_value("general", "language", language)
 	cf.set_value("accessibility", "color_safe", color_safe)
+	cf.set_value("accessibility", "camera_shake", camera_shake)
 	for i in volumes.size():
 		cf.set_value("audio", (RSAudio.BUSES[i] as String).to_lower(), volumes[i])
-	cf.save(PATH)
-	_save_override()
+	var err := RSSave.write(PATH, cf)
+	if err == OK:
+		err = _save_override()
+	if err != OK:
+		push_error("RSSettings: cannot save settings (%s)" % error_string(err))
+	return err
 
 
-static func _save_override() -> void:
+static func _save_override() -> Error:
 	## Settings that only take effect at startup.
-	var cf := ConfigFile.new()
-	cf.load(OVERRIDE_PATH)
+	var cf := RSSave.read(OVERRIDE_PATH)
 	if hdr and OS.get_name() == "Windows":
 		cf.set_value("rendering", "rendering_device/driver.windows", "d3d12")
 	elif cf.has_section_key("rendering", "rendering_device/driver.windows"):
 		cf.erase_section_key("rendering", "rendering_device/driver.windows")
-	cf.save(OVERRIDE_PATH)
+	return RSSave.write(OVERRIDE_PATH, cf)
 
 
 static func hdr_ready() -> bool:

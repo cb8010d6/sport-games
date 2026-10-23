@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import argparse
-from pathlib import Path
 import re
 import subprocess
+from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 ERROR = re.compile(r"(?:SCRIPT ERROR:|(?:^|\n)ERROR:|Parse Error:)")

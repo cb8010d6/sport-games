@@ -10,6 +10,12 @@ Review date: 2026-10-21. The 39 formerly unresolved outputs are now classified u
 provider's explicit AI originality declaration. This is distinguished from independently documented
 third-party sources. See [PUBLICATION_AUDIT.md](PUBLICATION_AUDIT.md) and `tools/asset_policy.json`.
 
+## Procedural background music
+
+The separately documented [background music](../game/assets/music/CREDITS.md) is a new
+procedural contribution released as CC0-1.0, generated from the retained project score
+without external samples. It does not inherit the historical SFX source classification.
+
 ## Poly Haven
 
 Location: `game/assets/polyhaven/`.
@@ -99,6 +105,15 @@ parent Regina project is copied or assumed to cover the model.
   in the provenance history without overriding that current declaration.
 - `tools/regina_sports.ico`: the icon source/generation record has not been established;
   this optional desktop icon is excluded from publication. The editable game SVG is separate.
+
+## Scene-rendered menu previews
+
+`game/assets/previews/*.jpg` are 1600×900 exports of this project's actual game cameras,
+using project MIT code/geometry and the existing CC0 scene assets. They do not introduce
+external photographs, samples or AI-generated images. Source notices remain applicable;
+see [capture provenance](../game/assets/previews/CREDITS.md), the retained capture harness
+and SHA-256 manifest. UI evidence in `docs/screenshots/phase5-menu-*.png` additionally
+contains the project MIT menu. The combined scene exports are recorded as MIT AND CC0-1.0.
 
 ## Runtime and build dependencies
 

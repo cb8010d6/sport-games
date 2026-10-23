@@ -27,6 +27,7 @@ RULES = {
     "ARCH-ARGS": "command-line arguments are parsed only by party_game.gd and main_menu.gd",
     "ARCH-HAPTIC": "games vibrate through RSPartyGame.haptic(), never ControllerHub directly",
     "ARCH-AUDIO": "audio players are created only in game/core (RSSfx / RSAudio route them to a bus)",
+    "ARCH-QUIT": "the game quits only through RSExit.quit(), which drains audio first (tests may quit directly)",
     "SRC-PATH": "no machine-specific absolute paths in source files",
     "SIZE": "(warning) a script over 1000 lines should be split when it is next changed",
 }
@@ -172,6 +173,9 @@ def check_game(root: Path, findings: list[Finding]) -> None:
                 findings.append(Finding("ARCH-HAPTIC", rel, n, "use haptic(p, name) from RSPartyGame"))
             if re.search(r"AudioStreamPlayer(2D|3D)?\.new\(", code) and not is_core and not _allowed(raw, "ARCH-AUDIO"):
                 findings.append(Finding("ARCH-AUDIO", rel, n, "use RSSfx.play / RSSfx.loop (or an RSAudio bus)"))
+            if re.search(r"\bget_tree\(\)\.quit\(|\btree\.quit\(", code) and not is_test \
+                    and rel != "game/core/app_exit.gd" and not _allowed(raw, "ARCH-QUIT"):
+                findings.append(Finding("ARCH-QUIT", rel, n, "use RSExit.quit(get_tree(), code)"))
 
 
 def check_paths(root: Path, findings: list[Finding]) -> None:

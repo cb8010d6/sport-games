@@ -281,7 +281,7 @@ func _round_started(list: Array) -> void:
 		s.clip_pts = 0
 		s.bot = p.fake
 		s.rng.seed = 77 + p.c.player * 31 + _rng.randi_range(0, 9999)
-		s.bot_sigma = s.rng.randf_range(0.12, 0.17)
+		s.bot_sigma = s.rng.randf_range(0.12, 0.17) * bot_error()
 		_court.tint(s.court, color_of(p))
 		_place(s, RSBallCourt.spot(s.court, 0))
 		_to(s, St.WALK)
@@ -799,10 +799,8 @@ func _update_oled(p: Player, s: Shooter, dt: float) -> void:
 func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 	RSBasketballHud.draw_hud(self, h, p, k)
 
-
 func _draw_overlay(o: Overlay, k: float) -> void:
 	RSBasketballHud.draw_overlay(self, o, k)
-
 
 # ------------------------------------------------------------------------ replays ----
 
@@ -909,6 +907,9 @@ func _replay_step(p: Player, delta: float) -> void:
 	p.cam.look_at(s.cam_look)
 	p.cam.fov = lerpf(p.cam.fov, 55.0, k)
 
+
+func _draw_replay(h: PlayerHud, p: Player, k: float) -> void:
+	RSBasketballHud.draw_replay(self, h, p, k)
 
 # ------------------------------------------------------------------------- podium ----
 

@@ -1,6 +1,5 @@
 class_name RSPartyUi
 extends Control
-const Tutorial := preload("res://core/tutorial.gd")
 ## The panels over a party game's views (part of RSPartyGame): the lobby (how to play, map
 ## card, who is ready, phone QR code), the ranked results, and the pause menu. RSPartyGame runs
 ## the rounds and says what to show; its hooks (_game_name, _how_to_play, _lobby_extra, _maps)
@@ -69,6 +68,8 @@ func update_lobby() -> void:
 		lines.append(tr("[color=#f87171]● 未连接 hub —— 请运行 hub/run_hub.bat[/color]"))
 	if RSTournament.active():
 		lines.append(tr("大赛总积分 · %d / %d") % [RSTournament.index + 1, RSTournament.games.size()])
+	if game.solo_mode:
+		lines.append(tr("单人挑战 · %s · P%d 对战电脑") % [RSSolo.difficulty_name(), RSSolo.slot])
 	var text := "\n".join(lines)
 	if _lobby_players.text != text:
 		_lobby_players.text = text
@@ -115,7 +116,7 @@ func _update_tutorials() -> void:
 			var title := RSUi.label("", 22, game.color_of(p))
 			title.clip_text = true
 			col.add_child(title)
-			var cue := Tutorial.Demo.new()
+			var cue := RSTutorial.Demo.new()
 			col.add_child(cue)
 			var hint := RSUi.label("", 19)
 			hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART

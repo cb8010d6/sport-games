@@ -7,9 +7,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
-from pathlib import Path
 import subprocess
 import tempfile
+from pathlib import Path
 
 from smoke_test import decode, engine_errors
 from test_game import ROOT, find_godot, run_engine

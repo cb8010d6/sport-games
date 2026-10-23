@@ -1,17 +1,16 @@
 """Reject false-positive smoke results without requiring Godot or downloaded artwork."""
 import base64
 import json
-from pathlib import Path
-import sys
 import subprocess
+import sys
 import tempfile
 import unittest
-from unittest import mock
 import xml.etree.ElementTree as ET
+from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import smoke_test as smoke
-
 
 PNG = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR4nGP4z8DwHwAFAAH/iZk9HQAAAABJRU5ErkJggg==")
 
@@ -136,7 +135,7 @@ class SmokeValidationTests(unittest.TestCase):
                 # An old valid report must not turn a missing current report into a pass.
                 (output / "ski.json").write_text(json.dumps(valid))
 
-                def engine(command, **_kwargs):
+                def engine(command, payload=payload, marker=marker, code=code, **_kwargs):
                     path = Path(next(arg.split("=", 1)[1] for arg in command if arg.startswith("--smoke-report=")))
                     if payload is not None:
                         path.write_text(payload)
@@ -155,8 +154,8 @@ class SmokeValidationTests(unittest.TestCase):
                 output = Path(temp)
                 (output / "ski.png").write_bytes(PNG)
 
-                def engine(command, **_kwargs):
-                    if timeout:
+                def engine(command, timed_out=timeout, output=output, **_kwargs):
+                    if timed_out:
                         raise subprocess.TimeoutExpired(command, 1, b"timeout output", b"error output")
                     (output / "ski.json").write_text(json.dumps({**result(), "map": 0}))
                     return subprocess.CompletedProcess(command, 0, "RS_SMOKE_DONE: ski", "")

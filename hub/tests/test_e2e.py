@@ -150,7 +150,7 @@ class _FlakySock:
         if self.calls == 2:
             return b'{"cmd":"hello"}', ("127.0.0.1", 47800)
         time.sleep(0.01)
-        raise socket.timeout()
+        raise TimeoutError()
 
     def close(self) -> None:
         pass

@@ -22,7 +22,6 @@ enum Phase { LOBBY, COUNTDOWN, PLAY, RESULTS }
 const MENU_SCENE := "res://scenes/menu/main_menu.tscn"
 const COUNTDOWN_TIME := 3.0
 const MENU_TAP_MS := 800         ## D held longer than this is the hub's recenter, not the menu
-const Tutorial := preload("res://core/tutorial.gd")
 
 
 class Player:
@@ -66,6 +65,7 @@ var phase := Phase.LOBBY
 var phase_time := 0.0
 var players: Dictionary = {}     ## controller id -> Player
 var demo := 0
+var solo_mode := false
 var lobby_cam: Camera3D
 var font: Font
 var shot_times: Array = [0.5, 2.5, 9.0, 16.0, 25.0]
@@ -92,6 +92,7 @@ var _smoke_shot := ""
 var _smoke_done := false
 var _tournament_final_shown := false
 var _tutorials: Dictionary = {}  ## controller id -> its active lobby lesson
+var _music: RSMusic
 
 
 # ---------------------------------------------------------------------- game hooks ----
@@ -226,6 +227,7 @@ func _ready() -> void:
 			_smoke_shot = a.trim_prefix("--smoke-shot=")
 		else:
 			_parse_arg(a)
+	solo_mode = demo == 0 and RSSolo.active(game_id())
 	font = RSUi.font()
 	ControllerHub.process_mode = Node.PROCESS_MODE_ALWAYS   # buttons still arrive while paused
 	map_index = posmod(int(_last_map.get(get_script().resource_path, map_index)), maxi(_maps().size(), 1))
@@ -242,6 +244,8 @@ func _ready() -> void:
 	_build_ui()
 	_update_map_card()
 	RSSettings.apply(get_tree())
+	RSExit.install(get_tree())   # also covers games launched directly by tests and tools
+	_music = RSMusic.attach(self)
 	ControllerHub.button_pressed.connect(_on_button.bind(true))
 	ControllerHub.button_released.connect(_on_button.bind(false))
 	ControllerHub.controller_event.connect(_on_event)
@@ -254,6 +258,14 @@ func _ready() -> void:
 		c.player = i + 1
 		c.kind = "replay"
 		c.display_name = "Bot-%d" % (i + 1)
+		c.connected = true
+		_add_player(c, true)
+	if solo_mode:
+		var c := RSController.new()
+		c.id = -1 # Real UDP controller IDs are unsigned bytes.
+		c.player = RSSolo.opponent_slot()
+		c.kind = "bot"
+		c.display_name = tr("电脑 · %s") % RSSolo.difficulty_name()
 		c.connected = true
 		_add_player(c, true)
 	_to_lobby()
@@ -277,6 +289,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func go_menu() -> void:
 	get_tree().paused = false
 	RSTournament.clear()
+	RSSolo.clear()
 	get_tree().change_scene_to_file(MENU_SCENE)
 
 
@@ -307,6 +320,8 @@ func _process(delta: float) -> void:
 					_apply_pending_map()
 			_lobby_process(delta)
 			var all_ready := not players.is_empty()
+			if solo_mode:
+				all_ready = players.size() == 2 and ordered().any(func(p: Player) -> bool: return not p.fake and p.c.connected)
 			if RSTournament.active():
 				all_ready = players.size() == RSTournament.entrants.size()
 			for p: Player in players.values():
@@ -349,18 +364,12 @@ func _complete_smoke() -> void:
 	var report := FileAccess.open(_smoke_report, FileAccess.WRITE)
 	if report == null:
 		push_error("Cannot write smoke report")
-		get_tree().quit(1)
+		RSExit.quit(get_tree(), 1)
 		return
 	report.store_string(JSON.stringify({"game": game_id(), "map": map_index, "players": scores, "phase": "results"}))
 	report.close()
-	# Fixed-fps smoke rounds can finish faster than the audio mixer drains its playbacks.
-	# Stop this scene's audio and give the mixer real time before terminating the process.
-	for audio: AudioStreamPlayer in find_children("*", "AudioStreamPlayer", true, false):
-		audio.stop()
-		audio.stream = null
-	OS.delay_msec(250)
 	print("RS_SMOKE_DONE: " + game_id())
-	get_tree().quit()
+	RSExit.quit(get_tree())
 
 
 # ------------------------------------------------------------------------ players ----
@@ -388,6 +397,14 @@ func can_record(p: Player) -> bool:
 	return not p.fake and p.c.kind != "replay" and demo == 0 and _shots.is_empty() and _records_enabled
 
 
+func bot_error() -> float:
+	return [2.4, 1.0, 0.35][RSSolo.difficulty] if solo_mode else 1.0
+
+
+func bot_ability() -> float:
+	return [0.62, 0.9, 0.99][RSSolo.difficulty] if solo_mode else -1.0
+
+
 func tutorial_for(p: Player) -> RSTutorial:
 	return _tutorials.get(p.c.id)
 
@@ -405,7 +422,7 @@ func review_tutorials() -> void:
 	for p: Player in players.values():
 		if not p.fake and p.c.kind != "replay":
 			_set_ready(p, false)
-			var lesson := Tutorial.new(game_id())
+			var lesson := RSTutorial.new(game_id())
 			lesson.start(p.c)
 			_tutorials[p.c.id] = lesson
 
@@ -447,7 +464,7 @@ func _add_player(c: RSController, fake: bool) -> Player:
 	players[c.id] = p
 	_player_added(p)
 	if not fake and c.kind != "replay" and not RSProfiles.tutorial_done(c.player, game_id()):
-		_tutorials[c.id] = Tutorial.new(game_id())
+		_tutorials[c.id] = RSTutorial.new(game_id())
 	return p
 
 
@@ -462,7 +479,13 @@ func _remove_player(id: int) -> void:
 func _sync_players() -> void:
 	if demo:
 		return   # bots only, keep real controllers out of it
+	for id in players.keys():
+		var p: Player = players[id]
+		if not p.fake and (not p.c.connected or (solo_mode and p.c.player != RSSolo.slot)):
+			_remove_player(id)
 	for c in ControllerHub.connected_controllers():
+		if solo_mode and (c.player != RSSolo.slot or c.kind == "replay"):
+			continue
 		if RSTournament.active() and not RSTournament.entrants.has(c.player):
 			continue
 		if c.player < 1 or c.player > 4 or players.has(c.id) or players.size() >= 4:
@@ -472,15 +495,10 @@ func _sync_players() -> void:
 			taken = taken or p.c.player == c.player
 		if not taken:
 			_oled_lobby(_add_player(c, false))
-	for id in players.keys():
-		var p: Player = players[id]
-		if not p.fake and not p.c.connected:
-			_remove_player(id)
-
-
 # ------------------------------------------------------------------------- phases ----
 
 func _to_lobby() -> void:
+	_music.play_track("lobby")
 	phase = Phase.LOBBY
 	phase_time = 0.0
 	views.visible = false
@@ -492,6 +510,7 @@ func _to_lobby() -> void:
 
 
 func _start_countdown() -> void:
+	_music.silence()
 	_result_committed = false
 	phase = Phase.COUNTDOWN
 	phase_time = 0.0
@@ -512,6 +531,7 @@ func finish_round() -> void:
 	if _result_committed:
 		return
 	_result_committed = true
+	_music.play_track("victory")
 	phase = Phase.RESULTS
 	phase_time = 0.0
 	var list := ranked_players()
@@ -530,6 +550,8 @@ func finish_round() -> void:
 			RSProfiles.bbcode(name_of(p)) + " · " + _result_detail(p)])
 		if fresh:
 			lines.append("[color=#fbbf24]" + tr("新纪录！") + "[/color]")
+		if solo_mode and can_record(p) and map_index == 0:
+			lines.append(tr("挑战星数：%d / 3（地图 1 个人最佳）") % RSSolo.stars(game_id(), p.c.player))
 		results.append({"slot": p.c.player, "rank": rank, "score": p.score})
 		send_ui(p, {"clear": true, "title": "RESULT", "main": "#%d" % rank, "sub": "%d PTS" % p.score,
 			"legends": ["NEXT" if RSTournament.active() else "AGAIN", "", "MENU", null]})
@@ -552,6 +574,8 @@ func _set_ready(p: Player, value: bool) -> void:
 
 
 func _on_button(c: RSController, button: int, pressed: bool) -> void:
+	if solo_mode and (c.player != RSSolo.slot or c.kind == "replay"):
+		return
 	# D: a short press toggles the pause menu (a long one is the hub's recenter).
 	if button == RSController.BTN_D:
 		if pressed:
@@ -786,4 +810,4 @@ func _take_shots() -> void:
 	get_viewport().get_texture().get_image().save_png("%s_%d.png" % [_shots, _shot_i])
 	_shot_i += 1
 	if _shot_i >= shot_times.size():
-		get_tree().quit()
+		RSExit.quit(get_tree())

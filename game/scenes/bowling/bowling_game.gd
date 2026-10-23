@@ -718,15 +718,15 @@ func _bot(p: Player) -> void:
 	var s := _bowler(p)
 	if s.step == Step.AIM:
 		if s.bot_plan == Vector3.ZERO:
-			var pos := _rng.randf_range(-0.3, 0.3)
-			var twist := clampf(-pos * 1.6 + _rng.randf_range(-0.35, 0.35), -0.9, 0.9)
+			var pos := _rng.randf_range(-0.3, 0.3) * bot_error()
+			var twist := clampf(-pos * 1.6 + _rng.randf_range(-0.35, 0.35) * bot_error(), -0.9, 0.9)
 			if s.standing.count(true) < 10:
 				# Spare ball: roll straight at the middle of what's left.
 				var sum := 0.0
 				for i in 10:
 					if s.standing[i]:
 						sum += _pin_spot(s, i).x - s.lane_x
-				pos = clampf(sum / maxi(1, s.standing.count(true)) + _rng.randf_range(-0.08, 0.08), -MAX_STEP, MAX_STEP)
+				pos = clampf(sum / maxi(1, s.standing.count(true)) + _rng.randf_range(-0.08, 0.08) * bot_error(), -MAX_STEP, MAX_STEP)
 				twist = 0.0
 			s.bot_plan = Vector3(pos, _rng.randf_range(7.0, 9.5), twist + 0.001)
 		s.pos = move_toward(s.pos, s.bot_plan.x, 0.01)
@@ -783,7 +783,11 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 	match s.step:
 		Step.AIM:
 			if phase == Phase.PLAY:
-				draw_text(h, tr("左右倾斜挪位置　按住 B 挥臂，松开出球"), Vector2(sz.x * 0.5, sz.y - 40 * k), 22 * k, Color.WHITE, true)
+				var hint := tr("左右倾斜挪位置　按住 B 挥臂，松开出球")
+				var hint_size := 22.0 * k
+				var width := font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, int(hint_size)).x
+				hint_size *= minf(1.0, (sz.x - 40.0 * k) / maxf(width, 1.0))
+				draw_text(h, hint, Vector2(sz.x * 0.5, sz.y - 40 * k), hint_size, Color.WHITE, true)
 				var label := tr("第 %d 格　第 %d 球") % [mini(s.frame, _frames - 1) + 1, s.ball_in_frame + 1]
 				draw_text(h, label, Vector2(sz.x * 0.5, sz.y - 76 * k), 20 * k, Color(0.85, 0.9, 1.0), true)
 		Step.SWING:

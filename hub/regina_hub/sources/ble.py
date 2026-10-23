@@ -5,7 +5,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
-from typing import Any, Sequence
+from collections.abc import Sequence
+from typing import Any
 
 from .. import protocol as P
 from ..controller import Controller

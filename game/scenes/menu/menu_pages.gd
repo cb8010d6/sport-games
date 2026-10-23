@@ -13,6 +13,8 @@ var _checks: Array[CheckBox] = []
 var _qr_box: VBoxContainer
 var _qr_rect: TextureRect
 var _qr_url: Label
+var _solo_slot := 1
+var _solo_difficulty := 1
 
 
 func _ready() -> void:
@@ -47,7 +49,7 @@ func open(page: String) -> void:
 	for child in _col.get_children():
 		_col.remove_child(child)
 		child.queue_free()
-	var titles := {"players": tr("玩家 / 手柄"), "records": tr("本地排行榜"), "party": tr("派对大赛"), "credits": tr("致谢与素材")}
+	var titles := {"players": tr("玩家 / 手柄"), "records": tr("本地排行榜"), "party": tr("派对大赛"), "credits": tr("致谢与素材"), "solo": tr("单人挑战")}
 	_col.add_child(RSUi.label(titles[page], 36))
 	_button(_col, tr("◀ 返回"), close)
 	match page:
@@ -57,6 +59,8 @@ func open(page: String) -> void:
 			_build_records()
 		"party":
 			_build_party()
+		"solo":
+			_build_solo()
 		"credits":
 			_build_credits()
 	_wire_focus()
@@ -270,6 +274,54 @@ func _build_party() -> void:
 	_col.add_child(_message)
 
 
+func _build_solo() -> void:
+	var hint := RSUi.label(tr("一位真人对战一位电脑。挑战星数按地图 1 的正式个人最佳计算，既有纪录也计入；每个目标一星。"), 18)
+	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_col.add_child(hint)
+	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 20)
+	_col.add_child(row)
+	row.add_child(RSUi.label(tr("玩家档案"), 20))
+	var profile := _option(row, ["P1", "P2", "P3", "P4"], _solo_slot - 1)
+	profile.item_selected.connect(func(index: int) -> void:
+		_solo_slot = index + 1
+		open("solo"))
+	row.add_child(RSUi.label(tr("电脑难度"), 20))
+	var difficulty := _option(row, [tr("简单"), tr("普通"), tr("困难")], _solo_difficulty)
+	difficulty.item_selected.connect(func(index: int) -> void: _solo_difficulty = index)
+	_col.add_child(RSUi.label(tr("P%d · %s · 星数 %d / 18") % [_solo_slot, RSProfiles.player_name(_solo_slot), RSSolo.total_stars(_solo_slot)], 24))
+	_message = RSUi.label("", 18, Color("fbbf24"))
+	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_col.add_child(_message)
+	for game: Dictionary in RSCatalog.GAMES:
+		var id: String = game["id"]
+		var goals := PackedStringArray()
+		for goal: int in RSSolo.GOALS[id]:
+			goals.append(str(goal))
+		var game_row := HBoxContainer.new()
+		game_row.add_theme_constant_override("separation", 16)
+		_col.add_child(game_row)
+		_button(game_row, tr("%s · %d / 3 星 · 开始") % [tr(game["name"]), RSSolo.stars(id, _solo_slot)], _start_solo.bind(id)).custom_minimum_size.x = 430
+		var targets := RSUi.label(tr("单局分数目标：%s") % " / ".join(goals), 17, RSUi.TEXT_MUTED)
+		targets.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		targets.size_flags_horizontal = SIZE_EXPAND_FILL
+		game_row.add_child(targets)
+
+
+func _start_solo(id: String) -> void:
+	var connected := false
+	for c: RSController in ControllerHub.connected_controllers():
+		connected = connected or (c.player == _solo_slot and c.kind != "replay")
+	if not connected:
+		_message.text = tr("请先连接分配给 P%d 的手柄，可在玩家 / 手柄页分配。") % _solo_slot
+		return
+	var scene := RSSolo.begin(id, _solo_slot, _solo_difficulty)
+	if not scene.is_empty():
+		# Challenges use map 1; the normal map selector remains available in the lobby.
+		RSPartyGame._last_map[scene.replace(".tscn", ".gd")] = 0
+		get_tree().change_scene_to_file(scene)
+
+
 func _random_party(count: int) -> void:
 	var indices := range(RSCatalog.GAMES.size())
 	indices.shuffle()
@@ -293,6 +345,6 @@ func _start_party() -> void:
 
 
 func _build_credits() -> void:
-	var text := RSUi.label(tr("Regina Sports 原创代码与维护者声明的 AI 原创素材：MIT。\n\nGodot Engine：MIT；Jolt Physics：MIT。\nPoly Haven：CC0 天空、材质、模型及树木素材。\nMakeHuman / MPFB：使用官方 CC0 系统素材导出的角色。\n角色素材历史署名：Data Collection AB、Joel Palmius、Jonas Hauquier。\n\n当前音效、手柄模型与涂鸦的 AI 原创声明见 ASSET_PROVENANCE.md。\n逐项作者、素材 ID 与来源见 docs/THIRD_PARTY.md 和素材目录中的 CREDITS.md。\n打包发布时仍需汇总实际捆绑依赖的完整许可。"), 21, RSUi.TEXT_MUTED)
+	var text := RSUi.label(tr("Regina Sports 原创代码与维护者声明的 AI 原创素材：MIT。\n\nGodot Engine：MIT；Jolt Physics：MIT。\n背景音乐：本项目乐谱与合成，CC0。\nPoly Haven：CC0 天空、材质、模型及树木素材。\nMakeHuman / MPFB：使用官方 CC0 系统素材导出的角色。\n角色素材历史署名：Data Collection AB、Joel Palmius、Jonas Hauquier。\n\n当前音效、手柄模型与涂鸦的 AI 原创声明见 ASSET_PROVENANCE.md。\n逐项作者、素材 ID 与来源见 docs/THIRD_PARTY.md 和素材目录中的 CREDITS.md。\n打包发布时仍需汇总实际捆绑依赖的完整许可。"), 21, RSUi.TEXT_MUTED)
 	text.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_col.add_child(text)

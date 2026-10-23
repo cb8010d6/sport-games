@@ -360,12 +360,14 @@ func _autopilot(p: Player) -> Vector2:
 	var pl := s.plane
 	var ring := _rings[s.next_ring]
 	var target := ring.pos + ring.normal.cross(Vector3.UP).normalized() * (p.c.player - 2.5) * 1.5
+	if solo_mode:
+		target += Vector3(sin(_clock * 0.6), cos(_clock * 0.4), 0.0) * 2.5 * bot_error()
 	var local := pl.global_transform.affine_inverse() * target
 	var yaw_err := atan2(local.x, -local.z)
 	var flat := Vector2(target.x - pl.position.x, target.z - pl.position.z).length()
 	var want_pitch := clampf(atan2(target.y - pl.position.y, flat), -0.6, 0.6)
 	var stick := Vector2(clampf(yaw_err * 2.0, -1.0, 1.0), clampf(want_pitch * 1.6 / deg_to_rad(RSPlane.MAX_PITCH_DEG), -1.0, 1.0))
-	s.fake_boost = absf(yaw_err) < 0.12 and flat > 60.0
+	s.fake_boost = absf(yaw_err) < 0.12 / bot_error() and flat > 60.0
 	# Mirror the stick into a controller pose so the tilt widget moves like a real one.
 	var w := Vector3(tan(stick.x * s.stick.max_roll), 1.0, tan(stick.y * s.stick.max_pitch)).normalized()
 	p.c.orientation = Quaternion(Vector3.UP, w)
