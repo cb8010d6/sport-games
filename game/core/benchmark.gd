@@ -69,6 +69,7 @@ func begin(game: RSPartyGame, request: Dictionary) -> Error:
 	_metadata = _describe(resolution)
 	_prepare_buffers()
 	_stage = Stage.WAITING
+	_metadata["window_begin"] = _window_snapshot()
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	set_process(true)
 	RenderingServer.frame_post_draw.connect(_after_draw)
@@ -153,13 +154,24 @@ func _prepare_buffers() -> void:
 	_metadata["sample_capacity"] = _capacity
 
 
+func _window_snapshot() -> Dictionary:
+	## Captured only at begin/end; never allocate a diagnostic dictionary per frame.
+	var root_size := get_tree().root.size
+	var client_size := DisplayServer.window_get_size()
+	var expected: Vector2i = _request["resolution"]
+	return {"mode": DisplayServer.window_get_mode(), "root_size": [root_size.x, root_size.y],
+		"client_size": [client_size.x, client_size.y], "expected_resolution": [expected.x, expected.y],
+		"stage": STAGE_NAMES[_stage]}
+
+
 func _health_error() -> String:
 	if not is_instance_valid(_game) or not _game.is_inside_tree() or get_tree().current_scene != _host_scene:
 		return "Game scene changed or was freed"
 	if get_tree().paused:
 		return "Game was paused"
 	if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_WINDOWED or get_tree().root.size != _request["resolution"] or DisplayServer.window_get_size() != _request["resolution"]:
-		return "Window was minimized, resized or left the requested windowed resolution"
+		return "Window was minimized, resized or left the requested windowed resolution (mode=%d, root=%s, client=%s, expected=%s)" % [
+			DisplayServer.window_get_mode(), get_tree().root.size, DisplayServer.window_get_size(), _request["resolution"]]
 	if Engine.time_scale != 1.0 or Engine.max_fps != 0 or DisplayServer.window_get_vsync_mode() != DisplayServer.VSYNC_DISABLED:
 		return "Time scale, FPS cap or VSync changed"
 	if RSSettings.quality != _request["quality"] or RSSettings.upscale != 0 or RSSettings.hdr != _expected_hdr or RSSettings.window != 0 or RSSettings.fps < 0 or RSSettings.fps >= RSSettings.FPS.size() or RSSettings.FPS[RSSettings.fps] != RSSettings.UNCAPPED:
@@ -249,6 +261,7 @@ func _after_draw() -> void:
 func _end(status: String, reason: String = "") -> void:
 	if _stage < Stage.WAITING or _stage > Stage.SAMPLING:
 		return
+	_metadata["window_end"] = _window_snapshot()
 	_stage = Stage.ENDING
 	set_process(false)
 	if not reason.is_empty():
