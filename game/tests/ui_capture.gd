@@ -23,7 +23,7 @@ func _run() -> void:
 		add_child(menu)
 		var lang := "zh" if locale == 0 else "en"
 		await _capture(output.path_join(lang + "-menu.png"))
-		for page: String in ["players", "records", "party", "credits"]:
+		for page: String in ["players", "records", "party", "solo", "credits"]:
 			menu._pages.open(page)
 			await _capture(output.path_join(lang + "-" + page + ".png"))
 			menu._pages.close()

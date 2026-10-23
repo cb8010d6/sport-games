@@ -109,7 +109,7 @@ func _update_tutorials() -> void:
 		for p: RSPartyGame.Player in game.ordered():
 			var card := PanelContainer.new()
 			card.custom_minimum_size.x = 450
-			card.add_theme_stylebox_override("panel", RSUi.panel_style(14, Color("182334")))
+			card.add_theme_stylebox_override("panel", RSUi.card_style())
 			_tutorial_grid.add_child(card)
 			var col := VBoxContainer.new()
 			card.add_child(col)
@@ -203,7 +203,9 @@ func _build_lobby() -> void:
 	var lobby := _centered_panel(820)
 	lobby_panel = lobby[0]
 	var col: VBoxContainer = lobby[1]
-	col.add_child(RSUi.label(game._game_name(), 40))
+	var title := RSUi.label(game._game_name(), 40)
+	title.add_theme_font_override("font", RSUi.font_bold())
+	col.add_child(title)
 	var how := RSUi.label(game._how_to_play(), 17, RSUi.TEXT_MUTED)
 	how.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART     # English runs longer than Chinese
 	col.add_child(how)
@@ -242,14 +244,15 @@ func _build_lobby() -> void:
 
 func _build_map_card(col: VBoxContainer) -> void:
 	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", RSUi.panel_style(14, Color(0.12, 0.15, 0.22, 0.95)))
+	card.add_theme_stylebox_override("panel", RSUi.card_style())
 	col.add_child(card)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
 	card.add_child(v)
 	_map_title = RSUi.label("", 28)
+	_map_title.add_theme_font_override("font", RSUi.font_bold())
 	v.add_child(_map_title)
-	_map_line = RSUi.label("", 16, Color(1.0, 0.84, 0.3))
+	_map_line = RSUi.label("", 16, RSUi.HIGHLIGHT)
 	v.add_child(_map_line)
 	_map_desc = RSUi.label("", 16, RSUi.TEXT_MUTED)
 	_map_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -264,6 +267,7 @@ func _build_results() -> void:
 	_results_col = col
 	_results_title = RSUi.label(tr("成绩"), 40)
 	col.add_child(_results_title)
+	_results_title.add_theme_font_override("font", RSUi.font_bold())
 	_results_text = RichTextLabel.new()
 	_results_text.bbcode_enabled = true
 	_results_text.fit_content = true
@@ -282,7 +286,7 @@ func _centered_panel(width: float) -> Array:
 	center.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(center)
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", RSUi.panel_style(20))
+	panel.add_theme_stylebox_override("panel", RSUi.modal_style())
 	panel.custom_minimum_size = Vector2(width, 0)
 	center.add_child(panel)
 	var col := VBoxContainer.new()
