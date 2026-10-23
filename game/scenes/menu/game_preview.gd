@@ -19,12 +19,13 @@ func _ready() -> void:
 	offset_top = -255
 	offset_bottom = 255
 	mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_theme_stylebox_override("panel", RSUi.panel_style(20, Color(0.035, 0.055, 0.09, 0.94)))
+	add_theme_stylebox_override("panel", RSUi.modal_style())
 	var col := VBoxContainer.new()
 	col.add_theme_constant_override("separation", 12)
 	add_child(col)
 	_title = RSUi.label("", 32)
 	_title.clip_text = true
+	_title.add_theme_font_override("font", RSUi.font_bold())
 	col.add_child(_title)
 	var aspect := AspectRatioContainer.new()
 	aspect.ratio = 16.0 / 9.0

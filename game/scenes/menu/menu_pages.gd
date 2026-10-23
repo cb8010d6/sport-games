@@ -22,14 +22,14 @@ func _ready() -> void:
 	visible = false
 	var dim := ColorRect.new()
 	dim.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
-	dim.color = Color(0.01, 0.02, 0.05, 0.9)
+	dim.color = RSUi.SCRIM
 	add_child(dim)
 	var center := CenterContainer.new()
 	center.set_anchors_and_offsets_preset(PRESET_FULL_RECT)
 	add_child(center)
 	var panel := PanelContainer.new()
 	panel.custom_minimum_size = Vector2(1000, 750)
-	panel.add_theme_stylebox_override("panel", RSUi.panel_style(24, Color(0.07, 0.08, 0.11, 1.0)))
+	panel.add_theme_stylebox_override("panel", RSUi.modal_style())
 	center.add_child(panel)
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
@@ -51,8 +51,14 @@ func open(page: String) -> void:
 		_col.remove_child(child)
 		child.queue_free()
 	var titles := {"players": tr("玩家 / 手柄"), "records": tr("本地排行榜"), "party": tr("派对大赛"), "credits": tr("致谢与素材"), "solo": tr("单人挑战")}
-	_col.add_child(RSUi.label(titles[page], 36))
-	_button(_col, tr("◀ 返回"), close)
+	var header := HBoxContainer.new()
+	header.add_theme_constant_override("separation", 18)
+	_col.add_child(header)
+	_button(header, tr("◀ 返回"), close)
+	var title := RSUi.label(titles[page], 34)
+	title.add_theme_font_override("font", RSUi.font_bold())
+	header.add_child(title)
+	_col.add_child(HSeparator.new())
 	match page:
 		"players":
 			_build_players()
@@ -241,8 +247,22 @@ func _build_records() -> void:
 	var hint := RSUi.label(tr("只保存正式比赛中每位玩家的最佳成绩；演示和自定义规则不计入。"), 17, RSUi.TEXT_MUTED)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_col.add_child(hint)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 14)
+	_col.add_child(grid)
 	for game: Dictionary in RSCatalog.GAMES:
-		_col.add_child(RSUi.label(tr(game["name"]), 26))
+		var card := PanelContainer.new()
+		card.add_theme_stylebox_override("panel", RSUi.card_style())
+		card.size_flags_horizontal = SIZE_EXPAND_FILL
+		grid.add_child(card)
+		var box := VBoxContainer.new()
+		box.add_theme_constant_override("separation", 6)
+		card.add_child(box)
+		var name_label := RSUi.label(tr(game["name"]), 24)
+		name_label.add_theme_font_override("font", RSUi.font_bold())
+		box.add_child(name_label)
 		var maps := 4 if game["id"] == "ski" else (2 if game["id"] == "basketball" else 1)
 		for map_id in maps:
 			var rows := RSRecords.leaderboard(game["id"], map_id)
@@ -251,26 +271,33 @@ func _build_records() -> void:
 				lines.append("  P%d · %s · %d" % [row["slot"], row.get("name", ""), row["score"]])
 			if rows.is_empty():
 				lines.append(tr("暂无纪录"))
-			_col.add_child(RSUi.label("\n".join(lines), 19, RSUi.TEXT_MUTED))
+			box.add_child(RSUi.label("\n".join(lines), 18, RSUi.TEXT_MUTED))
 
 
 func _build_party() -> void:
 	var hint := RSUi.label(tr("选择 3–6 个项目连续比赛。名次积分 10 / 7 / 5 / 3，同分共享名次。"), 18)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_col.add_child(hint)
+	var grid := GridContainer.new()
+	grid.columns = 2
+	grid.add_theme_constant_override("h_separation", 14)
+	grid.add_theme_constant_override("v_separation", 10)
+	_col.add_child(grid)
 	for game: Dictionary in RSCatalog.GAMES:
 		var check := CheckBox.new()
 		check.text = tr(game["name"])
 		check.button_pressed = _checks.size() < 3
-		_col.add_child(check)
+		check.custom_minimum_size = Vector2(450, 52)
+		grid.add_child(check)
 		_checks.append(check)
 		_focus.append(check)
 	var row := HBoxContainer.new()
+	row.add_theme_constant_override("separation", 12)
 	_col.add_child(row)
 	_button(row, tr("随机 3 项"), func() -> void: _random_party(3))
 	_button(row, tr("全部 6 项"), func() -> void: _random_party(6))
-	_button(row, tr("开始大赛"), _start_party)
-	_message = RSUi.label("", 18, Color("fbbf24"))
+	_button(row, tr("开始大赛"), _start_party).theme_type_variation = &"RSPrimary"
+	_message = RSUi.label("", 18, RSUi.HIGHLIGHT)
 	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_col.add_child(_message)
 
@@ -291,7 +318,7 @@ func _build_solo() -> void:
 	var difficulty := _option(row, [tr("简单"), tr("普通"), tr("困难")], _solo_difficulty)
 	difficulty.item_selected.connect(func(index: int) -> void: _solo_difficulty = index)
 	_col.add_child(RSUi.label(tr("P%d · %s · 星数 %d / 18") % [_solo_slot, RSProfiles.player_name(_solo_slot), RSSolo.total_stars(_solo_slot)], 24))
-	_message = RSUi.label("", 18, Color("fbbf24"))
+	_message = RSUi.label("", 18, RSUi.HIGHLIGHT)
 	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_col.add_child(_message)
 	for game: Dictionary in RSCatalog.GAMES:
@@ -302,7 +329,13 @@ func _build_solo() -> void:
 		var game_row := HBoxContainer.new()
 		game_row.add_theme_constant_override("separation", 16)
 		_col.add_child(game_row)
-		_button(game_row, tr("%s · %d / 3 星 · 开始") % [tr(game["name"]), RSSolo.stars(id, _solo_slot)], _start_solo.bind(id)).custom_minimum_size.x = 430
+		var play := _button(game_row, "▶  " + tr(game["name"]), _start_solo.bind(id))
+		play.alignment = HORIZONTAL_ALIGNMENT_LEFT
+		play.custom_minimum_size.x = 320
+		var stars := RSSolo.stars(id, _solo_slot)
+		var star_label := RSUi.label("★".repeat(stars) + "☆".repeat(3 - stars), 26, RSUi.HIGHLIGHT)  # no-i18n
+		star_label.custom_minimum_size.x = 96
+		game_row.add_child(star_label)
 		var targets := RSUi.label(tr("单局分数目标：%s") % " / ".join(goals), 17, RSUi.TEXT_MUTED)
 		targets.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		targets.size_flags_horizontal = SIZE_EXPAND_FILL

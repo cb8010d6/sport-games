@@ -22,6 +22,8 @@ const SHOT_TIME := 7.0           ## seconds per camera shot in the backdrop
 var _buttons: Array[Button] = []
 var _desc: Label
 var _status: Label
+var _offline_chip := RSUi.chip_style(RSUi.BAD)
+var _online_chip := RSUi.chip_style(RSUi.GOOD)
 var _index := 0
 var _pages: RSMenuPages
 var _settings: RSPauseMenu
@@ -98,6 +100,7 @@ func _ready() -> void:
 	margin.add_child(col)
 	var title := RSUi.label("Regina Sports", 64)
 	col.add_child(title)
+	title.add_theme_font_override("font", RSUi.font_bold())
 	var sub := RSUi.label(tr("体感运动游戏 · 拿起手柄就能玩"), 22, Color(0.85, 0.9, 1.0))
 	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	col.add_child(sub)
@@ -105,11 +108,9 @@ func _ready() -> void:
 	gap.custom_minimum_size = Vector2(0, 6)
 	col.add_child(gap)
 
-	var normal := RSUi.panel_style(16, Color(0.06, 0.09, 0.16, 0.5))
-	var hover := RSUi.panel_style(16, Color(0.1, 0.14, 0.24, 0.8))
-	var focus := RSUi.panel_style(16, Color(1.0, 1.0, 1.0, 0.16))
-	focus.set_border_width_all(3)
-	focus.border_color = Color.WHITE
+	var normal := RSUi.button_style("normal")
+	var hover := RSUi.button_style("hover")
+	var focus := RSUi.button_style("focus")
 	for s: StyleBox in [normal, hover, focus]:
 		s.content_margin_top = 6
 		s.content_margin_bottom = 6
@@ -141,6 +142,7 @@ func _ready() -> void:
 		_buttons.append(b)
 	_desc = RSUi.label("", 18, Color(0.95, 0.97, 1.0))
 	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_desc.add_theme_stylebox_override("normal", RSUi.card_style())
 	_desc.custom_minimum_size = Vector2(660, 72)
 	col.add_child(_desc)
 	var hint := RSUi.label(tr("手柄：B / C 选择，A 进入　　键盘：方向键 + 回车\n游戏里短按 D 或 Esc 打开暂停菜单：重新开始、画面设置、语言、回主菜单"), 15, Color(0.88, 0.92, 1.0, 0.8))
@@ -254,10 +256,12 @@ func _status_text() -> void:
 	if not ControllerHub.is_hub_connected():
 		_status.text = tr("● 未连接 hub —— 请先运行 hub/run_hub.bat")
 		_status.add_theme_color_override("font_color", Color(1.0, 0.82, 0.78))
+		_status.add_theme_stylebox_override("normal", _offline_chip)
 		return
 	var live := ControllerHub.connected_controllers()
 	_status.text = tr("● hub 已连接 · %d 个手柄") % live.size() if not live.is_empty() else tr("● hub 已连接 · 还没有手柄：打开 Regina 或用手机扫码（二维码在游戏大厅和调试场景里）")
 	_status.add_theme_color_override("font_color", Color(0.8, 1.0, 0.85))
+	_status.add_theme_stylebox_override("normal", _online_chip)
 
 
 func _on_focus(i: int) -> void:
