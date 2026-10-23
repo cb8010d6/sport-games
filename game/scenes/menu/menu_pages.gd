@@ -137,6 +137,9 @@ func _build_players() -> void:
 	var hint := RSUi.label(tr("档案按 P1–P4 保存，跨项目通用。名字可用键盘或手机手柄设置。"), 17, RSUi.TEXT_MUTED)
 	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_col.add_child(hint)
+	var hand_hint := RSUi.label(tr("左手模式会镜像左右手势；按键、前后倾斜与起跳不变。可分别为四位玩家设置。"), 16, RSUi.TEXT_MUTED)
+	hand_hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	_col.add_child(hand_hint)
 	for slot in range(1, 5):
 		var data := RSProfiles.profile(slot)
 		var row := HBoxContainer.new()
@@ -152,8 +155,10 @@ func _build_players() -> void:
 		_focus.append(name_edit)
 		var colors := _option(row, [tr("蓝"), tr("红"), tr("绿"), tr("橙"), tr("紫"), tr("粉"), tr("青"), tr("白")], data["color"])
 		var look := _option(row, [tr("角色 %d") % 1, tr("角色 %d") % 2, tr("角色 %d") % 3, tr("角色 %d") % 4], data["avatar"])
+		var hand := _option(row, [tr("右手"), tr("左手")], int(data["left_handed"]))
+		hand.accessibility_name = tr("惯用手")
 		_button(row, tr("保存档案"), func() -> void:
-			var err := RSProfiles.update(slot, name_edit.text, colors.selected, look.selected)
+			var err := RSProfiles.update(slot, name_edit.text, colors.selected, look.selected, hand.selected)
 			name_edit.text = RSProfiles.player_name(slot)
 			_message.text = tr("已保存") if err == OK else tr("保存失败，请检查用户目录权限"))
 	_col.add_child(HSeparator.new())

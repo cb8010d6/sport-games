@@ -1,4 +1,9 @@
 {
+  "右手": "Right hand",
+  "左手": "Left hand",
+  "惯用手": "Preferred hand",
+  "左手模式会镜像左右手势；按键、前后倾斜与起跳不变。可分别为四位玩家设置。": "Left-hand mode mirrors sideways gestures. Buttons, forward/back tilt and upward flicks stay the same. Set each player separately.",
+  "向左倾斜手柄，并保持片刻": "Tilt the controller left and hold briefly",
  "电脑 · %s": "CPU · %s",
  "挑战星数：%d / 3（地图 1 个人最佳）": "Challenge stars: %d / 3 (Map 1 personal best)",
  "单人挑战 · %s · P%d 对战电脑": "Solo challenge · %s · P%d vs CPU",
