@@ -732,7 +732,15 @@ func _build_ui() -> void:
 
 func draw_text(ci: CanvasItem, text: String, pos: Vector2, size: float, color: Color, center := false, right := false) -> void:
 	## Outlined text; pos is the baseline's start (its centre when `center`, its end when `right`).
-	var fs := maxi(8, int(size))
+	var bounds: Vector2 = ci.get_viewport_rect().size
+	if ci is Control:
+		bounds = (ci as Control).size
+	var width := bounds.x - pos.x - 4.0
+	if center:
+		width = 2.0 * minf(pos.x - 4.0, bounds.x - pos.x - 4.0)
+	elif right:
+		width = pos.x - 4.0
+	var fs := RSUi.fit_text_size(text, size, width, pos.y - 4.0, bounds.y - 8.0)
 	var at := pos
 	if center or right:
 		at.x -= font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x * (0.5 if center else 1.0)
@@ -741,15 +749,16 @@ func draw_text(ci: CanvasItem, text: String, pos: Vector2, size: float, color: C
 
 
 func draw_pill(ci: CanvasItem, text: String, center: Vector2, size: float, color: Color = Color.WHITE) -> void:
-	var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, int(size)).x + size
-	_pill.set_corner_radius_all(int(size * 0.65))
-	ci.draw_style_box(_pill, Rect2(center - Vector2(w, size * 1.36) * 0.5, Vector2(w, size * 1.36)))
-	draw_text(ci, text, center + Vector2(0, size * 0.36), size, color, true)
+	var fs := RSUi.text_size(size)
+	var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + fs
+	_pill.set_corner_radius_all(int(fs * 0.65))
+	ci.draw_style_box(_pill, Rect2(center - Vector2(w, fs * 1.36) * 0.5, Vector2(w, fs * 1.36)))
+	draw_text(ci, text, center + Vector2(0, fs * 0.36), size, color, true)
 
 
-func draw_clock(o: Control, seconds: float, k: float, warn_below: float = 10.0) -> void:
-	## Shared clock, kept off the players' score corners: top centre for one player, on the
-	## seam between views for 2 or 4, big in the empty quarter for 3.
+func draw_clock(o: Control, seconds: float, k: float, warn_below: float = 10.0, split_y: float = 0.5) -> void:
+	## Shared clock, kept off the players' score corners: on the seam for 2 / 4 players
+	## (halfway down the first row for 4, clear of P4's badge), empty quarter for 3.
 	var t := ceili(seconds)
 	var label := "%d:%02d" % [t / 60, t % 60]
 	var n := players.size()
@@ -758,10 +767,13 @@ func draw_clock(o: Control, seconds: float, k: float, warn_below: float = 10.0) 
 	var mid := Vector2(sz.x * 0.5, 38 * k)
 	if n == 2 or n == 4:
 		mid = sz * 0.5
+		# A sport can reserve a different height for edge-mounted gauges.
+		mid.y = sz.y * split_y / (2.0 if n == 4 else 1.0)
 	elif n == 3:
 		mid = sz * 0.75
 		fs = 72.0 * k
-		draw_text(o, tr("剩余时间"), mid - Vector2(0, 62 * k), 24 * k, Color(0.85, 0.89, 0.96), true)
+		var label_gap := RSUi.text_size(fs) * 0.68 + font.get_descent(RSUi.text_size(24 * k)) + 12 * k
+		draw_text(o, tr("剩余时间"), mid - Vector2(0, label_gap), 24 * k, Color(0.85, 0.89, 0.96), true)
 	draw_pill(o, label, mid, fs, Color(1.0, 0.45, 0.4) if t <= warn_below and phase == Phase.PLAY else Color.WHITE)
 
 

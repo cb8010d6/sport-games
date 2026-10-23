@@ -109,3 +109,5 @@ jobs:
         run: python tools/test_menu_preview.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
       - name: Test camera accessibility settings and reload
         run: python tools/test_camera_comfort.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --ui-only
+      - name: Test bilingual text sizes, live menus and reload
+        run: python tools/test_text_size.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --ui-only

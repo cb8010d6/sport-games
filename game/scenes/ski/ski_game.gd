@@ -653,15 +653,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 		return
 	var pale := Color(0.92, 0.95, 1.0)
 
-	# Gates and run time under the score, speed at the bottom, on dark panels (white snow).
-	_pill.set_corner_radius_all(int(10 * k))
-	h.draw_style_box(_pill, Rect2(Vector2(12, 68) * k, Vector2(150, 54) * k))
-	h.draw_style_box(_pill, Rect2(Vector2(12 * k, sz.y - 46 * k), Vector2(170, 36) * k))
-	var gt := tr("旗门 %d/%d") % [sk.gates_hit, _course.gates.size()]
-	if sk.gates_missed > 0:
-		gt += tr("  漏 %d") % sk.gates_missed
-	draw_text(h, gt, Vector2(20 * k, 88 * k), 19 * k, pale)
-	draw_text(h, _fmt_time(sk.finish_time if sk.finished else sk.run_time), Vector2(20 * k, 114 * k), 19 * k, GOLD if sk.finished else pale)
+	RSSkiHud.draw_stats(self, h, sk, _course.gates.size(), _fmt_time(sk.finish_time if sk.finished else sk.run_time), k, GOLD)
 
 	# Run progress: everyone's position on the way to the finish.
 	var bar := Rect2(Vector2(sz.x - 250 * k, 30 * k), Vector2(220 * k, 8 * k))
@@ -676,10 +668,6 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 	h.draw_rect(Rect2(bar.end - Vector2(0, 14 * k), Vector2(3 * k, 16 * k)), Color.WHITE)
 	var to_go := maxi(0, roundi(_course.length - sk.s()))
 	draw_text(h, tr("终点 %d m") % to_go if not sk.finished else tr("已到终点"), bar.position + Vector2(bar.size.x, 32 * k), 15 * k, pale, false, true)
-
-	draw_text(h, "%d km/h" % roundi(sk.current_speed() * 3.6), Vector2(22 * k, sz.y - 20 * k), 22 * k, pale)
-	if sk.tuck > 0.5 and sk.mode == RSSkier.Mode.RIDE:
-		draw_text(h, tr("团身"), Vector2(130 * k, sz.y - 20 * k), 16 * k, GOLD)
 
 	# Next gate: a marker over it in its colour.
 	if sk.next_gate < _course.gates.size() and not sk.finished:
