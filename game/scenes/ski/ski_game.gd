@@ -278,11 +278,11 @@ func _player_removed(p: Player) -> void:
 
 func _player_ready(p: Player, is_ready: bool) -> void:
 	if is_ready:
-		_racer(p).gest.capture(p.c.orientation)
+		_racer(p).gest.capture(p.c.motion_orientation())
 
 
 func _player_recentered(p: Player) -> void:
-	_racer(p).gest.capture(p.c.orientation)
+	_racer(p).gest.capture(p.c.motion_orientation())
 	p.popup(tr("已重设“平”的姿势"))
 
 
@@ -574,15 +574,10 @@ func _camera(p: Player, r: Racer, dt: float, snap: bool) -> void:
 	p.cam.fov = lerpf(p.cam.fov, 62.0 + clampf(spd - 8.0, 0.0, 18.0) * 0.6, 1.0 if snap else 1.0 - exp(-dt * 2.0))
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
 		# Intro: high over the run looking down the valley, then swooping in behind the racer.
-		var u := smoothstep(0.0, INTRO, phase_time)
 		var ahead := _course.world(0.0, 180.0, 0.0)
 		var p0 := _course.world(-40.0, -60.0, 60.0)
 		var p1 := sk.pos + Vector3(6.0 * signf(sk.pos.x - _course.centre(0.0) + 0.01), 4.0, 12.0)
-		var at := p0.lerp(p1, u).lerp(p1.lerp(r.cam_pos, u), u)
-		var lk := ahead.lerp(r.cam_look, smoothstep(0.3, 1.0, u))
-		p.cam.global_position = at
-		p.cam.look_at(lk)
-		p.cam.fov = lerpf(55.0, 64.0, u)
+		RSIntro.apply(p.cam, phase_time, INTRO, p0, p1, r.cam_pos, ahead, r.cam_look, 55.0, 64.0, 0.3)
 	_follow_snow(r.snow, p.cam)
 
 
@@ -654,15 +649,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 		return
 	var pale := Color(0.92, 0.95, 1.0)
 
-	# Gates and run time under the score, speed at the bottom, on dark panels (white snow).
-	_pill.set_corner_radius_all(int(10 * k))
-	h.draw_style_box(_pill, Rect2(Vector2(12, 68) * k, Vector2(150, 54) * k))
-	h.draw_style_box(_pill, Rect2(Vector2(12 * k, sz.y - 46 * k), Vector2(170, 36) * k))
-	var gt := tr("旗门 %d/%d") % [sk.gates_hit, _course.gates.size()]
-	if sk.gates_missed > 0:
-		gt += tr("  漏 %d") % sk.gates_missed
-	draw_text(h, gt, Vector2(20 * k, 88 * k), 19 * k, pale)
-	draw_text(h, _fmt_time(sk.finish_time if sk.finished else sk.run_time), Vector2(20 * k, 114 * k), 19 * k, GOLD if sk.finished else pale)
+	RSSkiHud.draw_stats(self, h, sk, _course.gates.size(), _fmt_time(sk.finish_time if sk.finished else sk.run_time), k, GOLD)
 
 	# Run progress: everyone's position on the way to the finish.
 	var bar := Rect2(Vector2(sz.x - 250 * k, 30 * k), Vector2(220 * k, 8 * k))
@@ -677,10 +664,6 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 	h.draw_rect(Rect2(bar.end - Vector2(0, 14 * k), Vector2(3 * k, 16 * k)), Color.WHITE)
 	var to_go := maxi(0, roundi(_course.length - sk.s()))
 	draw_text(h, tr("终点 %d m") % to_go if not sk.finished else tr("已到终点"), bar.position + Vector2(bar.size.x, 32 * k), 15 * k, pale, false, true)
-
-	draw_text(h, "%d km/h" % roundi(sk.current_speed() * 3.6), Vector2(22 * k, sz.y - 20 * k), 22 * k, pale)
-	if sk.tuck > 0.5 and sk.mode == RSSkier.Mode.RIDE:
-		draw_text(h, tr("团身"), Vector2(130 * k, sz.y - 20 * k), 16 * k, GOLD)
 
 	# Next gate: a marker over it in its colour.
 	if sk.next_gate < _course.gates.size() and not sk.finished:
@@ -744,7 +727,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 func _draw_overlay(o: Overlay, k: float) -> void:
 	var m := _course.map
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
-		var a := clampf(phase_time / 0.6, 0.0, 1.0) * clampf((INTRO - phase_time) / 0.6, 0.0, 1.0)
+		var a := RSIntro.fade(phase_time, INTRO)
 		draw_text(o, tr(str(m["name"])), Vector2(o.size.x * 0.5, o.size.y * 0.4), 84 * k, Color(1, 1, 1, a), true)
 		draw_text(o, tr("%s  ·  %d 米  ·  %d 道旗门  ·  难度 %s") % [m["en"], roundi(_course.length), _course.gates.size(), RSSkiMaps.stars(map_index)],
 			Vector2(o.size.x * 0.5, o.size.y * 0.4 + 56 * k), 24 * k, Color(1, 0.9, 0.6, a), true)

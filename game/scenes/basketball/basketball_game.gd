@@ -238,7 +238,7 @@ func _player_button(p: Player, button: int, pressed: bool) -> void:
 	var s := _sh(p)
 	if pressed and s.st == St.READY:
 		_to(s, St.SET)
-		s.set_yaw = _heading(p.c.orientation)
+		s.set_yaw = _heading(p.c.motion_orientation())
 		s.rig.play(RSBallerRig.Move.SET)
 	elif not pressed and s.st == St.SET:
 		s.rel_t = p.c.sample_time
@@ -517,10 +517,10 @@ func _read_flick(p: Player, s: Shooter) -> void:
 			break
 		peak = maxf(peak, c.hist_gyro[i].length())
 		if t <= s.rel_t - 0.25 and not have_turn:
-			turn_at = _heading(c.hist_quat[i])
+			turn_at = _heading(c.motion_pose(c.hist_quat[i]))
 			have_turn = true
 	if not have_turn:
-		turn_at = _heading(c.orientation)
+		turn_at = _heading(c.motion_orientation())
 	s.peak = peak
 	s.e_raw = (peak - P_IDEAL) / P_IDEAL
 	s.lat_raw = clampf(-wrapf(turn_at - s.set_yaw, -PI, PI) / LAT_FULL, -1.5, 1.5)
@@ -744,13 +744,10 @@ func _camera(p: Player, s: Shooter, dt: float, snap: bool) -> void:
 	p.cam.fov = 47.0
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
 		# Intro: from high over the city edge, swooping down behind the shooter.
-		var u := smoothstep(0.0, INTRO, phase_time)
 		var p0 := Vector3(RSBallCourt.court_x(s.court) * 0.4, 26.0, 46.0)
 		var p1 := s.pos + back * 9.0 + Vector3.UP * 5.0
-		var at := p0.lerp(p1, u).lerp(p1.lerp(s.cam_pos, u), u)
-		p.cam.global_position = at
-		p.cam.look_at(Vector3(RSBallCourt.court_x(s.court), 1.0, 2.0).lerp(s.cam_look, smoothstep(0.4, 1.0, u)))
-		p.cam.fov = lerpf(50.0, 47.0, u)
+		RSIntro.apply(p.cam, phase_time, INTRO, p0, p1, s.cam_pos,
+			Vector3(RSBallCourt.court_x(s.court), 1.0, 2.0), s.cam_look, 50.0, 47.0, 0.4)
 
 
 # ------------------------------------------------------------------- hints / OLED ----

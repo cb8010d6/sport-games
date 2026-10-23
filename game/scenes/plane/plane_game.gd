@@ -182,11 +182,11 @@ func _player_removed(p: Player) -> void:
 
 func _player_ready(p: Player, is_ready: bool) -> void:
 	if is_ready:
-		_pilot(p).stick.capture(p.c.orientation)
+		_pilot(p).stick.capture(p.c.motion_orientation())
 
 
 func _player_recentered(p: Player) -> void:
-	_pilot(p).stick.capture(p.c.orientation)
+	_pilot(p).stick.capture(p.c.motion_orientation())
 	p.popup(tr("已重设平飞姿势"))
 
 
@@ -266,7 +266,7 @@ func _read_stick(p: Player) -> Vector2:
 		return _autopilot(p)
 	if not p.c.connected:
 		return Vector2.ZERO
-	return _pilot(p).stick.stick(p.c.orientation)
+	return _pilot(p).stick.stick(p.c.motion_orientation())
 
 
 func _fly(p: Player, dt: float) -> void:
