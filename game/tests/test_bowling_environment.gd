@@ -1,0 +1,180 @@
+extends Node
+## B1 resource/geometry checks and unchanged real bowling lifecycle, with isolated bot data.
+## Optional screenshots capture the real split screens and a separate hall inspection camera.
+
+var _checks := 0
+var _failures := 0
+var _scene: Variant
+
+
+func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	if OS.get_environment("RS_TEST_MODE") != "1":
+		get_tree().quit(1)
+		return
+	_run.call_deferred()
+
+
+func _check(ok: bool, message: String) -> void:
+	_checks += 1
+	if not ok:
+		_failures += 1
+		push_error("FAIL: " + message)
+
+
+func _frames(count := 6) -> void:
+	for _i in count:
+		await get_tree().process_frame
+
+
+func _wait_phase(phase: int) -> void:
+	for _i in 1200:
+		await get_tree().process_frame
+		if _scene.phase == phase:
+			return
+	_check(false, "bowling reaches the requested real game phase")
+
+
+func _collision_layout() -> void:
+	var bodies: Array[StaticBody3D] = []
+	for child: Node in _scene.get_children():
+		if child is StaticBody3D:
+			bodies.append(child)
+	_check(bodies.size() == 28, "original seven collision boxes per lane")
+	# Independent pre-B1 dimensions and friction, in construction order.
+	var sizes := [Vector3(1.05, 0.1, 23.79), Vector3(0.235, 0.1, 19.29), Vector3(0.54, 0.32, 23.79),
+		Vector3(0.235, 0.1, 19.29), Vector3(0.54, 0.32, 23.79), Vector3(2.6, 0.1, 1.6), Vector3(2.6, 1.4, 0.2)]
+	var offsets := [Vector3(0, -0.05, -7.395), Vector3(-0.6425, -0.15, -9.645), Vector3(-1.03, 0.06, -7.395),
+		Vector3(0.6425, -0.15, -9.645), Vector3(1.03, 0.06, -7.395), Vector3(0, -0.55, -20.09), Vector3(0, 0.1, -20.89)]
+	var friction := [0.08, 0.3, 0.3, 0.3, 0.3, 0.8, 0.9]
+	for lane in 4:
+		for item in 7:
+			var body := bodies[lane * 7 + item]
+			var shape := body.get_child(0) as CollisionShape3D
+			_check(shape.shape is BoxShape3D and (shape.shape as BoxShape3D).size.is_equal_approx(sizes[item]), "collision box retains original size")
+			_check(body.position.is_equal_approx(offsets[item] + Vector3((lane - 1.5) * 2.6, 0, 0)), "collision box retains original position")
+			_check(is_equal_approx(body.physics_material_override.friction, friction[item]), "rolling friction remains unchanged")
+
+
+func _resources(hall: RSBowlingHall) -> void:
+	_check(hall.find_children("*", "CollisionObject3D", true, false).is_empty(), "decorative hall has no physics")
+	_check(hall.find_children("*", "MultiMeshInstance3D", true, false).size() >= 10, "repeated arrows, seating and lights are batched")
+	for id: String in ["plywood", "metal_plate", "painted_plaster_wall", "large_grey_tiles"]:
+		for map: Variant in RSPbr.maps(id):
+			_check(map is Texture2D, "registered PBR map resolves: " + id)
+	var world := hall.find_children("*", "WorldEnvironment", true, false)[0] as WorldEnvironment
+	var environment := world.environment
+	_check(environment.sky.sky_material is PanoramaSkyMaterial and (environment.sky.sky_material as PanoramaSkyMaterial).panorama != null, "registered HDRI reflection source resolves")
+	_check(environment.reflected_light_source == Environment.REFLECTION_SOURCE_SKY, "indoor PBR has sky reflections")
+	var quality := RSSettings.quality
+	RSSettings.quality = 0
+	RSSettings.environment(environment)
+	_check(not environment.ssao_enabled and not environment.glow_enabled, "low quality disables requested screen effects")
+	RSSettings.quality = quality
+	RSSettings.environment(environment)
+	_check(environment.ssao_enabled and environment.glow_enabled, "quality restoration restores requested screen effects")
+	var key := hall.find_children("*", "DirectionalLight3D", true, false)[0] as DirectionalLight3D
+	_check(key.shadow_enabled and key.light_angular_distance == 0, "pin shadows remain on with ordinary filtering at medium quality")
+	for lane in 4:
+		var light := hall._materials["player%d" % (lane + 1)] as StandardMaterial3D
+		_check(light.emission == RSControllerModel.PLAYER_COLORS[lane + 1], "each lane retains its original distinct player colour")
+		var surface := hall.get_node("Lane%d" % (lane + 1)) as MeshInstance3D
+		_check(surface.material_override is ShaderMaterial and (surface.material_override as ShaderMaterial).shader == RSBowlingHall.LANE_SHADER, "lane uses the dedicated varnish/oil shader")
+		var data := surface.mesh.surface_get_arrays(0)
+		var vertices: PackedVector3Array = data[Mesh.ARRAY_VERTEX]
+		var uvs: PackedVector2Array = data[Mesh.ARRAY_TEX_UV]
+		for i in vertices.size():
+			var point := surface.to_global(vertices[i])
+			_check(absf(point.z - (4.5 - uvs[i].y)) < 0.001, "lane UV metres run from approach toward pit")
+			_check(absf(absf(point.x - (lane - 1.5) * 2.6) - 0.525) < 0.001 and absf(point.y - 0.001) < 0.001, "lane top matches original bounds above collision")
+	for player: RSPartyGame.Player in _scene.ordered():
+		var state: Variant = _scene._bowler(player)
+		_check(state.pins.size() == 10 and is_equal_approx(state.ball.mass, 6.5), "ten pins and original ball mass")
+		var ball_shape := (state.ball.get_child(0) as CollisionShape3D).shape as SphereShape3D
+		_check(is_equal_approx(ball_shape.radius, 0.109) and is_equal_approx(state.ball.physics_material_override.friction, 0.25) and is_equal_approx(state.ball.physics_material_override.bounce, 0.05), "original ball collision and contact material")
+		for pin: RigidBody3D in state.pins:
+			var material := (pin.get_child(1) as MeshInstance3D).material_override as StandardMaterial3D
+			_check(material != null and material.vertex_color_use_as_albedo and material.clearcoat_enabled, "PBR pin lacquer retains red vertex stripes")
+			_check(is_equal_approx(pin.mass, 1.5) and pin.center_of_mass == Vector3(0, 0.14, 0), "pin physical mass and centre remain unchanged")
+			var pin_shape := (pin.get_child(0) as CollisionShape3D).shape as CylinderShape3D
+			_check(is_equal_approx(pin_shape.radius, 0.058) and is_equal_approx(pin_shape.height, 0.38) and is_equal_approx(pin.physics_material_override.friction, 0.45) and is_equal_approx(pin.physics_material_override.bounce, 0.35), "original pin collision and contact material")
+
+
+func _scores() -> void:
+	var frames: int = _scene._frames
+	_scene._frames = 5
+	var strikes: Array[int] = [10, 10, 10, 10, 10, 10, 10]
+	var spares: Array[int] = [5, 5, 5, 5, 5, 5, 5, 5, 5, 5, 5]
+	var open: Array[int] = [9, 0, 9, 0, 9, 0, 9, 0, 9, 0]
+	_check(_scene._total(strikes) == 150, "five perfect frames retain bonus scoring")
+	_check(_scene._total(spares) == 75, "five spares retain bonus scoring")
+	_check(_scene._total(open) == 45, "open frames retain normal scoring")
+	_scene._frames = frames
+
+
+func _capture(suffix: String) -> void:
+	var prefix := OS.get_environment("RS_BOWLING_SCREENSHOT")
+	if prefix.is_empty():
+		return
+	await _frames(12)
+	await RenderingServer.frame_post_draw
+	_check(get_viewport().get_texture().get_image().save_png(prefix + "-" + suffix + ".png") == OK, "native split-screen screenshot saved")
+
+
+func _hall_capture() -> void:
+	var prefix := OS.get_environment("RS_BOWLING_SCREENSHOT")
+	if prefix.is_empty():
+		return
+	var viewport := SubViewport.new()
+	viewport.size = Vector2i(1600, 900)
+	viewport.world_3d = _scene.get_world_3d()
+	viewport.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	RSSettings.apply_viewport(viewport)
+	add_child(viewport)
+	var camera := Camera3D.new()
+	viewport.add_child(camera)
+	camera.position = Vector3(7.1, 3.4, 8.8)
+	camera.look_at(Vector3(0, 1.2, -7.5))
+	camera.fov = 68
+	await _frames(12)
+	await RenderingServer.frame_post_draw
+	_check(viewport.get_texture().get_image().save_png(prefix + "-hall.png") == OK, "inspection camera captures seating, ball return and hall")
+	viewport.queue_free()
+
+
+func _run() -> void:
+	_scene = (load("res://scenes/bowling/bowling_game.tscn") as PackedScene).instantiate()
+	get_tree().root.add_child(_scene)
+	get_tree().current_scene = _scene
+	await _wait_phase(RSPartyGame.Phase.PLAY)
+	_scene.set_process(false)
+	_scene.set_physics_process(false)
+	var hall := _scene.get_node("BowlingHall") as RSBowlingHall
+	_collision_layout()
+	_resources(hall)
+	_scores()
+	var nodes := hall.get_child_count()
+	var materials: Array = hall._materials.values().map(func(material: Material) -> int: return material.get_instance_id())
+	await _capture("play")
+	_scene.open_pause()
+	var time: float = _scene.phase_time
+	await _frames()
+	_check(get_tree().paused and _scene.phase_time == time, "pause freezes the original game clock")
+	_scene.ui.pause.close()
+	await _hall_capture()
+	_scene.restart_round()
+	_scene.set_process(true)
+	await _wait_phase(RSPartyGame.Phase.COUNTDOWN)
+	_scene.set_process(false)
+	_check(hall.get_child_count() == nodes and materials == hall._materials.values().map(func(material: Material) -> int: return material.get_instance_id()), "restart reuses hall nodes, meshes and materials")
+	for player: RSPartyGame.Player in _scene.ordered():
+		var state: Variant = _scene._bowler(player)
+		_check(player.score == 0 and state.rolls.is_empty() and state.standing.count(true) == 10, "restart restores rack and score")
+		_check(player.cam.global_transform.is_finite(), "2/4-player camera remains valid")
+	var weak: WeakRef = weakref(hall)
+	get_tree().current_scene = null
+	_scene.queue_free()
+	await _frames()
+	_check(weak.get_ref() == null, "hall releases with the game scene")
+	print("RS_BOWLING_ENVIRONMENT_TESTS: %d checks, %d failures" % [_checks, _failures])
+	RSExit.quit(get_tree(), 1 if _failures else 0)

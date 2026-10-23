@@ -52,7 +52,7 @@ class Bowler:
 var _frames := 5
 var _rng := RandomNumberGenerator.new()
 var _pin_mesh: Mesh
-var _pin_mat: ShaderMaterial
+var _pin_mat: StandardMaterial3D
 var _lobby_t := 0.0
 var _all_done_t := -1.0
 
@@ -85,65 +85,15 @@ func _bowler(p: Player) -> Bowler:
 func _setup_world() -> void:
 	_rng.seed = 9
 	shot_times = [0.5, 2.5, 6.0, 7.5, 9.0, 20.0, 40.0, 70.0]
-	var env := Environment.new()
-	env.background_mode = Environment.BG_COLOR
-	env.background_color = Color(0.08, 0.09, 0.16)
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.75, 0.72, 0.85)
-	env.ambient_light_energy = 0.6
-	env.tonemap_mode = Environment.TONE_MAPPER_AGX
-	env.ssao_enabled = true
-	env.glow_enabled = true
-	env.glow_intensity = 0.7
-	env.glow_bloom = 0.08
-	env.adjustment_enabled = true
-	env.adjustment_saturation = 1.15
-	var we := WorldEnvironment.new()
-	we.environment = env
-	add_child(we)
-	var key := DirectionalLight3D.new()
-	key.rotation_degrees = Vector3(-60, 20, 0)
-	key.light_energy = 0.8
-	key.shadow_enabled = true
-	key.directional_shadow_max_distance = 40.0
-	add_child(key)
-	for z in [2.0, -6.0, -14.0, -19.0]:
-		var lamp := OmniLight3D.new()
-		lamp.position = Vector3(0, 3.2, z)
-		lamp.omni_range = 14.0
-		lamp.light_energy = 1.2
-		lamp.light_color = Color(1.0, 0.92, 0.8)
-		add_child(lamp)
-
-	# Floor, back wall, ceiling strip of neon.
-	var floor_mi := MeshInstance3D.new()
-	var fm := PlaneMesh.new()
-	fm.size = Vector2(40, 40)
-	floor_mi.mesh = fm
-	floor_mi.material_override = RSMeshUtil.toon_material(Color(0.22, 0.2, 0.32), 0.0, 0.9)
-	floor_mi.position = Vector3(0, -0.6, -8)
-	add_child(floor_mi)
-	var wall := MeshInstance3D.new()
-	wall.mesh = RSMeshUtil.rounded_box(Vector3(16, 6, 0.4), 0.1)
-	wall.material_override = RSMeshUtil.toon_material(Color(0.16, 0.15, 0.28), 0.1)
-	wall.position = Vector3(0, 2.2, -21.0)
-	add_child(wall)
-	var neon_colors := [Color(1.0, 0.3, 0.7), Color(0.3, 0.8, 1.0)]
-	for i in 2:
-		var neon := MeshInstance3D.new()
-		neon.mesh = RSMeshUtil.rounded_box(Vector3(15.5, 0.08, 0.08), 0.03)
-		var nm := StandardMaterial3D.new()
-		nm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		nm.albedo_color = neon_colors[i] * 1.6
-		neon.material_override = nm
-		neon.position = Vector3(0, 4.4 + i * 0.3, -20.75)
-		add_child(neon)
+	var hall := RSBowlingHall.new()
+	hall.name = "BowlingHall"
+	add_child(hall)
+	hall.configure(LANE_LEN, LANE_HALF, GUTTER, LANE_SPACING, font)
 
 	_pin_mesh = _lathe_pin()
-	_pin_mat = RSMeshUtil.toon_material(Color.WHITE, 0.35, 0.3)
-	_pin_mat.set_shader_parameter("use_vertex_color", true)
+	_pin_mat = RSBowlingHall.pin_material()
 	for i in 4:
-		_build_lane(_lane_x(i + 1), i + 1)
+		_build_lane(_lane_x(i + 1))
 	lobby_cam.fov = 50
 	lobby_cam.far = 200
 
@@ -152,7 +102,7 @@ func _lane_x(player: int) -> float:
 	return (player - 2.5) * LANE_SPACING
 
 
-func _static_box(size: Vector3, pos: Vector3, mat: Material, friction: float = 0.3) -> StaticBody3D:
+func _static_box(size: Vector3, pos: Vector3, friction: float = 0.3) -> StaticBody3D:
 	var body := StaticBody3D.new()
 	body.position = pos
 	var shape := CollisionShape3D.new()
@@ -163,70 +113,20 @@ func _static_box(size: Vector3, pos: Vector3, mat: Material, friction: float = 0
 	var pm := PhysicsMaterial.new()
 	pm.friction = friction
 	body.physics_material_override = pm
-	if mat:
-		var mi := MeshInstance3D.new()
-		mi.mesh = RSMeshUtil.rounded_box(size, minf(0.02, size.y * 0.4))
-		mi.material_override = mat
-		body.add_child(mi)
 	add_child(body)
 	return body
 
 
-func _build_lane(x0: float, player: int) -> void:
-	var wood := RSMeshUtil.toon_material(Color(0.93, 0.76, 0.52), 0.25, 0.25)
-	var wood_dark := RSMeshUtil.toon_material(Color(0.78, 0.58, 0.36), 0.2, 0.3)
-	var gutter_mat := RSMeshUtil.toon_material(Color(0.25, 0.26, 0.3), 0.2, 0.4)
-	var side_mat := RSMeshUtil.toon_material(Color(0.17, 0.16, 0.28), 0.25)
-	var color: Color = RSControllerModel.PLAYER_COLORS[player]
-	var glow := StandardMaterial3D.new()
-	glow.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	glow.albedo_color = color * 1.4
+func _build_lane(x0: float) -> void:
+	## Collision-only: B1 hall geometry must not alter the original rolling surfaces.
 	var deck_end := -LANE_LEN - 1.0
 	var len := 4.5 - deck_end
-	# Lane + approach (one slab), gutters a step lower, dividers between lanes.
-	_static_box(Vector3(LANE_HALF * 2.0, 0.1, len), Vector3(x0, -0.05, 4.5 - len * 0.5), wood, 0.08)
+	_static_box(Vector3(LANE_HALF * 2.0, 0.1, len), Vector3(x0, -0.05, 4.5 - len * 0.5), 0.08)
 	for sx in [-1.0, 1.0]:
-		_static_box(Vector3(GUTTER, 0.1, len - 4.5), Vector3(x0 + sx * (LANE_HALF + GUTTER * 0.5), -0.15, deck_end * 0.5), gutter_mat)
-		_static_box(Vector3(LANE_SPACING * 0.5 - LANE_HALF - GUTTER, 0.32, len), Vector3(x0 + sx * (LANE_SPACING * 0.5 - (LANE_SPACING * 0.5 - LANE_HALF - GUTTER) * 0.5), 0.06, 4.5 - len * 0.5), side_mat)
-	# Glowing strips in the player's colour along both outer gutter edges.
-	for sx in [-1.0, 1.0]:
-		var strip := MeshInstance3D.new()
-		strip.mesh = RSMeshUtil.rounded_box(Vector3(0.03, 0.02, len - 4.5), 0.01)
-		strip.material_override = glow
-		strip.position = Vector3(x0 + sx * (LANE_HALF + GUTTER + 0.02), 0.225, deck_end * 0.5)
-		add_child(strip)
-	# Pit floor and cushion behind the pins.
-	_static_box(Vector3(LANE_SPACING, 0.1, 1.6), Vector3(x0, -0.55, deck_end - 0.8), gutter_mat, 0.8)
-	_static_box(Vector3(LANE_SPACING, 1.4, 0.2), Vector3(x0, 0.1, deck_end - 1.6), RSMeshUtil.toon_material(Color(0.1, 0.1, 0.12), 0.0), 0.9)
-	# Foul line, target arrows and dots.
-	var foul := MeshInstance3D.new()
-	foul.mesh = RSMeshUtil.rounded_box(Vector3(LANE_HALF * 2.0, 0.005, 0.03), 0.002)
-	foul.material_override = RSMeshUtil.toon_material(Color(0.2, 0.2, 0.25), 0.0)
-	foul.position = Vector3(x0, 0.003, 0)
-	add_child(foul)
-	var tri := PrismMesh.new()
-	tri.size = Vector3(0.05, 0.16, 0.004)
-	for k in 7:
-		var arrow := MeshInstance3D.new()
-		arrow.mesh = tri
-		arrow.material_override = wood_dark
-		arrow.rotation.x = -PI / 2.0
-		arrow.position = Vector3(x0 + (k - 3) * 0.13, 0.003, -4.6 - absi(k - 3) * 0.3)
-		add_child(arrow)
-	# Masking panel above the pins in the player's colour, with the lane number.
-	var panel := MeshInstance3D.new()
-	panel.mesh = RSMeshUtil.rounded_box(Vector3(LANE_SPACING - 0.1, 0.9, 0.12), 0.08)
-	panel.material_override = RSMeshUtil.toon_material(color, 0.4)
-	panel.position = Vector3(x0, 1.45, deck_end - 0.4)
-	add_child(panel)
-	var label := Label3D.new()
-	label.text = "P%d" % player
-	label.font = font
-	label.font_size = 96
-	label.pixel_size = 0.006
-	label.outline_size = 16
-	label.position = Vector3(x0, 1.45, deck_end - 0.33)
-	add_child(label)
+		_static_box(Vector3(GUTTER, 0.1, len - 4.5), Vector3(x0 + sx * (LANE_HALF + GUTTER * 0.5), -0.15, deck_end * 0.5))
+		_static_box(Vector3(LANE_SPACING * 0.5 - LANE_HALF - GUTTER, 0.32, len), Vector3(x0 + sx * (LANE_SPACING * 0.5 - (LANE_SPACING * 0.5 - LANE_HALF - GUTTER) * 0.5), 0.06, 4.5 - len * 0.5))
+	_static_box(Vector3(LANE_SPACING, 0.1, 1.6), Vector3(x0, -0.55, deck_end - 0.8), 0.8)
+	_static_box(Vector3(LANE_SPACING, 1.4, 0.2), Vector3(x0, 0.1, deck_end - 1.6), 0.9)
 
 
 func _lathe_pin() -> ArrayMesh:
@@ -299,15 +199,14 @@ func _make_ball(color: Color) -> RigidBody3D:
 	sm.radius = BALL_R
 	sm.height = BALL_R * 2.0
 	mi.mesh = sm
-	var mat := RSMeshUtil.toon_material(color, 0.6, 0.15)
-	mat.set_shader_parameter("specular", 0.8)
+	var mat := RSBowlingHall.ball_material(color)
 	mi.material_override = mat
 	ball.add_child(mi)
 	# Finger holes, so the spin is visible.
 	var hole := SphereMesh.new()
 	hole.radius = 0.016
 	hole.height = 0.032
-	var dark := RSMeshUtil.toon_material(Color(0.05, 0.05, 0.07), 0.0)
+	var dark := RSBowlingHall.finish(Color(0.025, 0.025, 0.03), 0.65)
 	for off in [Vector3(-0.025, 0.1, -0.02), Vector3(0.025, 0.1, -0.02), Vector3(0.0, 0.095, 0.045)]:
 		var h := MeshInstance3D.new()
 		h.mesh = hole
