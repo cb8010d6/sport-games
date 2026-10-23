@@ -65,6 +65,9 @@ var phase := Phase.LOBBY
 var phase_time := 0.0
 var players: Dictionary = {}     ## controller id -> Player
 var demo := 0
+var benchmark_mode := false                 ## configured before entering the tree
+var _benchmark_players := 0
+var _benchmark_map := 0
 var solo_mode := false
 var lobby_cam: Camera3D
 var font: Font
@@ -211,6 +214,30 @@ func _draw_overlay(_o: Overlay, _k: float) -> void:
 
 # ---------------------------------------------------------------------- lifecycle ----
 
+func configure_benchmark(count: int, map_id: int = 0) -> Error:
+	## A disposable demo instance. Never changes the ordinary map-selection memory.
+	if is_inside_tree() or is_node_ready():
+		return ERR_ALREADY_IN_USE
+	if count not in [1, 2, 4] or map_id < 0 or map_id >= maxi(1, _maps().size()):
+		return ERR_INVALID_PARAMETER
+	benchmark_mode = true
+	_benchmark_players = count
+	_benchmark_map = map_id
+	return OK
+
+
+func benchmark_viewports() -> Array[Viewport]:
+	## Root composition plus each actual player camera, without duplicate RIDs.
+	var result: Array[Viewport] = []
+	if not is_inside_tree():
+		return result
+	result.append(get_tree().root)
+	for p: Player in ordered():
+		if is_instance_valid(p.cam) and p.cam.get_viewport() not in result:
+			result.append(p.cam.get_viewport())
+	return result
+
+
 func _ready() -> void:
 	for a: String in OS.get_cmdline_user_args():
 		if a.begins_with("--round=") or a.begins_with("--frames="):
@@ -220,17 +247,26 @@ func _ready() -> void:
 		elif a.begins_with("--shots="):
 			_shots = a.get_slice("=", 1)
 		elif a.begins_with("--map="):
-			_last_map[get_script().resource_path] = int(a.get_slice("=", 1))
+			if not benchmark_mode:
+				_last_map[get_script().resource_path] = int(a.get_slice("=", 1))
 		elif a.begins_with("--smoke-report="):
 			_smoke_report = a.trim_prefix("--smoke-report=")
 		elif a.begins_with("--smoke-shot="):
 			_smoke_shot = a.trim_prefix("--smoke-shot=")
 		else:
 			_parse_arg(a)
+	if benchmark_mode:
+		demo = _benchmark_players
+		map_index = _benchmark_map
+		_records_enabled = false
+		_shots = ""
+		_smoke_report = ""
+		_smoke_shot = ""
 	solo_mode = demo == 0 and RSSolo.active(game_id())
 	font = RSUi.font()
 	ControllerHub.process_mode = Node.PROCESS_MODE_ALWAYS   # buttons still arrive while paused
-	map_index = posmod(int(_last_map.get(get_script().resource_path, map_index)), maxi(_maps().size(), 1))
+	if not benchmark_mode:
+		map_index = posmod(int(_last_map.get(get_script().resource_path, map_index)), maxi(_maps().size(), 1))
 	_badge.set_corner_radius_all(10)
 	_pill.bg_color = Color(0.07, 0.08, 0.11, 0.8)
 	lobby_cam = Camera3D.new()
@@ -272,6 +308,8 @@ func _ready() -> void:
 
 
 func _unhandled_input(event: InputEvent) -> void:
+	if benchmark_mode:
+		return
 	if phase == Phase.LOBBY and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_T:
 		review_tutorials()
 		get_viewport().set_input_as_handled()
@@ -287,6 +325,8 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func go_menu() -> void:
+	if benchmark_mode:
+		return
 	get_tree().paused = false
 	RSTournament.clear()
 	RSSolo.clear()
@@ -294,6 +334,8 @@ func go_menu() -> void:
 
 
 func open_pause() -> void:
+	if benchmark_mode:
+		return
 	if _shots.is_empty():
 		ui.pause.can_restart = phase != Phase.LOBBY and not (RSTournament.active() and RSTournament.round_done)
 		ui.pause.can_tutorial = phase == Phase.LOBBY and not players.is_empty() and demo == 0
@@ -302,6 +344,8 @@ func open_pause() -> void:
 
 func restart_round() -> void:
 	## Pause menu: back through the lobby with everyone ready, so the countdown starts at once.
+	if benchmark_mode:
+		return
 	_to_lobby()
 	for p: Player in players.values():
 		_set_ready(p, true)
@@ -322,7 +366,7 @@ func _process(delta: float) -> void:
 			var all_ready := not players.is_empty()
 			if solo_mode:
 				all_ready = players.size() == 2 and ordered().any(func(p: Player) -> bool: return not p.fake and p.c.connected)
-			if RSTournament.active():
+			if not benchmark_mode and RSTournament.active():
 				all_ready = players.size() == RSTournament.entrants.size()
 			for p: Player in players.values():
 				if p.fake and not p.ready and phase_time > 0.8:
@@ -394,7 +438,7 @@ func name_of(p: Player) -> String:
 
 
 func can_record(p: Player) -> bool:
-	return not p.fake and p.c.kind != "replay" and demo == 0 and _shots.is_empty() and _records_enabled
+	return not benchmark_mode and not p.fake and p.c.kind != "replay" and demo == 0 and _shots.is_empty() and _records_enabled
 
 
 func bot_error() -> float:
@@ -556,7 +600,7 @@ func finish_round() -> void:
 		send_ui(p, {"clear": true, "title": "RESULT", "main": "#%d" % rank, "sub": "%d PTS" % p.score,
 			"legends": ["NEXT" if RSTournament.active() else "AGAIN", "", "MENU", null]})
 		haptic(p, "win" if rank == 1 else "hit")
-	if RSTournament.active():
+	if not benchmark_mode and RSTournament.active():
 		RSTournament.record(game_id(), results)
 		lines.append("\n" + tr("大赛总积分 · %d / %d") % [RSTournament.index + 1, RSTournament.games.size()])
 		for row: Dictionary in RSTournament.standings():
@@ -574,6 +618,8 @@ func _set_ready(p: Player, value: bool) -> void:
 
 
 func _on_button(c: RSController, button: int, pressed: bool) -> void:
+	if benchmark_mode:
+		return
 	if solo_mode and (c.player != RSSolo.slot or c.kind == "replay"):
 		return
 	# D: a short press toggles the pause menu (a long one is the hub's recenter).
@@ -627,6 +673,8 @@ func _on_button(c: RSController, button: int, pressed: bool) -> void:
 
 
 func _on_event(c: RSController, ev: String) -> void:
+	if benchmark_mode:
+		return
 	var p: Player = players.get(c.id)
 	if p and ev == "recentered":
 		_player_recentered(p)
