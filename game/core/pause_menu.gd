@@ -26,9 +26,9 @@ const PAGES := {
 	"display": ["fps", "quality", "upscale", "window", "hdr", "back"],
 	"sound": ["vol_master", "vol_music", "vol_sfx", "vol_ambience", "back"],
 	"settings": ["display", "sound", "accessibility", "benchmark", "language", "resume"],
-	"accessibility": ["camera_shake", "color_safe", "back"],
+	"accessibility": ["camera_shake", "color_safe", "text_size", "back"],
 }
-const VALUES := ["fps", "quality", "upscale", "window", "hdr", "language", "color_safe", "camera_shake", "vol_master", "vol_music", "vol_sfx", "vol_ambience"]
+const VALUES := ["fps", "quality", "upscale", "window", "hdr", "language", "color_safe", "camera_shake", "text_size", "vol_master", "vol_music", "vol_sfx", "vol_ambience"]
 const VOLUMES := ["vol_master", "vol_music", "vol_sfx", "vol_ambience"]   ## in RSAudio.BUSES order
 
 var _page := "main"
@@ -60,24 +60,21 @@ func _ready() -> void:
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", RSUi.panel_style(24, Color(0.07, 0.09, 0.14, 0.96)))
+	panel.add_theme_stylebox_override("panel", RSUi.modal_style())
 	panel.custom_minimum_size = Vector2(520, 0)
 	center.add_child(panel)
 	_col = VBoxContainer.new()
 	_col.add_theme_constant_override("separation", 10)
 	panel.add_child(_col)
 	_title = RSUi.label("", 40)
+	_title.add_theme_font_override("font", RSUi.font_bold())
 	_col.add_child(_title)
 	_col.add_child(RSUi.label("Regina Sports" if settings_only else game._game_name(), 17, RSUi.TEXT_MUTED))
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 6)
 	_col.add_child(gap)
-	_normal = RSUi.panel_style(14, Color(1, 1, 1, 0.04))
-	_normal.set_content_margin_all(14)
-	_focus = RSUi.panel_style(14, Color(1, 1, 1, 0.16))
-	_focus.set_content_margin_all(14)
-	_focus.set_border_width_all(3)
-	_focus.border_color = Color.WHITE
+	_normal = RSUi.button_style("normal")
+	_focus = RSUi.button_style("focus")
 	_hint = RSUi.label(tr("手柄：B / C 上下选，A 确定或切换，D 返回 / 关闭\n键盘：方向键 + 回车，← / → 改设置，Esc 返回 / 关闭"), 15, RSUi.TEXT_MUTED)
 	_col.add_child(_hint)
 	_show_page(_home_page(), 0)
@@ -177,7 +174,7 @@ func _show_page(page: String, focus: int) -> void:
 		var b := Button.new()
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.custom_minimum_size = Vector2(0, 54)
-		b.add_theme_font_size_override("font_size", 24)
+		RSUi.set_text_size(b, 24)
 		b.add_theme_stylebox_override("normal", _normal)
 		b.add_theme_stylebox_override("hover", _normal)
 		b.add_theme_stylebox_override("pressed", _focus)
@@ -257,6 +254,8 @@ func _change(i: int, step: int, wrap: bool) -> void:
 			RSSettings.color_safe = not RSSettings.color_safe
 		"camera_shake":
 			RSSettings.camera_shake = not RSSettings.camera_shake
+		"text_size":
+			RSSettings.text_size = posmod(RSSettings.text_size + step, RSSettings.TEXT_SCALES.size())
 		"language":
 			# Every text in the scene was built in the old language: start it again.
 			RSSettings.next_language()
@@ -312,6 +311,8 @@ func _label(item: String) -> String:
 			return tr("色弱友好配色　◀ %s ▶") % (tr("开") if RSSettings.color_safe else tr("关"))
 		"camera_shake":
 			return tr("镜头晃动　◀ %s ▶") % (tr("开") if RSSettings.camera_shake else tr("关"))
+		"text_size":
+			return tr("界面字号　◀ %s ▶") % RSSettings.text_size_name()
 		"language":
 			return tr("语言 Language　◀ %s ▶") % RSSettings.language_name()
 		"vol_master":
@@ -358,6 +359,8 @@ func _oled_label(item: String) -> Array:
 			return ["COLORS", "ACCESSIBLE" if RSSettings.color_safe else "DEFAULT"]
 		"camera_shake":
 			return ["CAM SHAKE", "ON" if RSSettings.camera_shake else "OFF"]
+		"text_size":
+			return ["TEXT SIZE", "125%" if RSSettings.text_size == 1 else "100%"]
 		"language":
 			return ["LANGUAGE", ["CHINESE", "ENGLISH"][RSSettings.language]]
 		"vol_master", "vol_music", "vol_sfx", "vol_ambience":

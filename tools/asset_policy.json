@@ -9,6 +9,31 @@
   ],
   "documented": [
     {
+      "prefix": "docs/screenshots/phase11-podium-",
+      "license": "MIT AND CC0-1.0",
+      "evidence": "docs/PHASE_11_SHARED_PODIUM.md"
+    },
+    {
+      "prefix": "docs/screenshots/phase10-replay-",
+      "license": "MIT AND CC0-1.0",
+      "evidence": "docs/PHASE_10_SHARED_REPLAY.md"
+    },
+    {
+      "prefix": "docs/screenshots/phase9-intro-",
+      "license": "MIT AND CC0-1.0",
+      "evidence": "docs/PHASE_9_SHARED_INTRO.md"
+    },
+    {
+      "prefix": "docs/screenshots/phase8-text-",
+      "license": "MIT",
+      "evidence": "docs/PHASE_8_TEXT_SIZE.md"
+    },
+    {
+      "prefix": "docs/screenshots/phase7-hand-",
+      "license": "MIT",
+      "evidence": "docs/PHASE_7_LEFT_HAND.md"
+    },
+    {
       "prefix": "docs/perf/ingame-benchmark-2026-10-23/",
       "extensions": [".png"],
       "license": "MIT",
@@ -79,6 +104,11 @@
       "extensions": [
         ".wav"
       ]
+    },
+    {
+      "prefix": "docs/screenshots/ui-theme-",
+      "license": "MIT AND CC0-1.0",
+      "evidence": "docs/UI_THEME.md#截图"
     }
   ]
 }

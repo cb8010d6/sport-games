@@ -37,7 +37,7 @@ func feed(c: RSController, count: int) -> void:
 		var prev := c.history_index(age + 1)
 		var t: float = c.hist_time[i]
 		var dt: float = clampf(t - c.hist_time[prev], 0.0, 0.05) if c.history_size() > n else 0.005
-		_step(c, t, dt, c.hist_gyro[i], c.hist_lin[i], c.hist_quat[i])
+		_step(c, t, dt, c.motion_gyro(c.hist_gyro[i]), c.hist_lin[i], c.motion_pose(c.hist_quat[i]))
 
 
 func _step(c: RSController, t: float, dt: float, g: Vector3, lin: Vector3, q: Quaternion) -> void:

@@ -82,13 +82,13 @@ func _build_tutorials() -> void:
 	_tutorial_panel.visible = false
 	var col: VBoxContainer = layout[1]
 	col.add_child(RSUi.label(tr("新手教学"), 36))
-	col.add_child(RSUi.label(tr("先看手柄示范，再完成提示动作。教学完成后回到舒适握姿，按 A 准备。"), 17, RSUi.TEXT_MUTED))
+	col.add_child(RSUi.label(tr("先看手柄示范，再完成提示动作。教学完成后回到舒适握姿，按 A 准备。"), 17, RSUi.TEXT_MUTED, true))
 	_tutorial_grid = GridContainer.new()
 	_tutorial_grid.columns = 2
 	_tutorial_grid.add_theme_constant_override("h_separation", 14)
 	_tutorial_grid.add_theme_constant_override("v_separation", 14)
 	col.add_child(_tutorial_grid)
-	col.add_child(RSUi.label(tr("C 返回菜单　　D / Esc 暂停　　断线后重连可重新练习"), 15, RSUi.TEXT_MUTED))
+	col.add_child(RSUi.label(tr("C 返回菜单　　D / Esc 暂停　　断线后重连可重新练习"), 15, RSUi.TEXT_MUTED, true))
 
 
 func _update_tutorials() -> void:
@@ -109,7 +109,7 @@ func _update_tutorials() -> void:
 		for p: RSPartyGame.Player in game.ordered():
 			var card := PanelContainer.new()
 			card.custom_minimum_size.x = 450
-			card.add_theme_stylebox_override("panel", RSUi.panel_style(14, Color("182334")))
+			card.add_theme_stylebox_override("panel", RSUi.card_style())
 			_tutorial_grid.add_child(card)
 			var col := VBoxContainer.new()
 			card.add_child(col)
@@ -152,7 +152,7 @@ func set_map_card(title: String, line: String, desc: String) -> void:
 # ------------------------------------------------------------------------ results ----
 
 func set_results(lines: PackedStringArray, show_now: bool) -> void:
-	_results_text.text = "\n".join(lines)
+	RSUi.set_rich_text(_results_text, "\n".join(lines))
 	results_panel.visible = show_now
 
 
@@ -203,7 +203,9 @@ func _build_lobby() -> void:
 	var lobby := _centered_panel(820)
 	lobby_panel = lobby[0]
 	var col: VBoxContainer = lobby[1]
-	col.add_child(RSUi.label(game._game_name(), 40))
+	var title := RSUi.label(game._game_name(), 40)
+	title.add_theme_font_override("font", RSUi.font_bold())
+	col.add_child(title)
 	var how := RSUi.label(game._how_to_play(), 17, RSUi.TEXT_MUTED)
 	how.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART     # English runs longer than Chinese
 	col.add_child(how)
@@ -223,7 +225,7 @@ func _build_lobby() -> void:
 	_lobby_players.fit_content = true
 	_lobby_players.scroll_active = false
 	_lobby_players.size_flags_horizontal = SIZE_EXPAND_FILL
-	_lobby_players.add_theme_font_size_override("normal_font_size", 22)
+	RSUi.set_text_size(_lobby_players, 22, &"normal_font_size")
 	row.add_child(_lobby_players)
 	_qr_box = VBoxContainer.new()
 	_qr_box.visible = false
@@ -237,19 +239,20 @@ func _build_lobby() -> void:
 	_qr_box.add_child(RSUi.label(tr("手机扫码加入"), 14, RSUi.TEXT_MUTED))
 	_qr_url = RSUi.label("", 11, RSUi.TEXT_MUTED)
 	_qr_box.add_child(_qr_url)
-	col.add_child(RSUi.label(tr("A 准备 / 取消　　C 返回菜单　　D / Esc 暂停菜单　　所有人准备好后自动开始"), 15, RSUi.TEXT_MUTED))
+	col.add_child(RSUi.label(tr("A 准备 / 取消　　C 返回菜单　　D / Esc 暂停菜单　　所有人准备好后自动开始"), 15, RSUi.TEXT_MUTED, true))
 
 
 func _build_map_card(col: VBoxContainer) -> void:
 	var card := PanelContainer.new()
-	card.add_theme_stylebox_override("panel", RSUi.panel_style(14, Color(0.12, 0.15, 0.22, 0.95)))
+	card.add_theme_stylebox_override("panel", RSUi.card_style())
 	col.add_child(card)
 	var v := VBoxContainer.new()
 	v.add_theme_constant_override("separation", 4)
 	card.add_child(v)
 	_map_title = RSUi.label("", 28)
+	_map_title.add_theme_font_override("font", RSUi.font_bold())
 	v.add_child(_map_title)
-	_map_line = RSUi.label("", 16, Color(1.0, 0.84, 0.3))
+	_map_line = RSUi.label("", 16, RSUi.HIGHLIGHT)
 	v.add_child(_map_line)
 	_map_desc = RSUi.label("", 16, RSUi.TEXT_MUTED)
 	_map_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
@@ -264,14 +267,15 @@ func _build_results() -> void:
 	_results_col = col
 	_results_title = RSUi.label(tr("成绩"), 40)
 	col.add_child(_results_title)
+	_results_title.add_theme_font_override("font", RSUi.font_bold())
 	_results_text = RichTextLabel.new()
 	_results_text.bbcode_enabled = true
 	_results_text.fit_content = true
 	_results_text.scroll_active = false
-	_results_text.add_theme_font_size_override("normal_font_size", 18)
+	RSUi.set_text_size(_results_text, 18, &"normal_font_size")
 	_results_text.add_theme_constant_override("line_separation", 6)
 	col.add_child(_results_text)
-	_results_hint = RSUi.label(tr("A 继续　　C 返回菜单　　D / Esc 暂停菜单") if RSTournament.active() else tr("A 再来一局　　C 返回菜单　　D / Esc 暂停菜单"), 15, RSUi.TEXT_MUTED)
+	_results_hint = RSUi.label(tr("A 继续　　C 返回菜单　　D / Esc 暂停菜单") if RSTournament.active() else tr("A 再来一局　　C 返回菜单　　D / Esc 暂停菜单"), 15, RSUi.TEXT_MUTED, true)
 	col.add_child(_results_hint)
 
 
@@ -282,7 +286,7 @@ func _centered_panel(width: float) -> Array:
 	center.mouse_filter = MOUSE_FILTER_IGNORE
 	add_child(center)
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", RSUi.panel_style(20))
+	panel.add_theme_stylebox_override("panel", RSUi.modal_style())
 	panel.custom_minimum_size = Vector2(width, 0)
 	center.add_child(panel)
 	var col := VBoxContainer.new()
