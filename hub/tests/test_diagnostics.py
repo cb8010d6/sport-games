@@ -38,6 +38,23 @@ def test_formatter_redacts_interpolated_messages_and_tracebacks():
     assert ADDRESS not in text and PLATFORM_ID not in text
 
 
+def test_formatter_redacts_bluez_device_paths():
+    # Bleak / BlueZ log and error text embeds the address in the D-Bus object
+    # path with underscores: /org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF.
+    bluez = ADDRESS.replace(":", "_")
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(PrivateFormatter("%(message)s"))
+    logger = logging.Logger("privacy-bluez-test", logging.DEBUG)
+    logger.addHandler(handler)
+    logger.warning("connect failed: /org/bluez/hci0/dev_%s org.bluez.Error.Failed", bluez)
+    logger.warning("disconnect failed: /org/bluez/hci0/dev_%s", bluez.lower())
+    text = stream.getvalue()
+    assert bluez not in text and bluez.lower() not in text
+    assert text.count("<device>") == 2
+    assert diagnostics.redact_devices(f"path dev_{bluez}") == "path <device>"
+
+
 def test_warning_limiter_counts_suppressed_messages(caplog, monkeypatch):
     now = [0.0]
     monkeypatch.setattr(diagnostics, "time", SimpleNamespace(monotonic=lambda: now[0]))

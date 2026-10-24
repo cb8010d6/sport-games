@@ -8,7 +8,12 @@ import time
 
 _DEVICE_ADDRESS = re.compile(
     r"(?<![0-9a-f])(?:[0-9a-f]{2}[:-]){5}[0-9a-f]{2}(?![0-9a-f])"
-    r"|\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b",
+    r"|\b[0-9a-f]{8}(?:-[0-9a-f]{4}){3}-[0-9a-f]{12}\b"
+    # Linux BlueZ object paths embed the address with underscores instead of
+    # colons (/org/bluez/hci0/dev_AA_BB_CC_DD_EE_FF); Bleak and dbus errors
+    # carry that full path, so the underscore form must be redacted too.
+    r"|\bdev_(?:[0-9a-f]{2}_){5}[0-9a-f]{2}\b"
+    r"|(?<![0-9a-f_])(?:[0-9a-f]{2}_){5}[0-9a-f]{2}(?![0-9a-f_])",
     re.IGNORECASE,
 )
 
