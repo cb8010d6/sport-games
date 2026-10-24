@@ -67,8 +67,8 @@ async def test_sim_to_game_roundtrip():
 
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.ws_connect(f"http://127.0.0.1:{http_port}/ws") as ws:
-                await ws.send_json({"t": "hello", "kind": "sim", "name": "pytest", "client_id": "abc"})
+            async with session.ws_connect(f"http://127.0.0.1:{http_port}/ws", origin=f"http://127.0.0.1:{http_port}") as ws:
+                await ws.send_json({"t": "hello", "kind": "sim", "name": "pytest", "client_id": "abc", "token": web.pairing_token})
                 welcome = await ws.receive_json(timeout=2)
                 assert welcome["t"] == "welcome" and welcome["player"] == 1
                 cid = welcome["id"]
@@ -126,8 +126,8 @@ async def test_sim_to_game_roundtrip():
 
             # Disconnect emits an event and keeps the player slot for reconnection.
             assert await wait_for(lambda: any(m.get("name") == "disconnected" for m in game.json if m.get("type") == "event"))
-            async with session.ws_connect(f"http://127.0.0.1:{http_port}/ws") as ws:
-                await ws.send_json({"t": "hello", "kind": "sim", "name": "pytest", "client_id": "abc"})
+            async with session.ws_connect(f"http://127.0.0.1:{http_port}/ws", origin=f"http://127.0.0.1:{http_port}") as ws:
+                await ws.send_json({"t": "hello", "kind": "sim", "name": "pytest", "client_id": "abc", "token": web.pairing_token})
                 welcome = await ws.receive_json(timeout=2)
                 assert welcome["id"] == cid and welcome["player"] == 3
     finally:
