@@ -2,7 +2,7 @@
 
 ## Repository boundary
 
-The repository root is `regina-sports/`. Only this directory belongs in the GitHub repository.
+The repository root is `sport-games/`. Only this directory belongs in the GitHub repository.
 The separate Regina hardware application, its dependencies, editor installations and backups
 in the parent directory must not be imported into this repository.
 
@@ -36,7 +36,7 @@ sibling engine installation, but that installation is not part of this repositor
 
 Phone controllers load the local HTTPS page and stream through WSS. Certificates are
 generated locally and must not be committed. Keep personal device allowlists or network
-overrides in ignored `hub/config.local.json`, passed through `--config config.local.json`.
+overrides in ignored `hub/config.local.json`; the hub loads it automatically on top of `hub/config.json` (an explicit `--config` file is still overlaid by a `config.local.json` next to it).
 
 ## Checks
 

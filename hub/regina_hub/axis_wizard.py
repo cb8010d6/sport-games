@@ -117,14 +117,24 @@ def solve(up_raw, fwd_raw) -> tuple[list[str], float]:
 
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--config", default=str(Path(__file__).resolve().parent.parent / "config.json"))
+    ap.add_argument("--config", default=str(Path(__file__).resolve().parent.parent / "config.local.json"),
+                    help="personal config to write (default: hub/config.local.json, not tracked by Git)")
     ap.add_argument("--controller", type=int, default=0, help="controller id (default: first Regina)")
     ap.add_argument("--game-port", type=int, default=P.GAME_PORT)
     ap.add_argument("--hub-port", type=int, default=P.HUB_PORT)
     args = ap.parse_args()
 
     cfg_path = Path(args.config)
-    cfg = json.loads(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else {}
+    # Read the effective config the hub would see: the tracked config.json
+    # overlaid by the personal config.local.json this wizard writes.
+    cfg: dict = {}
+    base = cfg_path.with_name("config.json")
+    if base != cfg_path and base.exists():
+        cfg.update(json.loads(base.read_text(encoding="utf-8")))
+    local_cfg: dict = {}
+    if cfg_path.exists():
+        local_cfg = json.loads(cfg_path.read_text(encoding="utf-8"))
+        cfg.update(local_cfg)
     current = list(cfg.get("regina_axis_map", ["x", "z", "-y"]))
     to_raw = _invert(current)
 
@@ -159,8 +169,8 @@ def main() -> None:
     if new_map == current:
         print("当前配置已经正确，无需修改。")
         return
-    cfg["regina_axis_map"] = new_map
-    cfg_path.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+    local_cfg["regina_axis_map"] = new_map
+    cfg_path.write_text(json.dumps(local_cfg, indent=2) + "\n", encoding="utf-8")
     print(f"已写入 {cfg_path}，重启 hub 后生效。")
 
 
