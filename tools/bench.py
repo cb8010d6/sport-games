@@ -19,7 +19,7 @@ from test_game import find_godot
 
 ROOT = Path(__file__).resolve().parents[1]
 GAMES = ("plane", "archery", "bowling", "skate", "ski", "basketball")
-RESOLUTION = [1600, 900]
+RESOLUTIONS = ("1600x900", "1920x1080", "2560x1440", "2560x1080", "3840x2160")
 DIAGNOSTIC = re.compile(r"ERROR:|SCRIPT ERROR|Parse Error|FATAL|CRASH|leaked at exit|still in use at exit", re.IGNORECASE)
 
 
@@ -69,6 +69,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--gpu-index", type=natural)
     parser.add_argument("--expect-gpu", help="required case-insensitive substring of the actual GPU name")
     parser.add_argument("--seed", type=natural, default=20261023)
+    parser.add_argument("--resolution", choices=RESOLUTIONS, default=RESOLUTIONS[0],
+                        help="windowed client size; the run fails if the display cannot hold it")
     parser.add_argument("--output", type=Path, default=ROOT / "audit-output" / "bench")
     return parser
 
@@ -96,6 +98,10 @@ def summarize_samples(samples: list[dict[str, Any]]) -> dict[str, Any]:
             "draw_calls_avg": statistics.mean(sample["draw_calls"] for sample in samples),
             "video_memory_bytes_max": max(sample["video_memory_bytes"] for sample in samples),
             "nodes_max": max(sample["nodes"] for sample in samples)}
+
+
+def resolution(args: argparse.Namespace) -> list[int]:
+    return [int(value) for value in args.resolution.split("x")]
 
 
 def validate_report(report: Any, case: Case, args: argparse.Namespace) -> None:
@@ -141,8 +147,8 @@ def validate_report(report: Any, case: Case, args: argparse.Namespace) -> None:
         require(isinstance(metadata.get(key), str) and bool(metadata[key].strip()), f"missing metadata {key}")
     require(metadata.get("driver") is None or isinstance(metadata["driver"], str), "invalid driver metadata")
     require(metadata["rendering_driver"].lower() not in ("dummy", "headless"), "benchmark requires actual rendering")
-    require(metadata.get("resolution") == RESOLUTION and all(type(x) is int for x in metadata["resolution"]),
-            "actual resolution must be 1600x900")
+    require(metadata.get("resolution") == resolution(args) and all(type(x) is int for x in metadata["resolution"]),
+            f"actual resolution must be {args.resolution}")
     require(type(metadata.get("seed")) is int and metadata["seed"] == args.seed, "mismatched seed")
     require(isinstance(metadata.get("reproducibility"), dict), "missing reproducibility conditions")
     require(not args.expect_gpu or args.expect_gpu.casefold() in metadata["gpu"].casefold(), "actual GPU does not match --expect-gpu")
@@ -199,13 +205,14 @@ def run_case(godot: str, case: Case, args: argparse.Namespace, output: Path) -> 
     pending = directory / "engine.json"
     for name in ("engine.json", "engine-output.txt", "engine.log", "run.log"):
         (directory / name).unlink(missing_ok=True)
-    command = [godot, "--path", str(ROOT / "game"), "--resolution", "1600x900",
+    command = [godot, "--path", str(ROOT / "game"), "--resolution", args.resolution,
                "--script", "res://tests/bench_runner.gd", "--log-file", str(directory / "engine.log")]
     if args.gpu_index is not None:
         command += ["--gpu-index", str(args.gpu_index)]
     command += ["--", f"--bench-game={case.game}", f"--demo={case.players}", f"--map={case.map}",
                 f"--bench-quality={case.quality}", f"--bench-warmup={args.warmup}",
-                f"--bench-duration={args.duration}", f"--bench-output={pending}", f"--bench-seed={args.seed}"]
+                f"--bench-duration={args.duration}", f"--bench-output={pending}", f"--bench-seed={args.seed}",
+                f"--bench-resolution={args.resolution}"]
     errors: list[str] = []
     before = power_status()
     if before.get("ac") == "OFFLINE":

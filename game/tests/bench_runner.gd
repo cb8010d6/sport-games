@@ -2,7 +2,7 @@ extends SceneTree
 ## CLI adapter for RSBenchmark. Only this disposable test process overrides settings and
 ## external input; the shared runtime sampler owns the measurement and raw report schema.
 
-const RESOLUTION := Vector2i(1600, 900)
+const RESOLUTIONS := ["1600x900", "1920x1080", "2560x1440", "2560x1080", "3840x2160"]
 
 var _id := ""
 var _players := 0
@@ -12,6 +12,8 @@ var _warmup := 10.0
 var _duration := 30.0
 var _seed := 20261023
 var _output := ""
+var _resolution := Vector2i(1600, 900)
+var _borderless := false
 var _errors: Array[String] = []
 var _game: Node
 var _sampler: Node
@@ -27,7 +29,7 @@ func _initialize() -> void:
 func _parse() -> void:
 	var options: Dictionary = {}
 	var allowed := ["--bench-game", "--demo", "--map", "--bench-quality", "--bench-warmup",
-		"--bench-duration", "--bench-output", "--bench-seed"]
+		"--bench-duration", "--bench-output", "--bench-seed", "--bench-resolution"]
 	for arg: String in OS.get_cmdline_user_args():
 		var key := arg.get_slice("=", 0)
 		if key not in allowed or not arg.contains("=") or options.has(key):
@@ -48,6 +50,11 @@ func _parse() -> void:
 			_errors.append("Missing or invalid duration: " + key)
 	_warmup = float(options.get("--bench-warmup", "10"))
 	_duration = float(options.get("--bench-duration", "30"))
+	var size := str(options.get("--bench-resolution", RESOLUTIONS[0]))
+	if size not in RESOLUTIONS:
+		_errors.append("Unsupported benchmark resolution: " + size)
+	else:
+		_resolution = Vector2i(int(size.get_slice("x", 0)), int(size.get_slice("x", 1)))
 	if RSCatalog.find_game(_id).is_empty() or _players not in [1, 2, 4] or _map < 0 or _quality not in range(4) or _seed < 0:
 		_errors.append("Invalid game, player count, map, quality or seed")
 	if not is_finite(_warmup) or not is_finite(_duration) or _warmup < 0.0 or _duration <= 0.0:
@@ -88,6 +95,11 @@ func _validate_environment() -> void:
 			_errors.append("Unsupported engine argument for real-time rendering: " + key)
 	if DisplayServer.get_name() == "headless" or RenderingServer.get_video_adapter_name().is_empty():
 		_errors.append("A real window and rendering adapter are required")
+		return
+	# A window larger than the display gets shrunk by the system; never report that as the requested size.
+	var screen := DisplayServer.screen_get_size(DisplayServer.window_get_current_screen())
+	if screen.x < _resolution.x or screen.y < _resolution.y:
+		_errors.append("Requested %dx%d needs a display at least that large (screen is %dx%d)" % [_resolution.x, _resolution.y, screen.x, screen.y])
 
 
 func _run() -> void:
@@ -102,6 +114,7 @@ func _run() -> void:
 	RSSettings.upscale = 0
 	RSSettings.hdr = false
 	RSSettings.apply(self)
+	_fit_window()
 	var hub := root.get_node_or_null("ControllerHub")
 	if hub == null:
 		_abort("ControllerHub autoload was not initialized")
@@ -131,12 +144,24 @@ func _run() -> void:
 	root.add_child(_sampler)
 	_sampler.connect("completed", _on_completed)
 	var request := {"game": _id, "map": _map, "players": _players, "quality": _quality,
-		"warmup_seconds": _warmup, "duration_seconds": _duration, "seed": _seed, "resolution": RESOLUTION}
+		"warmup_seconds": _warmup, "duration_seconds": _duration, "seed": _seed, "resolution": _resolution}
 	var started: int = _sampler.call("begin", _game, request)
 	if started != OK:
 		_abort("Shared sampler refused benchmark request: %d" % started)
 		return
 	print("RS_BENCH_START: " + _id)
+
+
+func _fit_window() -> void:
+	## A decorated window as large as the screen gets clamped to the usable area (title bar,
+	## taskbar). Drop the decorations and cover the screen instead; still windowed mode.
+	if DisplayServer.window_get_size() == _resolution:
+		return
+	var screen := DisplayServer.window_get_current_screen()
+	DisplayServer.window_set_flag(DisplayServer.WINDOW_FLAG_BORDERLESS, true)
+	DisplayServer.window_set_position(DisplayServer.screen_get_position(screen))
+	DisplayServer.window_set_size(_resolution)
+	_borderless = true
 
 
 func _failure_report() -> Dictionary:
@@ -162,6 +187,8 @@ func _on_completed(report: Dictionary) -> void:
 
 func _finish(report: Dictionary) -> void:
 	_finishing = true
+	if report.get("metadata") is Dictionary:
+		(report["metadata"] as Dictionary)["window_borderless"] = _borderless
 	if is_instance_valid(_sampler):
 		_sampler.queue_free()
 		_sampler = null

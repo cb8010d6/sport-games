@@ -159,9 +159,16 @@ func _window_snapshot() -> Dictionary:
 	var root_size := get_tree().root.size
 	var client_size := DisplayServer.window_get_size()
 	var expected: Vector2i = _request["resolution"]
+	var views: Dictionary = {}
+	for i in mini(_viewports.size(), _viewport_names.size()):
+		# Render target pixels (SubViewport.size / Window.size), not the stretched canvas rect.
+		var vp := _viewports[i]
+		if is_instance_valid(vp):
+			var px: Vector2i = (vp as SubViewport).size if vp is SubViewport else (vp as Window).size if vp is Window else Vector2i(vp.get_visible_rect().size)
+			views[_viewport_names[i]] = [px.x, px.y]
 	return {"mode": DisplayServer.window_get_mode(), "root_size": [root_size.x, root_size.y],
 		"client_size": [client_size.x, client_size.y], "expected_resolution": [expected.x, expected.y],
-		"stage": STAGE_NAMES[_stage]}
+		"viewport_sizes": views, "stage": STAGE_NAMES[_stage]}
 
 
 func _health_error() -> String:
@@ -169,7 +176,7 @@ func _health_error() -> String:
 		return "Game scene changed or was freed"
 	if get_tree().paused:
 		return "Game was paused"
-	if DisplayServer.window_get_mode() != DisplayServer.WINDOW_MODE_WINDOWED or get_tree().root.size != _request["resolution"] or DisplayServer.window_get_size() != _request["resolution"]:
+	if not _window_mode_ok() or get_tree().root.size != _request["resolution"] or DisplayServer.window_get_size() != _request["resolution"]:
 		return "Window was minimized, resized or left the requested windowed resolution (mode=%d, root=%s, client=%s, expected=%s)" % [
 			DisplayServer.window_get_mode(), get_tree().root.size, DisplayServer.window_get_size(), _request["resolution"]]
 	if Engine.time_scale != 1.0 or Engine.max_fps != 0 or DisplayServer.window_get_vsync_mode() != DisplayServer.VSYNC_DISABLED:
@@ -184,6 +191,16 @@ func _health_error() -> String:
 		if not is_instance_valid(viewport) or not viewport.is_inside_tree():
 			return "A measured viewport was freed"
 	return ""
+
+
+func _window_mode_ok() -> bool:
+	## Windowed; or, when the requested size is the whole screen, the borderless window the
+	## system then reports as (exclusive) fullscreen. Minimized or maximized never passes.
+	var mode := DisplayServer.window_get_mode()
+	if mode == DisplayServer.WINDOW_MODE_WINDOWED:
+		return true
+	var fills: bool = DisplayServer.screen_get_size(DisplayServer.window_get_current_screen()) == _request["resolution"]
+	return fills and (mode == DisplayServer.WINDOW_MODE_FULLSCREEN or mode == DisplayServer.WINDOW_MODE_EXCLUSIVE_FULLSCREEN)
 
 
 func _process(_delta: float) -> void:
