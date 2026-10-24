@@ -12,11 +12,11 @@ def _write(path, data):
 
 
 def test_local_config_overlays_base(tmp_path):
-    _write(tmp_path / "config.json", {"regina_screen_rotation": 1, "lan_ip": "10.0.0.8"})
+    _write(tmp_path / "config.json", {"regina_screen_rotation": 1, "lan_ip": "203.0.113.8"})
     _write(tmp_path / "config.local.json", {"regina_screen_rotation": 2})
     cfg = load_config(tmp_path / "config.json")
     assert cfg["regina_screen_rotation"] == 2
-    assert cfg["lan_ip"] == "10.0.0.8"
+    assert cfg["lan_ip"] == "203.0.113.8"
 
 
 def test_no_local_config_is_fine(tmp_path):

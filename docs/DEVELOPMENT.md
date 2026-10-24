@@ -36,7 +36,7 @@ sibling engine installation, but that installation is not part of this repositor
 
 Phone controllers load the local HTTPS page and stream through WSS. Certificates are
 generated locally and must not be committed. Keep personal device allowlists or network
-overrides in ignored `hub/config.local.json`; the hub loads it automatically on top of `hub/config.json` (an explicit `--config` file is still overlaid by a `config.local.json` next to it).
+overrides in ignored `hub/config.local.json`; the hub loads it automatically on top of `hub/config.json` (an explicit `--config` file is still overlaid by a `config.local.json` next to it). The axis wizard follows the same rule: its `--config` names the base config, it reads the effective configuration exactly like the hub, and it writes the solved axis map to that overlay.
 
 ## Checks
 
