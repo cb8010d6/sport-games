@@ -21,6 +21,7 @@ const TWIST_FULL := 0.9            ## rad of wrist roll for full hook (~50 deg)
 const TWIST_DEAD := 0.08
 const SETTLE := 2.2                ## seconds after the ball is gone before counting pins
 const INTRO := 3.8                 ## venue flyover before the original 3-2-1
+const SCORE_BG := Color(Color("e3e5ef"), 0.76) ## user-selected light blue-grey, with the lane visible beneath
 
 enum Step { AIM, SWING, ROLLING, SETTLE_PINS, DONE }
 
@@ -685,15 +686,17 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 		var r := Rect2(Vector2(x, y0), Vector2(box.x * (1.4 if f == _frames - 1 else 1.0), box.y))
 		x += r.size.x
 		var cur := f == s.frame and s.step != Step.DONE
-		draw_box(h, r, RSUi.PANEL_BG, 0)
-		h.draw_rect(r, col if cur else RSUi.STROKE, false, (2.5 if cur else 1.0) * k)
+		draw_box(h, r, SCORE_BG, 0)
+		h.draw_rect(r, Color(RSUi.INK, 0.35), false, k)
+		if cur:
+			h.draw_rect(r.grow(-k), col, false, 2.5 * k)
 		var m: Array = marks[f]
 		for j in m.size():
 			var mx := r.end.x - (m.size() - j - 0.5) * 15 * sk
-			draw_text(h, m[j], Vector2(mx, y0 + 18 * sk), 15 * fs, RSUi.ACCENT if m[j] in ["X", "/"] else RSUi.TEXT, true, false, RSUi.font_numeric())
+			draw_text(h, m[j], Vector2(mx, y0 + 18 * sk), 15 * fs, RSUi.INK, true, false, RSUi.font_numeric())
 		if f < cum.size():
-			draw_text(h, str(cum[f]), Vector2(r.get_center().x, y0 + 43 * sk), 18 * fs, RSUi.TEXT, true, false, RSUi.font_numeric())
-		draw_text(h, str(f + 1), Vector2(r.position.x + 9 * sk, y0 + 13 * sk), 10 * fs, RSUi.TEXT_MUTED, true, false, RSUi.font_label())
+			draw_text(h, str(cum[f]), Vector2(r.get_center().x, y0 + 43 * sk), 18 * fs, RSUi.INK, true, false, RSUi.font_numeric())
+		draw_text(h, str(f + 1), Vector2(r.position.x + 9 * sk, y0 + 13 * sk), 10 * fs, Color(RSUi.INK, 0.8), true, false, RSUi.font_label())
 
 	match s.step:
 		Step.AIM:

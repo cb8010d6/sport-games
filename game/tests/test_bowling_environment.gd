@@ -100,7 +100,7 @@ func _resources(hall: RSBowlingHall) -> void:
 		_check((font.base_font as FontFile).msdf_pixel_range >= label.outline_size * 2, "MSDF range contains the complete outline distance on both sides")
 		_check(font.base_font.get_data() == shared_font.base_font.get_data() and font.spacing_glyph == shared_font.spacing_glyph, "signage preserves the bundled glyph source and label spacing")
 		_check(label.alpha_cut == Label3D.ALPHA_CUT_OPAQUE_PREPASS and label.outline_size >= 10 and label.outline_modulate == RSUi.INK, "world signs have opaque prepass and dark high-contrast outlines")
-	_check(hall.find_children("SignBackground*", "MeshInstance3D", true, false).size() == 4, "four signs have solid dark background plates")
+	_check(hall.find_children("SignBackground*", "MeshInstance3D", true, false).is_empty(), "world signs retain the user's open artwork without solid text backplates")
 	var cushions := hall.get_node("SeatCushions") as MultiMeshInstance3D
 	_check(cushions.multimesh.mesh is ArrayMesh and cushions.multimesh.instance_count == 8, "eight seats share a procedural bevelled cushion mesh")
 	_check((hall.get_node("LampHousings") as MultiMeshInstance3D).multimesh.mesh is ArrayMesh, "luminaires have rounded three-dimensional housings")
@@ -279,7 +279,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 	score_cells[h.get_instance_id()] = []
 	super._draw_hud(h, p, k)
 func draw_box(ci: CanvasItem, rect: Rect2, color: Color, radius: float = RSUi.RADIUS) -> void:
-	if ci is PlayerHud and color == RSUi.PANEL_BG:
+	if ci is PlayerHud and color == SCORE_BG:
 		score_cells[ci.get_instance_id()].append([rect, []])
 	super.draw_box(ci, rect, color, radius)
 func draw_text(ci: CanvasItem, text: String, pos: Vector2, size: float, color: Color, center := false, right := false, f: Font = null) -> void:

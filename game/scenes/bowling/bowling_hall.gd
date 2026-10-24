@@ -38,7 +38,6 @@ func configure(length_m: float, half_m: float, gutter_m: float, spacing_m: float
 	_materials["seat"] = finish(Color(0.2, 0.31, 0.4), 0.48)
 	_materials["shell"] = finish(Color(0.73, 0.76, 0.79), 0.26, 0.12)
 	_materials["mark"] = finish(Color(0.035, 0.025, 0.02), 0.42)
-	_materials["sign_back"] = finish(RSUi.INK, 0.8)
 	_materials["white"] = _emission(Color(1.0, 0.86, 0.65), 2.1)
 	_materials["pink"] = _emission(PINK, 2.2)
 	_materials["cyan"] = _emission(CYAN, 2.2)
@@ -268,8 +267,6 @@ func _lane(x: float, player: int, label_font: Font) -> void:
 		_box(Vector3(_spacing - 0.08, 0.035, 0.045), Vector3(x, y, end - 0.31), "player%d" % player, 0.012)
 	for side: float in [-1.0, 1.0]:
 		_box(Vector3(0.035, 1.48, 0.045), Vector3(x + side * (_spacing - 0.08) * 0.5, 1.8, end - 0.31), "player%d" % player, 0.012)
-	var sign_back := _panel("SignBackground%d" % player, Vector2(0.78, 0.92), Vector3(x - 0.67, 1.8, end - 0.3), "sign_back")
-	sign_back.rotation.x = PI / 2.0
 	var label := Label3D.new()
 	label.text = "P%d" % player # no-i18n
 	label.font = label_font
