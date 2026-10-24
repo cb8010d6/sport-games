@@ -71,6 +71,11 @@ func _send_input(slot: int, buttons: int) -> void:
 	await _frames()
 
 
+func _send_event(slot: int, ev_name: String) -> void:
+	_peer.put_packet(JSON.stringify({"type": "event", "controller": 80 + slot, "name": ev_name}).to_utf8_buffer())
+	await _frames()
+
+
 func _tap(slot: int, button: int) -> void:
 	await _send_input(slot, button)
 	await _send_input(slot, 0)
@@ -104,6 +109,40 @@ func _pause_check(game: RSPartyGame) -> void:
 	_check(not game.ui.pause.is_open() and not get_tree().paused, "A resumes through pause menu")
 	await _frames()
 	_check(game._clock > clock, "resume advances game clock")
+
+
+## #55: a release that happens while the pause menu is open must still reach
+## the game; archery is the sharpest case (a lost release leaves the bow drawn).
+func _archery_pause_release_check(game: RSPartyGame) -> void:
+	var p: RSPartyGame.Player = game.players[81]
+	for _i in 900:
+		if int(game.get("_stage")) == 1:  # Archery Stage.SHOOT
+			break
+		await _frames(1)
+	await _send_input(1, RSController.BTN_A)
+	_check(bool(game.call("_archer", p).get("drawing")), "archery: holding A draws the bow")
+	await _tap(2, RSController.BTN_D)
+	_check(game.ui.pause.is_open() and get_tree().paused, "archery: D pauses while drawing")
+	await _send_input(1, 0)
+	await _tap(2, RSController.BTN_A)
+	_check(not game.ui.pause.is_open() and not get_tree().paused, "archery: A resumes through pause menu")
+	_check(not bool(game.call("_archer", p).get("drawing")), "archery: A released during pause is not lost (#55)")
+
+
+## #55: disconnecting while a button is held synthesizes its release once.
+func _disconnect_release_check() -> void:
+	var releases := [0]
+	var counter := func(c: RSController, button: int) -> void:
+		if c.id == 82 and button == RSController.BTN_B:
+			releases[0] += 1
+	ControllerHub.button_released.connect(counter)
+	await _send_input(2, RSController.BTN_B)
+	await _send_event(2, "disconnected")
+	_check(releases[0] == 1, "disconnect synthesizes the held button's release exactly once (#55)")
+	await _send_event(2, "disconnected")
+	_check(releases[0] == 1, "repeated disconnect does not release twice (#55)")
+	ControllerHub.button_released.disconnect(counter)
+	await _send_event(2, "connected")
 
 
 func _exercise() -> void:
@@ -146,6 +185,9 @@ func _exercise() -> void:
 		rectangles.append(rect)
 	await _capture("play")
 	if not _layout_only:
+		if _game_id == "archery":
+			await _archery_pause_release_check(game)
+		await _disconnect_release_check()
 		var original: RSPartyGame.Player = game.players[81]
 		original.score = 123
 		await _roster(1)

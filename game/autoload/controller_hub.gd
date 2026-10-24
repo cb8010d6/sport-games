@@ -271,6 +271,14 @@ func _handle_json(pkt: PackedByteArray) -> void:
 					controller_connected.emit(c)
 			elif ev == "disconnected":
 				c.connected = false
+				# A button still held at disconnect never sends its own release
+				# (and must not surface as a late release after reconnecting):
+				# synthesize each release exactly once, then clear (#55).
+				var held := c.buttons
+				c.buttons = 0
+				for bit in [RSController.BTN_A, RSController.BTN_B, RSController.BTN_C, RSController.BTN_D]:
+					if held & bit:
+						button_released.emit(c, bit)
 				controller_disconnected.emit(c)
 			controller_event.emit(c, ev)
 		"qr":
