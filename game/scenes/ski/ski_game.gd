@@ -655,7 +655,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 	# Run progress: everyone's position on the way to the finish.
 	var bar := Rect2(Vector2(sz.x - 250 * k, 30 * k), Vector2(220 * k, 8 * k))
 	h.draw_style_box(_pill, Rect2(bar.position - Vector2(16, 16) * k, bar.size + Vector2(32 * k, 56 * k)))
-	h.draw_rect(bar, Color(1, 1, 1, 0.25))
+	draw_box(h, bar, Color(1, 1, 1, 0.25), 0)
 	for q: Player in players.values():
 		var f := clampf(_racer(q).sk.s() / _course.length, 0.0, 1.0)
 		var at := bar.position + Vector2(bar.size.x * f, bar.size.y * 0.5)
@@ -684,7 +684,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 		var a := clampf(0.7 - (_clock - r.gate_t), 0.0, 0.7) / 0.7
 		if r.gate_ok:
 			var streak := "  ×%d" % sk.gate_streak if sk.gate_streak >= 3 else ""
-			draw_text(h, "+%d%s" % [GATE_POINTS + mini(sk.gate_streak - 1, 10) * 10, streak], Vector2(sz.x * 0.5, sz.y * 0.36), 30 * k, Color(0.55, 1.0, 0.6, a), true)
+			draw_text(h, "+%d%s" % [GATE_POINTS + mini(sk.gate_streak - 1, 10) * 10, streak], Vector2(sz.x * 0.5, sz.y * 0.36), 30 * k, Color(0.55, 1.0, 0.6, a), true, false, RSUi.font_bold())
 
 	# Speed lines at the screen edges when going fast.
 	var fast := clampf((sk.current_speed() - 16.0) / 10.0, 0.0, 1.0)
@@ -702,7 +702,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 		var a := clampf(1.8 - (_clock - r.banked_t), 0.0, 1.0)
 		var c1 := Color(1.0, 0.7, 0.35, a) if r.banked_sketchy else Color(GOLD, a)
 		draw_text(h, r.banked_names, Vector2(sz.x * 0.5, y - 40 * k), 21 * k, Color(1, 1, 1, a * 0.9), true)
-		draw_text(h, (tr("勉强落地  +%s") if r.banked_sketchy else "+%s") % _fmt(r.banked_pts), Vector2(sz.x * 0.5, y), 44 * k, c1, true)
+		draw_text(h, (tr("勉强落地  +%s") if r.banked_sketchy else "+%s") % _fmt(r.banked_pts), Vector2(sz.x * 0.5, y), 44 * k, c1, true, false, RSUi.font_bold())
 	elif sk.mode == RSSkier.Mode.AIR and sk.air_t > 0.25:
 		var deg := roundi(absf(sk.spin) / PI * 180.0 / 90.0) * 90
 		var t := "%d°" % deg if deg >= 90 else ""
@@ -716,8 +716,8 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 		draw_pill(h, r.hint, Vector2(sz.x * 0.5, sz.y * 0.2), 17 * k, Color(1, 1, 1, a))
 
 	if sk.finished:
-		draw_text(h, tr("完成！第 %d 名") % r.place if players.size() > 1 else tr("完成！"), Vector2(sz.x * 0.5, sz.y * 0.3), 46 * k, GOLD, true)
-		draw_text(h, _fmt_time(sk.finish_time), Vector2(sz.x * 0.5, sz.y * 0.3 + 44 * k), 28 * k, Color.WHITE, true)
+		draw_text(h, tr("完成！第 %d 名") % r.place if players.size() > 1 else tr("完成！"), Vector2(sz.x * 0.5, sz.y * 0.3), 46 * k, GOLD, true, false, RSUi.font_bold())
+		draw_text(h, _fmt_time(sk.finish_time), Vector2(sz.x * 0.5, sz.y * 0.3 + 44 * k), 28 * k, Color.WHITE, true, false, num_font)
 		var waiting := false
 		for q: Player in players.values():
 			waiting = waiting or not _racer(q).sk.finished
@@ -729,9 +729,7 @@ func _draw_overlay(o: Overlay, k: float) -> void:
 	var m := _course.map
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
 		var a := RSIntro.fade(phase_time, INTRO)
-		draw_text(o, tr(str(m["name"])), Vector2(o.size.x * 0.5, o.size.y * 0.4), 84 * k, Color(1, 1, 1, a), true)
-		draw_text(o, tr("%s  ·  %d 米  ·  %d 道旗门  ·  难度 %s") % [m["en"], roundi(_course.length), _course.gates.size(), RSSkiMaps.stars(map_index)],
-			Vector2(o.size.x * 0.5, o.size.y * 0.4 + 56 * k), 24 * k, Color(1, 0.9, 0.6, a), true)
+		draw_title_card(o, tr(str(m["name"])), tr("%s  ·  %d 米  ·  %d 道旗门  ·  难度 %s") % [m["en"], roundi(_course.length), _course.gates.size(), RSSkiMaps.stars(map_index)], a, k)
 	elif phase == Phase.COUNTDOWN:
 		draw_text(o, tr("倾斜手柄转弯，往前压团身，往后仰刹车"), Vector2(o.size.x * 0.5, o.size.y * 0.45 + 60 * k), 26 * k, Color(0.92, 0.95, 1.0), true)
 	elif phase == Phase.PLAY:
@@ -867,7 +865,7 @@ func _draw_replay(h: PlayerHud, p: Player, k: float) -> void:
 	draw_text(h, "REPLAY", Vector2(sz.x - 136 * k, bar * 0.5 + 8 * k), 22 * k, Color.WHITE)
 	if r.clip_pts > 0:
 		draw_text(h, tr("最佳动作  ") + r.clip_names, Vector2(sz.x * 0.5, sz.y - bar - 44 * k), 22 * k, Color.WHITE, true)
-		draw_text(h, "+" + _fmt(r.clip_pts), Vector2(sz.x * 0.5, sz.y - bar - 8 * k), 40 * k, GOLD, true)
+		draw_text(h, "+" + _fmt(r.clip_pts), Vector2(sz.x * 0.5, sz.y - bar - 8 * k), 40 * k, GOLD, true, false, RSUi.font_bold())
 	else:
 		draw_text(h, r.clip_names, Vector2(sz.x * 0.5, sz.y - bar - 12 * k), 30 * k, GOLD, true)
 

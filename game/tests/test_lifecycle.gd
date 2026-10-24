@@ -29,7 +29,7 @@ func _ready() -> void:
 			_captures = arg.trim_prefix("--capture-output=")
 		elif arg == "--layout-only":
 			_layout_only = true
-	_peer.set_dest_address("127.0.0.1", ControllerHub.LISTEN_PORT)
+	_peer.set_dest_address("127.0.0.1", ControllerHub.listen_port())
 	_run.call_deferred()
 
 

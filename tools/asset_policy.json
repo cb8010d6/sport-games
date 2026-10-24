@@ -39,6 +39,12 @@
       "evidence": "docs/PHASE_7_LEFT_HAND.md"
     },
     {
+      "prefix": "docs/perf/ingame-benchmark-2026-10-23/",
+      "extensions": [".png"],
+      "license": "MIT",
+      "evidence": "docs/perf/ingame-benchmark-2026-10-23/CREDITS.md"
+    },
+    {
       "prefix": "docs/screenshots/phase3-solo-",
       "license": "MIT",
       "evidence": "docs/PHASE_3_SOLO.md#界面截图"
@@ -57,6 +63,11 @@
       "prefix": "docs/screenshots/phase5-menu-",
       "license": "MIT AND CC0-1.0",
       "evidence": "docs/PHASE_5_PREVIEWS.md"
+    },
+    {
+      "prefix": "game/assets/fonts/",
+      "license": "OFL-1.1",
+      "evidence": "game/assets/fonts/CREDITS.md"
     },
     {
       "prefix": "game/assets/previews/",
@@ -108,6 +119,11 @@
       "prefix": "docs/screenshots/ui-theme-",
       "license": "MIT AND CC0-1.0",
       "evidence": "docs/UI_THEME.md#截图"
+    },
+    {
+      "prefix": "docs/screenshots/bench-ui-",
+      "license": "MIT",
+      "evidence": "docs/PERFORMANCE.md#游戏内性能测试"
     }
   ]
 }
