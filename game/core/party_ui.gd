@@ -81,7 +81,9 @@ func _build_tutorials() -> void:
 	_tutorial_panel = layout[0]
 	_tutorial_panel.visible = false
 	var col: VBoxContainer = layout[1]
-	col.add_child(RSUi.label(tr("新手教学"), 36))
+	var title := RSUi.label(tr("新手教学"), 36)
+	title.add_theme_font_override("font", RSUi.font_bold())
+	col.add_child(title)
 	col.add_child(RSUi.label(tr("先看手柄示范，再完成提示动作。教学完成后回到舒适握姿，按 A 准备。"), 17, RSUi.TEXT_MUTED, true))
 	_tutorial_grid = GridContainer.new()
 	_tutorial_grid.columns = 2
@@ -153,7 +155,17 @@ func set_map_card(title: String, line: String, desc: String) -> void:
 
 func set_results(lines: PackedStringArray, show_now: bool) -> void:
 	RSUi.set_rich_text(_results_text, "\n".join(lines))
-	results_panel.visible = show_now
+	if show_now:
+		show_results()
+	else:
+		results_panel.visible = false
+
+
+func show_results() -> void:
+	if results_panel.visible:
+		return
+	results_panel.visible = true
+	RSUi.pop_in(results_panel)
 
 
 func results_on_right(on: bool) -> void:
@@ -268,6 +280,7 @@ func _build_results() -> void:
 	_results_title = RSUi.label(tr("成绩"), 40)
 	col.add_child(_results_title)
 	_results_title.add_theme_font_override("font", RSUi.font_bold())
+	col.add_child(HSeparator.new())
 	_results_text = RichTextLabel.new()
 	_results_text.bbcode_enabled = true
 	_results_text.fit_content = true

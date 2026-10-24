@@ -36,6 +36,7 @@ var _rows: Array[Button] = []
 var _index := 0
 var _saved_ui: Dictionary = {}   ## controller id -> its OLED state before the menu opened
 var _col: VBoxContainer
+var _panel: PanelContainer
 var _title: Label
 var _hint: Label
 var _normal: StyleBoxFlat
@@ -60,6 +61,7 @@ func _ready() -> void:
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
 	var panel := PanelContainer.new()
+	_panel = panel
 	panel.add_theme_stylebox_override("panel", RSUi.modal_style())
 	panel.custom_minimum_size = Vector2(520, 0)
 	center.add_child(panel)
@@ -102,6 +104,7 @@ func open() -> void:
 	for c: RSController in ControllerHub.connected_controllers():
 		_saved_ui[c.id] = c.ui_state.duplicate(true)
 	_show_page(_home_page(), 0)
+	RSUi.pop_in(_panel)
 	RSSfx.play(self, "ding", -10.0, 0.9)
 
 
