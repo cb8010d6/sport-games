@@ -13,7 +13,7 @@ from smoke_test import decode, engine_errors
 from test_game import ROOT, find_godot
 
 REJECTIONS = {"nan": "invalid triangle cast input", "radius": "invalid triangle cast input",
-              "degenerate": "degenerate triangle"}
+              "degenerate": "degenerate triangle", "conditioning": "degenerate triangle"}
 
 
 def main() -> int:

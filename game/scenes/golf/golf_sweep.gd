@@ -43,6 +43,7 @@ var _qy := 0.0
 var _qz := 0.0
 var _part := RSGolfContact.Part.NONE
 var _part_id := -1
+var _best_distance_squared := 0.0
 var _lo := 0.0
 var _hi := 0.0
 var _front_only := false
@@ -136,16 +137,7 @@ func _face(sign_value: float, out: RSGolfContact) -> void:
 	var t := (sign_value * _radius - height) / velocity
 	if t < 0.0 or t > 1.0:
 		return
-	var x := _px + _dx * t - sign_value * _radius * _nx - _ax
-	var y := _py + _dy * t - sign_value * _radius * _ny - _ay
-	var z := _pz + _dz * t - sign_value * _radius * _nz - _az
-	var u := x * _abx + y * _aby + z * _abz
-	var v := x * _acx + y * _acy + z * _acz
-	var first := u * _cc - v * _ac
-	var second := v * _aa - u * _ac
-	var tolerance := ROUND * (_det + absf(u * _cc) + absf(v * _ac) + absf(v * _aa) + absf(u * _ac))
-	if first >= -tolerance and second >= -tolerance and first + second <= _det + tolerance:
-		_consider(t, out)
+	_consider(t, out)
 
 
 func _interval(mx: float, my: float, mz: float, dx: float, dy: float, dz: float) -> bool:
@@ -252,40 +244,55 @@ func _consider(t: float, out: RSGolfContact, initial := false) -> void:
 
 
 func _closest(x: float, y: float, z: float) -> void:
-	# Voronoi-region closest point, independent of which cast primitive proposed the time.
-	var d1 := _abx * (x - _ax) + _aby * (y - _ay) + _abz * (z - _az)
-	var d2 := _acx * (x - _ax) + _acy * (y - _ay) + _acz * (z - _az)
-	if d1 <= 0.0 and d2 <= 0.0:
-		_point(_ax, _ay, _az, RSGolfContact.Part.VERTEX, 0)
+	# Project directly; Gram-determinant barycentrics lose the closest point on skinny faces.
+	var rx := x - _ax
+	var ry := y - _ay
+	var rz := z - _az
+	var height := _nx * rx + _ny * ry + _nz * rz
+	rx -= height * _nx
+	ry -= height * _ny
+	rz -= height * _nz
+	if _inside_edge(_abx, _aby, _abz, rx, ry, rz) and _inside_edge(_cx - _bx, _cy - _by, _cz - _bz, rx - _abx, ry - _aby, rz - _abz) and _inside_edge(-_acx, -_acy, -_acz, rx - _acx, ry - _acy, rz - _acz):
+		_point(_ax + rx, _ay + ry, _az + rz, RSGolfContact.Part.FACE, 0)
 		return
-	var d3 := _abx * (x - _bx) + _aby * (y - _by) + _abz * (z - _bz)
-	var d4 := _acx * (x - _bx) + _acy * (y - _by) + _acz * (z - _bz)
-	if d3 >= 0.0 and d4 <= d3:
-		_point(_bx, _by, _bz, RSGolfContact.Part.VERTEX, 1)
+	# Compare in the local plane: adding the common height squared can hide tiny edge gaps.
+	_best_distance_squared = INF
+	_closest_edge(rx, ry, rz, 0.0, 0.0, 0.0, _abx, _aby, _abz, 0)
+	_closest_edge(rx, ry, rz, _abx, _aby, _abz, _acx, _acy, _acz, 1)
+	_closest_edge(rx, ry, rz, _acx, _acy, _acz, 0.0, 0.0, 0.0, 2)
+
+
+func _inside_edge(ex: float, ey: float, ez: float, rx: float, ry: float, rz: float) -> bool:
+	var first := (ey * _nz - ez * _ny) * rx
+	var second := (ez * _nx - ex * _nz) * ry
+	var third := (ex * _ny - ey * _nx) * rz
+	# Roundoff-boundary points use finite edges for stable topology, without shape slop.
+	return first + second + third > ROUND * (absf(first) + absf(second) + absf(third))
+
+
+func _closest_edge(x: float, y: float, z: float, ax: float, ay: float, az: float, bx: float, by: float, bz: float, id: int) -> void:
+	var ux := bx - ax
+	var uy := by - ay
+	var uz := bz - az
+	var rx := x - ax
+	var ry := y - ay
+	var rz := z - az
+	var along := clampf((rx * ux + ry * uy + rz * uz) / (ux * ux + uy * uy + uz * uz), 0.0, 1.0)
+	var dx := rx - along * ux
+	var dy := ry - along * uy
+	var dz := rz - along * uz
+	var distance_squared := dx * dx + dy * dy + dz * dz
+	var part := RSGolfContact.Part.EDGE
+	var part_id := id
+	if along == 0.0 or along == 1.0:
+		part = RSGolfContact.Part.VERTEX
+		part_id = id if along == 0.0 else (id + 1) % 3
+	if distance_squared > _best_distance_squared:
 		return
-	var vc := d1 * d4 - d3 * d2
-	if vc <= 0.0 and d1 >= 0.0 and d3 <= 0.0:
-		var edge_v := d1 / (d1 - d3)
-		_point(_ax + edge_v * _abx, _ay + edge_v * _aby, _az + edge_v * _abz, RSGolfContact.Part.EDGE, 0)
+	if distance_squared == _best_distance_squared and (part > _part or (part == _part and part_id >= _part_id)):
 		return
-	var d5 := _abx * (x - _cx) + _aby * (y - _cy) + _abz * (z - _cz)
-	var d6 := _acx * (x - _cx) + _acy * (y - _cy) + _acz * (z - _cz)
-	if d6 >= 0.0 and d5 <= d6:
-		_point(_cx, _cy, _cz, RSGolfContact.Part.VERTEX, 2)
-		return
-	var vb := d5 * d2 - d1 * d6
-	if vb <= 0.0 and d2 >= 0.0 and d6 <= 0.0:
-		var edge_w := d2 / (d2 - d6)
-		_point(_ax + edge_w * _acx, _ay + edge_w * _acy, _az + edge_w * _acz, RSGolfContact.Part.EDGE, 2)
-		return
-	var va := d3 * d6 - d5 * d4
-	if va <= 0.0 and d4 - d3 >= 0.0 and d5 - d6 >= 0.0:
-		var edge_bc := (d4 - d3) / ((d4 - d3) + (d5 - d6))
-		_point(_bx + edge_bc * (_cx - _bx), _by + edge_bc * (_cy - _by), _bz + edge_bc * (_cz - _bz), RSGolfContact.Part.EDGE, 1)
-		return
-	var v := vb / (va + vb + vc)
-	var w := vc / (va + vb + vc)
-	_point(_ax + v * _abx + w * _acx, _ay + v * _aby + w * _acy, _az + v * _abz + w * _acz, RSGolfContact.Part.FACE, 0)
+	_best_distance_squared = distance_squared
+	_point(_ax + (ax + along * ux), _ay + (ay + along * uy), _az + (az + along * uz), part, part_id)
 
 
 func _point(x: float, y: float, z: float, part: RSGolfContact.Part, id: int) -> void:
