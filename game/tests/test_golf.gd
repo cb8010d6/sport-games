@@ -1,6 +1,7 @@
 extends Node
 ## Rules plus real shell checks. Run through tools/test_golf.py with disposable user data.
 const RuleCases := preload("res://tests/golf_rule_cases.gd")
+const PhysicsFixture := preload("res://tests/golf_physics_fixture.gd")
 
 var _game: RSGolfGame
 var _checks := 0
@@ -50,7 +51,10 @@ func _run() -> void:
 		for row: Dictionary in state.rules.summary()["holes"]:
 			played = played and row["strokes"] > 0
 		_check(played, "every player completes three holes")
-		_check(p.score == state.rules.score() and p.score > 0, "Stableford points reach common results")
+		var points := 0
+		for row: Dictionary in state.rules.summary()["holes"]:
+			points += int(row["points"])
+		_check(p.score == state.rules.score() and p.score == points and p.score >= 0, "physical holes, including legal zero-point caps, reach common results")
 		_check(not _game.can_record(p), "placeholder demo never records")
 	var human := RSPartyGame.Player.new()
 	human.c = RSController.new()
@@ -202,19 +206,51 @@ func _coordination_setup(human: RSPartyGame.Player, bot: RSPartyGame.Player, see
 		p.c.connected = true
 		if p != bot:
 			var state := p.data as RSGolfState
-			var pin := _game.course.pin_pos(0) + Vector3.UP * RSGolfGame.BALL_RADIUS
-			state.arm(0)
-			state.request(0)
-			state.launch(pin, pin)
-			state._flight_tick = RSGolfState.FLIGHT_TICKS - 1
+			_prepare_contact(state, 1)
 	_game._play_tick()  # Legal first-step contacts; the bot remains READY on the same clock.
 	for p: RSPartyGame.Player in _game.players.values():
 		p.fake = p != human
 	var rng := RandomNumberGenerator.new()
 	rng.seed = seed_value
 	var state := bot.data as RSGolfState
-	state.position = _game.course.pin_pos(0) - _game.course.tee_dir(0) * rng.randf_range(80, 180)
+	var distance := rng.randf_range(80, 180)
+	var placed := false
+	var support := RSGolfWorldHit.new()
+	for offset in 41:
+		var candidate := _route_before_pin(distance + offset * 0.5)
+		if _game.physics_world.legal_placement(candidate, RSGolfBall.RADIUS, support):
+			placed = state.place_at(candidate)
+			break
+	if not placed:
+		placed = state.place_at(_game.course.tee_pos(0))
+	_check(placed, "seeded bot starts on a legal real-course lie")
 	state.reach_index = 0
+
+
+func _route_before_pin(distance: float) -> Vector3:
+	var path: PackedVector2Array = _game.course.holes[0]["path"]
+	var from := path[path.size() - 1]
+	for index in range(path.size() - 2, -1, -1):
+		var to := path[index]
+		var length := from.distance_to(to)
+		if length > 0.0 and distance <= length:
+			var point := from.lerp(to, distance / length)
+			return Vector3(point.x, _game.course.height_at(point.x, point.y), point.y)
+		distance -= length
+		from = to
+	return _game.course.tee_pos(0)
+
+
+func _prepare_contact(state: RSGolfState, steps: int) -> void:
+	# Timing fixtures use a real rolling sphere on an independent small flat world.
+	# The public game still advances the actual rules and fixed-step scheduler.
+	state._world = PhysicsFixture.make(Vector2.ZERO, 0.0, [], [], Vector3.ZERO)
+	var distance := RSGolfWorld.CUP_RADIUS - RSGolfBall.RADIUS + (steps - 0.5) * RSGolfGame.STEP
+	_check(state.place_at(Vector3(-distance, 0.0, 0.0)), "timed contact starts on supported ground")
+	state.arm(_game.hole_tick)
+	state.request(_game.hole_tick)
+	_check(state.launch(Vector3.ZERO), "timed contact consumes one real physical stroke")
+	state.motion.velocity = Vector3.RIGHT  # Analytic fixture: 1 m/s, 0.18 m/s² rolling resistance.
 
 
 func _coordination_run(human: RSPartyGame.Player, bot: RSPartyGame.Player, seed_value: int, batched: bool) -> Dictionary:
@@ -255,7 +291,7 @@ func _coordination_checks(human: RSPartyGame.Player) -> void:
 	_game.ui.pause.close()
 	_game._play_process(RSGolfGame.STEP)
 	var state := bot.data as RSGolfState
-	_check(state.flying and state.rules.stroke_count() == 1 and state._flight_tick == 4 and _game.hole_tick == tick + 4, "ready bot shoots on next step and advances at most4x")
+	_check(state.flying and state.rules.stroke_count() == 1 and state.motion.age_ticks == 4 and _game.hole_tick == tick + 4, "ready bot shoots on next step and advances at most4x")
 	for seed_value: int in [71, 913, 2026]:
 		var reference := _coordination_run(human, bot, seed_value, false)
 		var fast := _coordination_run(human, bot, seed_value, true)
@@ -271,11 +307,7 @@ func _coordination_checks(human: RSPartyGame.Player) -> void:
 		_game._play_process(float(RSGolfRules.HOLE_TICKS - 3) * RSGolfGame.STEP)
 		bot.fake = true
 		state = bot.data as RSGolfState
-		state.arm(_game.hole_tick)
-		state.request(_game.hole_tick)
-		_game._shoot(bot)
-		state._target = state._pin
-		state._flight_tick = RSGolfState.FLIGHT_TICKS - left
+		_prepare_contact(state, left)
 		_game._play_process(RSGolfGame.STEP)
 		var row: Dictionary = state.rules.summary()["holes"][0]
 		_check(state.done and row["status"] == (RSGolfRules.Status.HOLED if left == 2 else RSGolfRules.Status.CAPPED), "4x contact at deadline wins; a later contact cannot score")
@@ -294,11 +326,8 @@ func _deadline_checks(p: RSPartyGame.Player) -> void:
 		_game._round_started(_game.ordered())
 		_game._play_process(float(RSGolfRules.HOLE_TICKS - 3) * RSGolfGame.STEP)
 		var state := p.data as RSGolfState
-		state.arm(_game.hole_tick)
-		state.request(_game.hole_tick)
+		_prepare_contact(state, left + 1)
 		_game._play_process(RSGolfGame.STEP)
-		state._target = state._pin
-		state._flight_tick = RSGolfState.FLIGHT_TICKS - left
 		_game._play_process(4.0 * RSGolfGame.STEP)
 		var row: Dictionary = state.rules.summary()["holes"][0]
 		_check(state.done and row["status"] == (RSGolfRules.Status.CAPPED if left > 2 else RSGolfRules.Status.HOLED), "cross-frame deadline contacts before/at/after")

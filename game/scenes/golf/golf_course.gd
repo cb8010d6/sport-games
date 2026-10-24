@@ -100,6 +100,7 @@ var _line := PackedFloat32Array()  ## distance to the nearest hole's line of pla
 var _tree_grid: Dictionary = {}  ## Vector2i cell -> tree indices
 var _dir := PackedByteArray()    ## fairway mowing direction, 2 bytes a texel
 var surface := RSGolfSurface.new()
+var bounds := RSGolfBounds.new()
 var _height_links := false
 var _height_greens: Array[Array] = []
 var _height_tees: Array[Array] = []
@@ -127,10 +128,16 @@ func _ready() -> void:
 	_layout_holes()
 	_rasterize()
 	_build_heights()
+	var routes: Array[PackedVector2Array] = []
+	for hole: Dictionary in holes:
+		routes.append(hole["path"])
+	if not bounds.build(surface, routes):
+		push_error("RSGolfCourse: boundary construction failed")
 	_build_terrain_meshes()
 	_build_water()
 	_build_trees()
 	_build_hole_furniture()
+	RSGolfBoundary.build(self, surface, bounds, routes)
 	print("[golf] course %s built in %d ms, %d trees" % [map["en"], Time.get_ticks_msec() - t0, trees.size()])
 
 
@@ -343,6 +350,8 @@ func green_d(x: float, z: float) -> float:
 
 
 func lie_at(p: Vector3) -> Lie:
+	if not bounds.contains(p):
+		return Lie.OB
 	if p.y < sea_level + 0.05:
 		return Lie.WATER
 	if _field(_water, p.x, p.z) < 0.0:
@@ -362,18 +371,16 @@ func lie_at(p: Vector3) -> Lie:
 		return Lie.FAIRWAY
 	if f < 2.5:
 		return Lie.FIRST_CUT
-	if _min_feature_dist(p) > OB_FROM_FAIRWAY and f > 30.0 and g > 30.0:
-		return Lie.OB
 	return Lie.ROUGH
 
 
 func _min_feature_dist(p: Vector3) -> float:
-	## Distance to the nearest line of play (capped at LINE_RANGE).
-	return _field(_line, p.x, p.z)
+	## Exact distance to every route; the 90 m raster remains a terrain/material construction field.
+	return bounds.distance(p)
 
 
 func in_bounds(p: Vector3) -> bool:
-	return lie_at(p) != Lie.OB
+	return bounds.contains(p)
 
 
 # --------------------------------------------------------------------- heightfield ----

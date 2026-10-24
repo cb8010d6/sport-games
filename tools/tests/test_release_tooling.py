@@ -7,12 +7,12 @@ from pathlib import Path
 import pytest
 
 from tools.download_godot import download, extract_archive
-from tools.package_archive import validate_package
+from tools.package_archive import FONT_LICENSES, REQUIRED, ROOT, validate_package
 
 
 def package(tmp_path: Path) -> Path:
     root = tmp_path / "package"
-    for name in ["SportGames.exe", "game/SportGames.exe", "game/SportGames.pck", "hub/sport-hub.exe", "hub/config.json", "licenses/LICENSE", "BUILD_INFO.json"]:
+    for name in REQUIRED:
         file = root / name
         file.parent.mkdir(parents=True, exist_ok=True)
         file.write_bytes(b"fixture")
@@ -36,9 +36,18 @@ def test_runtime_private_files_are_rejected(tmp_path, name):
         validate_package(root)
 
 
+@pytest.mark.skipif(not (ROOT / "game/assets/fonts").is_dir(), reason="sparse checkout without game assets")
+def test_bundled_font_licenses_are_required(tmp_path):
+    assert {f.name for f in FONT_LICENSES} >= {"OFL-BarlowCondensed.txt", "OFL-NotoSansSC.txt"}
+    root = package(tmp_path)
+    (root / "licenses" / FONT_LICENSES[0].name).unlink()
+    with pytest.raises(RuntimeError, match="Incomplete package"):
+        validate_package(root)
+
+
 def test_complete_package_can_be_enumerated(tmp_path):
     root = package(tmp_path)
-    assert len(validate_package(root)) == 7
+    assert len(validate_package(root)) == len(REQUIRED)
 
 
 def test_archive_cannot_escape_tool_directory(tmp_path):

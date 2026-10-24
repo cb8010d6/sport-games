@@ -1,9 +1,9 @@
 class_name RSGolfGame
 extends RSPartyGame
-## G2 rules on the G1 playable shell: shared 120 Hz ticks and independent scripted balls.
+## M1 project shell: shared 120 Hz clock and independent sphere-swept physical balls.
 ## A/B/C are temporary button input; no official records until rules/physics/gestures are ready.
 
-const BALL_RADIUS := 0.12  ## enlarged placeholder ball for visibility, m
+const BALL_RADIUS := RSGolfBall.RADIUS  ## physical and rendered radius, m
 const BOT_TICKS := 180    ## 1.5 effective play seconds before a bot shot
 const BOT_FINISH_SPEED := 4.0  ## maximum presentation speed after every human has finished
 const CARD_SECONDS := 6.0 ## between-hole holding time; formal scorecard arrives in G6
@@ -21,6 +21,8 @@ var _world: Node3D
 var _pars := PackedInt32Array()
 var _round_players: Array = []
 var _accumulator := 0.0
+var physics_world: RSGolfWorld
+var _aim_support := RSGolfWorldHit.new()
 
 
 func _game_name() -> String:
@@ -36,7 +38,7 @@ func _how_to_play() -> String:
 
 
 func can_record(_p: Player) -> bool:
-	return false  # Placeholder trajectories must never become official personal bests.
+	return false  # Temporary buttons and unfinished milestone acceptance never write official records.
 
 
 func _maps() -> Array:
@@ -70,6 +72,7 @@ func _load_map(index: int) -> void:
 	hole_tick = 0
 	_accumulator = 0.0
 	card_elapsed = -1.0
+	_configure_physics()
 	var tee := course.tee_pos(0)
 	lobby_cam.position = tee + Vector3(35.0, 38.0, 45.0)
 	lobby_cam.look_at(tee + course.tee_dir(0) * 65.0)
@@ -107,13 +110,14 @@ func _round_started(_ordered: Array) -> void:
 	_accumulator = 0.0
 	_round_players = ordered()
 	card_elapsed = -1.0
+	_configure_physics()
 	for p: Player in players.values():
 		_state(p).reset(_pars, p.c.player)
 		_place(p)
 
 
 func _place(p: Player) -> void:
-	if not _state(p).start_hole(hole_index, course.tee_pos(hole_index) + Vector3.UP * BALL_RADIUS):
+	if not _state(p).start_hole(hole_index, course.tee_pos(hole_index), physics_world):
 		push_error("RSGolfGame: invalid hole transition")
 		return
 	_sync_ball(p)
@@ -133,6 +137,7 @@ func _play_process(delta: float) -> void:
 			hole_tick = 0
 			_accumulator = 0.0
 			card_elapsed = -1.0
+			_configure_physics()
 			for p: Player in players.values():
 				_place(p)
 		return
@@ -214,19 +219,35 @@ func _player_button(p: Player, button: int, pressed: bool) -> void:
 
 func _shoot(p: Player) -> void:
 	var state := _state(p)
-	var pin := course.pin_pos(hole_index) + Vector3.UP * BALL_RADIUS
 	var reach: float = RSGolfState.REACHES[state.reach_index]
-	var target := pin if state.position.distance_to(pin) <= reach else course.aim_point(hole_index, state.position, reach) + Vector3.UP * BALL_RADIUS
-	if state.launch(target, pin):
+	var target := course.aim_point(hole_index, state.position, reach)
+	if not physics_world.support(target, BALL_RADIUS, _aim_support):
+		push_error("RSGolfGame: shot target has no terrain support")
+		return
+	if state.launch(_aim_support.centre):
 		_send_status(p)
 
 
 func _sync_ball(p: Player) -> void:
 	var state := _state(p)
-	state.ball.position = state.position
+	var at := state.render_position(_accumulator / STEP)
+	state.ball.position = at
 	var direction := course.tee_dir(hole_index)
-	p.cam.position = state.position - direction * 7.0 + Vector3.UP * 4.0
-	p.cam.look_at(state.position + direction * 8.0)
+	p.cam.position = at - direction * 7.0 + Vector3.UP * 4.0
+	p.cam.look_at(at + direction * 8.0)
+
+
+func _configure_physics() -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20261024 + course.map_index * 31 + hole_index * 997
+	var angle := rng.randf_range(0.0, TAU)
+	var speeds: Array = course.map["wind"]
+	var speed := rng.randf_range(float(speeds[0]), float(speeds[1]))
+	var direction := Vector3(cos(angle), 0.0, sin(angle))
+	physics_world = RSGolfWorld.new()
+	if not physics_world.configure(course.surface, course.bounds, course.water_levels, course.trees, course.pin_pos(hole_index), course.sea_level if course.sea_level > -100.0 else -INF, course.lie_at, direction * speed):
+		push_error("RSGolfGame: invalid physical world")
+	course.set_wind(direction, speed)
 
 
 func _send_status(p: Player) -> void:

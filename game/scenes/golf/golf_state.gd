@@ -1,27 +1,28 @@
 class_name RSGolfState
 extends RefCounted
-## Scene/input adapter around pure rules. Flight is still a scripted 144-tick arc, not G3 physics.
+## Scene/input adapter around pure rules and a separate 120 Hz physical ball; no G4 gestures.
 
-const FLIGHT_TICKS := 144
-const ARC_HEIGHT := 12.0  ## placeholder apex above the straight segment, m
-const REACHES := [60.0, 120.0, 220.0]  ## selectable placeholder distance, m
+const REACHES := RSGolfShot.REACHES
 
 var rules := RSGolfRules.new()
 var events: Array[RSGolfRules.Event] = []  ## reused at 120 Hz; entries exist only on contact
 var ball: MeshInstance3D
-var position := Vector3.ZERO
+var motion := RSGolfBall.new()
+var position: Vector3:
+	get:
+		return motion.position
 var armed := false
 var requested := false
-var flying := false
+var flying: bool:
+	get:
+		return motion.active()
 var reach_index := 2
 var bot_ticks := 0
 var done: bool:
 	get:
 		return rules.finished()
-var _from := Vector3.ZERO
-var _target := Vector3.ZERO
-var _pin := Vector3.ZERO
-var _flight_tick := 0
+var _world: RSGolfWorld
+var _aim := RSGolfShot.new()
 var _command_seq := 0
 var _command: RSGolfRules.StrokeKey
 var _shot: RSGolfRules.StrokeKey
@@ -32,21 +33,21 @@ func reset(pars: PackedInt32Array, slot: int) -> void:
 	cancel_input()
 	events.clear()
 	reach_index = 2
-	flying = false
+	motion.freeze()
 	bot_ticks = 0
 	_command_seq = 0
 	_shot = null
 
 
-func start_hole(index: int, tee: Vector3) -> bool:
+func start_hole(index: int, tee: Vector3, world: RSGolfWorld) -> bool:
 	if not rules.start_hole(index):
 		return false
-	position = tee
+	_world = world
+	if not motion.reset(world, tee):
+		return false
 	cancel_input()
 	events.clear()
-	flying = false
 	bot_ticks = 0
-	_flight_tick = 0
 	_shot = null
 	return true
 
@@ -71,19 +72,19 @@ func cancel_input() -> void:
 	_command = null
 
 
-func launch(target: Vector3, pin: Vector3) -> bool:
+func launch(target: Vector3) -> bool:
 	if not requested:
 		return false
 	requested = false
+	if not _aim.aim(_world, position, target, reach_index):
+		_command = null
+		return false
 	_shot = rules.try_stroke(_command)
 	_command = null
 	if _shot == null:
 		return false
-	_from = position
-	_target = target
-	_pin = pin
-	_flight_tick = 0
-	flying = true
+	if not motion.strike(_aim.velocity, _aim.spin, _aim.rolling):
+		return false
 	bot_ticks = 0
 	return true
 
@@ -92,16 +93,26 @@ func advance_tick(next_tick: int) -> void:
 	events.clear()
 	if not flying or done:
 		return
-	_flight_tick += 1
-	var u := float(_flight_tick) / FLIGHT_TICKS
-	position = _from.lerp(_target, u) + Vector3.UP * (4.0 * ARC_HEIGHT * u * (1.0 - u))
-	if _flight_tick == FLIGHT_TICKS:
-		flying = false
-		var kind := RSGolfRules.Outcome.HOLED if position.distance_to(_pin) < 0.03 else RSGolfRules.Outcome.REST
-		events.append(RSGolfRules.Event.new(_shot, kind, next_tick))
+	motion.step()
+	if motion.outcome >= 0:
+		events.append(RSGolfRules.Event.new(_shot, motion.outcome, next_tick))
 
 
 func after_tick() -> void:
 	if done:
-		flying = false
+		motion.freeze()
 		cancel_input()
+	elif rules.recovery != RSGolfRules.Recovery.NONE:
+		var water := rules.recovery == RSGolfRules.Recovery.WATER_BACKTRACK
+		var recovery := motion.recovery_position(water)
+		if recovery.is_finite() and rules.complete_drop(_shot):
+			motion.reset(_world, recovery)
+			bot_ticks = 0
+
+
+func place_at(point: Vector3) -> bool:
+	return motion.reset(_world, point)
+
+
+func render_position(alpha: float) -> Vector3:
+	return motion.previous_position.lerp(position, clampf(alpha, 0.0, 1.0)) if flying else position

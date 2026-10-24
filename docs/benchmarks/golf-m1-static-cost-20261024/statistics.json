@@ -1,0 +1,301 @@
+{
+  "schema_version": 1,
+  "scope": "Fixed provisional first-PLAY tee-camera static rendering-cost gate; not playable-game or full-round performance",
+  "groups": [
+    {
+      "map": 0,
+      "side": "golf_A_mip",
+      "frames": 2162,
+      "pooled_statistics": {
+        "avg_fps": 71.9818360728548,
+        "frame_ms_p50": 13.786000000000001,
+        "frame_ms_p95": 15.093799999999998,
+        "frame_ms_p99": 16.11139,
+        "frame_ms_worst": 18.118,
+        "one_percent_low_fps": 59.88920497080401,
+        "cpu_process_ms_avg": 15.8930046253469,
+        "gpu_ms_avg": null,
+        "gpu_samples": 0,
+        "draw_calls_avg": 322,
+        "video_memory_bytes_max": 794594160,
+        "nodes_max": 179
+      },
+      "repeat_fps": [
+        70.0282910299853,
+        73.11370389529239,
+        72.80308453386851
+      ],
+      "repeat_scene_ready_ms": [
+        2819.768,
+        2561.886,
+        2506.077
+      ],
+      "gpu_viewports": {
+        "root": {
+          "mean_ms": 0.2637118408516753,
+          "coverage": 1.0
+        },
+        "player_1": {
+          "mean_ms": 3.21852867631974,
+          "coverage": 1.0
+        },
+        "player_2": {
+          "mean_ms": 3.212333489743567,
+          "coverage": 1.0
+        },
+        "player_3": {
+          "mean_ms": 3.209244222358683,
+          "coverage": 1.0
+        },
+        "player_4": {
+          "mean_ms": 3.273638760679635,
+          "coverage": 1.0
+        }
+      },
+      "gpu_attribution_sufficient": true
+    },
+    {
+      "map": 0,
+      "side": "golf_B_mip",
+      "frames": 2175,
+      "pooled_statistics": {
+        "avg_fps": 72.08265583922207,
+        "frame_ms_p50": 13.693,
+        "frame_ms_p95": 14.7526,
+        "frame_ms_p99": 15.709599999999986,
+        "frame_ms_worst": 377.359,
+        "one_percent_low_fps": 30.68027941367197,
+        "cpu_process_ms_avg": 15.641404597701149,
+        "gpu_ms_avg": null,
+        "gpu_samples": 0,
+        "draw_calls_avg": 322,
+        "video_memory_bytes_max": 797436368,
+        "nodes_max": 179
+      },
+      "repeat_fps": [
+        72.08486217894242,
+        69.46164177608105,
+        74.7423661614529
+      ],
+      "repeat_scene_ready_ms": [
+        3591.29,
+        3138.349,
+        3199.374
+      ],
+      "gpu_viewports": {
+        "root": {
+          "mean_ms": 0.24089517239866587,
+          "coverage": 1.0
+        },
+        "player_1": {
+          "mean_ms": 3.190577472927927,
+          "coverage": 1.0
+        },
+        "player_2": {
+          "mean_ms": 3.1811889667072517,
+          "coverage": 1.0
+        },
+        "player_3": {
+          "mean_ms": 3.1854188482788786,
+          "coverage": 1.0
+        },
+        "player_4": {
+          "mean_ms": 3.2246487382910716,
+          "coverage": 1.0
+        }
+      },
+      "gpu_attribution_sufficient": true
+    },
+    {
+      "map": 1,
+      "side": "golf_A_mip",
+      "frames": 1223,
+      "pooled_statistics": {
+        "avg_fps": 40.7105607288888,
+        "frame_ms_p50": 25.178,
+        "frame_ms_p95": 26.9534,
+        "frame_ms_p99": 28.28496,
+        "frame_ms_worst": 30.817,
+        "one_percent_low_fps": 34.58366586858207,
+        "cpu_process_ms_avg": 27.188971381847914,
+        "gpu_ms_avg": null,
+        "gpu_samples": 0,
+        "draw_calls_avg": 258,
+        "video_memory_bytes_max": 766311552,
+        "nodes_max": 168
+      },
+      "repeat_fps": [
+        39.07715549489768,
+        44.40481384105033,
+        38.64565261872229
+      ],
+      "repeat_scene_ready_ms": [
+        2454.867,
+        2388.781,
+        2371.084
+      ],
+      "gpu_viewports": {
+        "root": {
+          "mean_ms": 0.250188061841082,
+          "coverage": 1.0
+        },
+        "player_1": {
+          "mean_ms": 5.930555189620835,
+          "coverage": 1.0
+        },
+        "player_2": {
+          "mean_ms": 5.933905158194966,
+          "coverage": 1.0
+        },
+        "player_3": {
+          "mean_ms": 5.831347497096338,
+          "coverage": 1.0
+        },
+        "player_4": {
+          "mean_ms": 5.836447267774081,
+          "coverage": 1.0
+        }
+      },
+      "gpu_attribution_sufficient": true
+    },
+    {
+      "map": 1,
+      "side": "golf_B_mip",
+      "frames": 1325,
+      "pooled_statistics": {
+        "avg_fps": 44.09824676686632,
+        "frame_ms_p50": 22.498,
+        "frame_ms_p95": 25.0812,
+        "frame_ms_p99": 26.32512,
+        "frame_ms_worst": 28.144,
+        "one_percent_low_fps": 36.91165459128252,
+        "cpu_process_ms_avg": 24.91964679245283,
+        "gpu_ms_avg": null,
+        "gpu_samples": 0,
+        "draw_calls_avg": 258,
+        "video_memory_bytes_max": 771225536,
+        "nodes_max": 168
+      },
+      "repeat_fps": [
+        43.41022764922141,
+        44.62441516559252,
+        44.260484239670824
+      ],
+      "repeat_scene_ready_ms": [
+        3024.302,
+        2883.136,
+        2915.808
+      ],
+      "gpu_viewports": {
+        "root": {
+          "mean_ms": 0.2659683014536804,
+          "coverage": 1.0
+        },
+        "player_1": {
+          "mean_ms": 5.294295096847247,
+          "coverage": 1.0
+        },
+        "player_2": {
+          "mean_ms": 5.417870189378847,
+          "coverage": 1.0
+        },
+        "player_3": {
+          "mean_ms": 5.393340371329829,
+          "coverage": 1.0
+        },
+        "player_4": {
+          "mean_ms": 5.27884151242814,
+          "coverage": 1.0
+        }
+      },
+      "gpu_attribution_sufficient": true
+    }
+  ],
+  "gates": [
+    {
+      "map": 0,
+      "sides": {
+        "golf_A_mip": {
+          "pooled_fps": 71.9818360728548,
+          "mean_ready_ms": 2629.2436666666667,
+          "repeat_fps": [
+            70.0282910299853,
+            73.11370389529239,
+            72.80308453386851
+          ],
+          "repeat_ready_ms": [
+            2819.768,
+            2561.886,
+            2506.077
+          ]
+        },
+        "golf_B_mip": {
+          "pooled_fps": 72.08265583922207,
+          "mean_ready_ms": 3309.671,
+          "repeat_fps": [
+            72.08486217894242,
+            69.46164177608105,
+            74.7423661614529
+          ],
+          "repeat_ready_ms": [
+            3591.29,
+            3138.349,
+            3199.374
+          ]
+        }
+      },
+      "fps_regression_percent": -0.14006278787501714,
+      "ready_increase_ms": 680.4273333333331,
+      "pause": false,
+      "scope": "Static rendering-cost gate only; repeat variation and root review remain required."
+    },
+    {
+      "map": 1,
+      "sides": {
+        "golf_A_mip": {
+          "pooled_fps": 40.7105607288888,
+          "mean_ready_ms": 2404.9106666666667,
+          "repeat_fps": [
+            39.07715549489768,
+            44.40481384105033,
+            38.64565261872229
+          ],
+          "repeat_ready_ms": [
+            2454.867,
+            2388.781,
+            2371.084
+          ]
+        },
+        "golf_B_mip": {
+          "pooled_fps": 44.09824676686631,
+          "mean_ready_ms": 2941.082,
+          "repeat_fps": [
+            43.41022764922141,
+            44.62441516559252,
+            44.260484239670824
+          ],
+          "repeat_ready_ms": [
+            3024.302,
+            2883.136,
+            2915.808
+          ]
+        }
+      },
+      "fps_regression_percent": -8.32139370552456,
+      "ready_increase_ms": 536.1713333333332,
+      "pause": false,
+      "scope": "Static rendering-cost gate only; repeat variation and root review remain required."
+    }
+  ],
+  "limitations": [
+    "A/B blocks were not randomized; thermal/background changes and repeated-run variability remain",
+    "frequency not locked; normal user desktop remained available",
+    "map1 B repeats are all below the 45 FPS reference; this probe is not a playable-game acceptance test",
+    "CPU TIME_PROCESS is not OS utilization; per-viewport GPU times are not summed into a whole frame"
+  ],
+  "pause_thresholds": {
+    "fps_regression_percent_gt": 5,
+    "mean_scene_ready_increase_ms_gt": 1000
+  },
+  "decision": "Both numerical pause flags false; root accepted the static cost gate. Map1 B remains below the 45 FPS reference; M1 playability and physics acceptance remain separate."
+}

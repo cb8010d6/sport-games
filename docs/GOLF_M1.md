@@ -1,21 +1,21 @@
 # 高尔夫 M1：实现与验收记录
 
-依据[G0设计](GOLF_DESIGN.md)累计交付G1–G3，PR #33仍为draft。本文合并G1、G2、G3-A/B与mip前置修复的阶段证据；历史切片保留在Git中，不再维护多份小阶段文档。几何/材质性能测量冻结源码为`c36e1b0`（B+mip），之后的独立终态协调提交不混入该版本的采样数据。尚未完成M1球物理、精确OB、图像/录屏和配对性能验收。
+依据[G0设计](GOLF_DESIGN.md)累计交付G1–G3，PR #33仍为draft。本文统一维护骨架、规则、地形、mip、协调、球物理及成本证据，历史切片保留在Git中。几何成本门已通过，真实球物理已接入并通过独立原语检查；实际场景、正式物理的1×/4×协调、最终图像/录屏及整体验收尚未完成。
 
-已实现两图×三洞、1–4人独立球与视口、纯规则、共边果岭细化和私有mip纹理缓存。**球仍为144 tick占位抛物线，A/B/C是占位输入，所有局`can_record()`恒false。** 没有正式挥杆、弹跳/滚动、水/树/球洞sweep；地形射线通过不代表这些已经实现。未注册菜单或catalog，`--game=golf`仍不可当作正式入口。
+已实现两图×三洞、1–4人独立球与视口、纯规则、共边果岭细化、私有mip纹理缓存及120Hz球积分／有限扫掠。球半径改为0.02135m，弹跳／滚动、精确OB、水树／洞杯及合法drop已有代码和独立解析测试。**A/B/C仍是临时输入，所有局`can_record()`恒false。** 正式体感挥杆、镜头／HUD、人物及最终外壳属于后续M2–M4；未注册菜单或catalog，`--game=golf`仍不可当作正式入口。代码接入不代表完整M1已验收。
 
 ## 已决节奏与框架接入
 
 [Issue #26更正](https://github.com/cb8010d6/sport-games/issues/26#issuecomment-6378856754)及[PR #33评审](https://github.com/cb8010d6/sport-games/pull/33#issuecomment-6379666347)撤回真人完成即换洞：所有玩家（含电脑）进洞或封顶才换洞。`_round_players`终态屏障保留；后续独立协调提交已补齐`_humans_finished/_simulation_speed`，通过下列骨架回归。此前冻结性能版仍含原电脑等待，不能混称已测新协调版本。
 
-协调实现：至少一名真人且所有真人终态后，电脑READY在下一固定步出手；以同一120Hz时钟最多4倍消费固定步，轨迹不截断、不放大步长，150秒预算随同一比赛时钟累计。暂停、洞卡不加速；纯demo保持1倍。等价测试双方均采用新跳过等待策略，只改变调度批大小，比较同种子杆数、积分、落点和封顶原因。当前只能验证144 tick占位弧线，正式飞行/滚动物理接入后必须重测。
+协调实现：至少一名真人且所有真人终态后，电脑READY在下一固定步出手；以同一120Hz时钟最多4倍消费固定步，轨迹不截断、不放大步长，150秒预算随同一比赛时钟累计。暂停、洞卡不加速；纯demo保持1倍。等价测试双方均采用新跳过等待策略，只改变调度批大小，比较同种子杆数、积分、落点和封顶原因。历史1024项只验证旧占位弧线；正式物理的实际场景协调测试已迁移，结果仍待重跑，不能沿用旧绿灯。
 
 PR #27主题、#34公共测试临时端口已在`cf88966`正常merge进入。`1e50744`移除了两个专用runner的固定47800探测；当前统一用`RS_TEST_MODE=1`、临时APPDATA/LOCALAPPDATA/XDG目录，不改ControllerHub子类，不停止其他会话。G6沿用[公共UI_THEME](UI_THEME.md)，本M1没有另造主题。
 
 ## 场景、规则与时钟
 
-- `golf_game.gd/.tscn`继承RSPartyGame，沿用倒数、暂停、重开、分屏及成绩。每人`p.data`持有RSGolfState，世界场地/洞次共享；球不互撞。G1占位A循环60/120/220米、B按住再松开、C取消；球144 tick到推荐目标，半径0.12m为可见性占位。
-- `RSGolfRules`只持整数、枚举、数组和RefCounted令牌，没有Node、Vector3、场地、协议或存档依赖。state处理输入队列及占位球，事件数组复用，无事件tick不分配令牌/数组/字典。
+- `golf_game.gd/.tscn`继承RSPartyGame，沿用倒数、暂停、重开、分屏及成绩。每人`p.data`持有RSGolfState和独立RSGolfBall，世界场地/洞次共享；球不互撞。A仍循环名义60/120/220米，B按住再松开、C取消；RSGolfShot只给初速度，不再把球传送到推荐目标，真实射程由风、阻力和碰撞决定。
+- `RSGolfRules`只持整数、枚举、数组和RefCounted令牌，没有Node、Vector3、场地、协议或存档依赖。state处理输入队列及物理球，事件数组复用，无事件tick不分配令牌/数组/字典。
 - 每洞18000个120Hz比赛步；渲染积压全部消费，暂停保留原半步但不累计。进入洞卡/RESULTS即停止剩余积压，不把卡片delta赠给下一洞。洞卡目前6秒，正式卡片/开场/HUD在后续M2。
 - Command.tick指上一个已完成步：17999可出手，18000不能新出手；已有球在18000末的接触先结算。每步依次处理输入/机器人、飞行、事件、超时；最后一洞全员终态只提交一次结果。
 - 断线/roster离线事件立即取消armed/排队release；同轮轮询重连也不能消费旧释放。保留球和时钟，不改变`p.fake`或自动接管。重连须新按B。
@@ -30,7 +30,7 @@ PR #27主题、#34公共测试临时端口已在`cf88966`正常merge进入。`1e
 
 CommandKey/ShotKey使用`StrokeKey`（slot/epoch/hole/seq/tick），另带每rules独有owner；ShotKey还验证当前对象身份，同数字跨玩家不能结算，不序列化成网络协议。事件按order先后、同order按HOLED/WATER/OB/REST排序，重复只处理一次。
 
-规则状态`UNPLAYED → READY → FLIGHT → READY/DROP/HOLED/CAPPED`。最后`par+4`杆仍可进洞；REST才封顶。WATER/OB每杆+1罚，触顶立即CAPPED、不drop；否则返回WATER_BACKTRACK/PREVIOUS_SHOT并阻止出手，确认不再加罚。几何触水/OB、上一杆坐标和合法drop搜索仍未实现。
+规则状态`UNPLAYED → READY → FLIGHT → READY/DROP/HOLED/CAPPED`。最后`par+4`杆仍可进洞；REST才封顶。WATER/OB每杆+1罚，触顶立即CAPPED、不drop；否则返回WATER_BACKTRACK/PREVIOUS_SHOT并阻止出手，确认不再加罚。物理球只在真实首次接触发一个当前ShotKey事件；state完成一次合法drop后才重置球，原语已验证，实际场景仍待回归。
 
 Stableford为`max(0,2+par-strokes)`，只累加终态洞到`p.score`。`[4,3,5]`与`[3,2,9]`分别12杆/E与14杆/+2，但同为6分并列第一；不以总杆破同分，不改core高分纪录语义。结果明细分列杆/分，占位局始终禁纪录。
 
@@ -88,6 +88,8 @@ python tools/import_game.py --godot <Godot>
 python tools/test_golf.py --godot <Godot>
 python tools/test_golf_surface.py --godot <Godot>
 python tools/test_golf_textures.py --godot <Godot>
+python tools/test_golf_sweep.py --godot <Godot>
+python tools/test_golf_physics.py --godot <Godot> --output <new-output-directory>
 python tools/smoke_game.py <Godot> --project game
 <Godot> --headless --fixed-fps 60 --path game res://scenes/golf/golf_game.tscn -- --map=0 --demo=4
 ```
@@ -95,6 +97,30 @@ python tools/smoke_game.py <Godot> --project game
 `<Godot>`为官方4.7.2；专用runner使用公共RS_TEST_MODE、隔离用户目录、受控自有子进程和超时日志。G1/G2/A早期记录中的固定47800占用检查仅是历史口径，当前已移除。规则与surface非法输入分别要求唯一指定拒绝错误、退出1，其他额外诊断仍失败；不停止别人的进程。
 
 surface验收含非共面ABC0/D10（归一化.25/.25→0、.75/.75→5、最大角→10）、解析斜面、一次采样/释放Callable、全16邻边mask、对角/重叠patch、独立edge计数/投影面积/全局法线、跨chunk48、每实际三角重心及mesh构建碰撞体射线≤1mm。A数值golden `game/tests/data/golf_surface_coarse.json`保持原值：78查询、96chunk计数、30mesh样本，跨平台用数值容差，不以同机hash作为跨平台门槛。B只保留未细化/过渡粗格内部原高度样本，不改旧法线/边缘期望伪称等价。
+
+## 有限三角扫掠（独立解析测试与当前接入）
+
+成本门通过前，先在独立分支准备`RSGolfSweep.cast_triangle(start,end,radius,a,b,c,out,front_only,feature_id)`：世界米、Y向上，端点代表一个120Hz直线子步；半径参数化，解析fixture采用G0的0.02135m。当前已通过正常merge纳入，并由RSGolfWorld从渲染三角缓存选候选面、调用此kernel；球／水树／OB／规则协调另见下节。下述110／394项是其独立数学的历史证据，不冒充当前完整游戏验收。
+
+`RSGolfContact`由调用者复用，含MISS/HIT/OVERLAP/INVALID、局部fraction、真实有限三角接触点、几何分离法线、面/边/顶点序号、feature_id、深度及t0接近/分离/切向/静止标记。初始穿透是诊断状态；零距离法线明确未定义，不伪造法线或罚杆。重复调用重置所有字段，`copy_from`保存值而不保留可变结果别名。
+
+面根、有限边圆柱区间和顶点球提出候选，统一用有限三角最近点复核，不用采样间距。面内最近点直接正交投影，边界/外部比较三条有限边；半空间使用几何法线，避免瘦长面Gram差乘重建的消减误差。双侧通用查询与front-only可选，正面按`(C-A)×(B-A)`约定；初始背面重叠保留诊断。根/投影用标量double，仅入/出为Vector3；算术roundoff为64倍double机器精度乘坐标尺度，与float32存储误差分开，不以毫米slop放大物理形状。内部同TOI按拓扑部分/序号稳定选择；跨洞杯/水/OB/地面的优先级与同时固体接触集合由RSGolfWorld协调，kernel不发计分事件。
+
+已写20个独立解析golden，含face/edge/vertex、有限面/边外假命中、精确切触/近失、起始重叠/零运动、双侧及front-only、0.5m细边界、斜坡及单步48m/s薄脊；另有真实场地尺度平移、重复调用及独立snapshot检查。`tools/test_golf_sweep.py`采用公共隔离测试模式。官方4.7.2受控导入通过并生成三个真实UID；正常104项、非法半径/NaN/退化三角各2项，共110项通过，无额外引擎/环境/泄漏/纪录诊断。首次正常集104项中5项平移断言失败，定点输出证实测试漏传offset、接触点恰好差完整平移量；只修调用、移除探针后全部重跑通过，未改kernel、golden或容差。原始失败及探针日志保留在`audit-output/golf-sweep-initial/`、`golf-sweep-first-run.log`、`golf-sweep-probe.log`，该轮最终四组已备份到`golf-sweep-skinny-before/baseline-110/`。**本片只验证有限三角的独立解析数学；没有物理接入、GPU运行或M1完成结论。** capsule/树冠exit和球支持放置不在本片展开。
+
+后续数学复核在官方4.7.2连续两次实测出旧110项未覆盖的反例：A=(0,0,0)、B=(1,0,0)、C=(1,0,1e-6)，球由(.75,1,2.5e-7)到(.75,-1,2.5e-7)、半径.02135m，应在fraction=.489325接触面，旧实现却MISS；同投影点零运动时还伪造+X法线。该三角通过原退化阈值，错误来自最近点重心差乘。修复为上述直接投影/有限边方案，面根也统一交最近点复核；原20个golden、根公式、退化阈值及ROUND/空间容差保持不变。失败脚本和两次原始日志保留在`audit-output/golf-sweep-skinny-before/`。
+
+新增独立解析平面y=0、3y-4x=0的瘦长面回归，水平面宽度覆盖1e-3至2e-7m，含零距离法线、双侧/反绕序front-only，以及三条边/三个顶点的闭边界与重复同TOI选择；水平面1e-7m继续作为独立INVALID拒绝。新增回归在修复前正常154项中失败23项；后加长度.001m/宽2e-10m的缩放边界时，又在386项中失败6项，确认比较完整3D距离会由公共法线距离平方掩盖微小面内差异，改为在投影后的局部平面比较。最终正常386项及4组隔离拒绝各2项，共394项通过，无额外引擎/环境/泄漏/纪录诊断，原110项全部保留。回归首稿另有Godot不支持`%g`标签格式的测试错误，改为`%s`后仍为23项数学失败，首稿与干净失败日志均保留；最终日志为`audit-output/golf-sweep/`及`golf-sweep-skinny-after/`，缩放边界失败另在后者的`scaled-boundary-initial/`。当前证据限场地尺度和上述数值条件；极端绝对坐标会使ROUND乘尺度接近或超过球半径，不提供整个finite float32范围的精度保证。当前接入没有放宽这些阈值，完整M1仍未验收。
+
+## 当前球物理与原语验证
+
+- RSGolfBall用半隐式Euler、9.81m/s²重力、相对风速二次阻力0.0045及有界Magnus升力；只消费120Hz固定步。每子步扫掠有限三角、有限树干capsule／树冠椭球、水域和精确OB，最早接触优先，同刻按洞杯／水／OB／固体决定；共享边固体约束共同投影，不重复注入反弹能量。
+- 反弹／滚阻沿用G0表；0.05m/s以下且坡力不超过静摩擦阈值持续48步才停球，25秒单杆安全预算。树冠首次进入×0.65，树干反弹0.2；洞杯半径0.054m，贴地球心进入0.03265m且≤1.5m/s才进洞，更快掠过只减速一次×0.8，离开后才解锁再次进入。
+- RSGolfBounds对所有洞路线62m闭capsule并集与地形域求交，连续路径首次出界即OB，不能在重入后抵消；距离场不再参与OB。紫色MultiMesh界桩在建图时生成，实际画面还未检查。
+- 水的有限足迹／高度独立于lie分类，空中过水不罚。RSGolfDrop沿真实路径，从最后陆水边界往回2–20m、每0.5m找合法且不更靠旗的地面；失败回上一杆，OB直接回上一杆。罚杆与drop仍由原规则令牌幂等控制。
+- 独立固定输入：正常92项＋NaN拒绝2项＋初始深穿透拒绝1项＋非法水几何拒绝1项，共96项通过，官方Godot4.7.2，四个独立进程，无额外错误／环境诊断／records文件。覆盖飞行公式、相对风、升力上限、解析坡面、薄脊、滚动距离、反弹表、水域／drop、树冠再入、洞杯和期限事件优先级。此结果只证明原语，不证明完整场景、1×/4×确定性或比赛画面。
+- 首轮夹具的typed-array条件表达式错误保留；第二轮查明RefCounted地表采样器未被夹具强持有，使Callable失效而回退球道，已修正测试对象生命周期。随后斜坡半秒速度原预期＜−0.5不符合解析式，保留实测−0.39609，增加独立牛顿投影推导的−0.3960902±0.00003m/s断言；没有为通过测试修改生产物理系数。所有失败／探针及最终独立输出均保留。
+- `tools/test_golf.py`新增`--maps/--players/--output`，输出必须为新目录，五个用户数据根分别隔离并保留，拒绝任何`records.cfg*`写入。协调夹具改用真实球在解析平面上的合法滚动接触；自然demo分数按终态洞逐项求和，允许合法封顶为零，不再依赖占位球必进洞。新场景回归尚未执行，不能将修改后的断言记为通过。
 
 ## 截图与来源
 
@@ -111,7 +137,24 @@ surface验收含非共面ABC0/D10（归一化.25/.25→0、.75/.75→5、最大�
 
 ## 尚未验收与性能口径
 
-- 当前仍未实现RSGolfBall、精确62m OB、sphere sweep、水/树干碰撞、合法drop、洞杯/停球；终态协调已验证的是占位弧线，不推广到未来真实物理。M1不能因占位弧线能结束而合并为完整物理。
+- 当前球物理与精确几何已接入，但只通过独立原语检查；两地图demo1/2/4、正式球的1×/4×协调、场景释放／断线／期限和最终可见性仍待验证。不能把旧占位弧线、旧截图或单独kernel结果推广为M1完成。
 - 粗网格早期四人中档实渲染仅约2.114–2.873FPS且波动明显，属于诊断样本，不能作为达到体验目标的基线。旧半窗口实验未改变玩家viewport，不能作像素成本对照；静态相机材质/mip消融也不是试玩或配对验收。
-- 正式细化成本须用同配置A+mip与B+mip配对；旧无mip粗版与新有mip细版不能混比。保留原始设置、源码SHA、采样健康与载入时间；四人平均FPS下降>5%或载入增加>1s即暂停评审，不牺牲0.5m共享坡面精度。目前未宣布通过。
+- A+mip与B+mip的12次静态成本门已通过，细节和完整数值见下一节；这不包含新球物理和最终镜头，不证明可玩性能。四人平均FPS下降>5%或载入增加>1s的暂停阈值保持，不牺牲0.5m共享坡面精度。
 - 维护者正协调2560×1440四人（每格约1280×720）及既有FSR质量档的独立隐藏桌面测量；本片不改生产FSR/core。实际画面、HDR/VRR、帧率、Regina/手机手感、正式单人/纪录/教学及最终2/4人录屏仍须按对应里程碑验证。
+
+## 2026-10-24 A+mip / B+mip 静态渲染成本门
+
+两图各 A、B 三次，共12次有效正式重复，0失败、0重跑。1600×900 native、4人、q1、AMD Radeon 780M、官方 Godot 4.7.2、seed20261024，每次5秒预热及10秒采样；固定在首次 PLAY、bot出杆前的临时发球台机位，冻结游戏 process。范围仅为静态渲染成本。
+
+| 地图 | A pooled FPS | B pooled FPS | B相对FPS退化 | mean ready增加 | 暂停门 |
+|---|---:|---:|---:|---:|---|
+| map0 | 71.9818 | 72.0827 | -0.1401% | 680.427 ms | 未触发 |
+| map1 | 40.7106 | 44.0982 | -8.3214% | 536.171 ms | 未触发 |
+
+门槛为 FPS退化>5% 或 mean scene-ready增加>1000ms。root接受本次静态成本门，允许继续独立物理验收；不能据此宣布可玩性能或完整M1完成。map1 B三次43.4102/44.6244/44.2605 FPS均低于45参考值。A/B采用固定分块次序，map0重复范围重叠、map1 A波动较大；表中升幅不能直接归因为细化收益。
+
+ready计时包含资源load、实例化和同步add_child/ready，不含引擎启动或异步shader稳定。三次原始帧合并调用冻结summarize_samples重算FPS、R7分位及1%low，不平均三个分位。逐次FPS/ready、p95/p99/最差帧和逐视口GPU均值/覆盖率见[statistics.json](benchmarks/golf-m1-static-cost-20261024/statistics.json)。map0 B最差帧377.359ms保留在原始采样及统计中。
+
+TIME_PROCESS仅为引擎process时间，不能称OS CPU利用率；root和P1–P4 GPU时间分别报告，不相加称整帧。探针同时保留真实首尾VP尺寸/AA/scale及机位并验证不变。Balanced且频率未锁、普通用户桌面仍可用，未进行随机化或热稳态控制。独占隐藏渲染、每秒交流检查、源码/存档/导入cache前后不变且无records文件的私有审计均通过。
+
+[manifest.json](benchmarks/golf-m1-static-cost-20261024/manifest.json)区分游戏source、测量工具及分类器身份，并链接12份数值完整的脱敏采样。公开JSON经过白名单元数据重写，与私有原JSON字节不同，分别记录两者SHA256；全部采样数值、null、顺序及数量相同。完整私有原件、日志和失败停机约束保留。

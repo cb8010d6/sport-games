@@ -11,6 +11,7 @@ import sys
 import urllib.request
 from pathlib import Path
 
+from package_archive import FONT_LICENSES
 from smoke_game import checked_run
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -76,6 +77,10 @@ def main() -> None:
     collect_notices(notices, config["godotVersion"])
     for name in ["LICENSE", "docs/THIRD_PARTY.md", "docs/ASSET_PROVENANCE.md", "game/assets/polyhaven/CREDITS.md"]:
         shutil.copy2(ROOT / name, notices / Path(name).name)
+    # OFL 1.1 requires the full license text to travel with the bundled fonts; .txt never reaches the pck.
+    for font_license in FONT_LICENSES:
+        shutil.copy2(font_license, notices / font_license.name)
+    shutil.copy2(ROOT / "game/assets/fonts/CREDITS.md", notices / "FONTS.md")
     (out / "README.txt").write_text(
         "Sport Games / 体感运动小游戏\n\n解压整个压缩包，双击 SportGames.exe。\n"
         "首次运行时请允许控制器中枢访问你信任的专用局域网。手机和电脑连接同一 Wi-Fi，在游戏大厅扫码。\n"
