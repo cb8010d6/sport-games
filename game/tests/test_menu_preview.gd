@@ -102,7 +102,7 @@ func _run() -> void:
 	hover.position = Vector2(1580, 880)
 	get_viewport().push_input(hover)
 	await _frames()
-	_udp.set_dest_address("127.0.0.1", ControllerHub.LISTEN_PORT)
+	_udp.set_dest_address("127.0.0.1", ControllerHub.listen_port())
 	await _button(RSController.BTN_B)
 	_selected(3, "UDP next")
 	await _button(RSController.BTN_C)
