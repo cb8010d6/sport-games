@@ -59,11 +59,16 @@ def _finite(vals: list[Any]) -> bool:
     return all(isinstance(v, (int, float)) and math.isfinite(v) for v in vals)
 
 
-def clean_profile_name(value: Any) -> str:
-    """A plain-text nickname, shared by the phone and local game profile."""
+def clean_profile_name(value: Any, limit: int = 20) -> str:
+    """A plain-text nickname, shared by the phone and local game profile.
+
+    Strips control/non-printable characters so a name can never smuggle a
+    newline or escape sequence into the roster, the game UI or logs. Rich
+    text is escaped at the game UI boundary, not modified in storage.
+    """
     if not isinstance(value, str):
         return ""
-    return "".join(ch for ch in value if ch.isprintable()).strip()[:20]
+    return "".join(ch for ch in value if ch.isprintable()).strip()[:limit]
 
 
 class WebSource:
@@ -129,7 +134,7 @@ class WebSource:
                 if t == "hello" and controller is None:
                     kind = "sim" if data.get("kind") == "sim" else "phone"
                     client_id = str(data.get("client_id") or id(ws))[:64]
-                    name = str(data.get("name") or kind)[:32]
+                    name = clean_profile_name(str(data.get("name") or kind), limit=32) or kind
                     controller = self.hub.attach(kind, f"{kind}:{client_id}", name, transport, rate_hint_hz=60.0 if kind == "phone" else 100.0, wrap_bits=None)
                     controller.extra["profile_name"] = clean_profile_name(data.get("profile_name"))
                     if kind == "phone":
