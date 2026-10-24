@@ -41,6 +41,7 @@ var _ble_roster_msec := -100000
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS  # menus pause the tree; hub input/OLED must keep flowing (#56)
 	RSSettings.load_once()       # sets the interface language before the first scene's UI
 	process_priority = -100  # update before game nodes read controller state
 	# Bind before any scene parses arguments; see docs/ARCHITECTURE.md (test-mode ports).
@@ -278,7 +279,10 @@ func _handle_json(pkt: PackedByteArray) -> void:
 			var c := _ensure(int(msg.get("controller", 0)))
 			var ev := str(msg.get("name", ""))
 			if ev == "connected":
+				var was_connected := c.connected
 				c.connected = true
+				if not was_connected:
+					controller_connected.emit(c)
 			elif ev == "disconnected":
 				c.connected = false
 				controller_disconnected.emit(c)
@@ -301,7 +305,7 @@ func _apply_roster(msg: Dictionary) -> void:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		var c := _ensure(int(entry.get("id", 0)))
-		var was_connected := c.connected and c.kind != ""
+		var was_connected := c.connected  # the event handler may already have emitted for this connection
 		c.apply_roster(entry)
 		if c.connected and not was_connected:
 			controller_connected.emit(c)
