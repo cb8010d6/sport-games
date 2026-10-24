@@ -507,12 +507,12 @@ func _build_terrain_meshes() -> void:
 	var tex := "res://assets/polyhaven/textures/%s/%s_%s_2k.jpg"
 	var rough: String = map["rough"]
 	var sand: String = map["sand"]
-	mat.set_shader_parameter("grass_tex", load(tex % ["leafy_grass", "leafy_grass", "diff"]))
-	mat.set_shader_parameter("grass_nor", load(tex % ["leafy_grass", "leafy_grass", "nor_gl"]))
-	mat.set_shader_parameter("rough_tex", load(tex % [rough, rough, "diff"]))
-	mat.set_shader_parameter("rough_nor", load(tex % [rough, rough, "nor_gl"]))
-	mat.set_shader_parameter("sand_tex", load(tex % [sand, sand, "diff"]))
-	mat.set_shader_parameter("sand_nor", load(tex % [sand, sand, "nor_gl"]))
+	mat.set_shader_parameter("grass_tex", RSGolfTextures.load_mipped(tex % ["leafy_grass", "leafy_grass", "diff"]))
+	mat.set_shader_parameter("grass_nor", RSGolfTextures.load_mipped(tex % ["leafy_grass", "leafy_grass", "nor_gl"], true))
+	mat.set_shader_parameter("rough_tex", RSGolfTextures.load_mipped(tex % [rough, rough, "diff"]))
+	mat.set_shader_parameter("rough_nor", RSGolfTextures.load_mipped(tex % [rough, rough, "nor_gl"], true))
+	mat.set_shader_parameter("sand_tex", RSGolfTextures.load_mipped(tex % [sand, sand, "diff"]))
+	mat.set_shader_parameter("sand_nor", RSGolfTextures.load_mipped(tex % [sand, sand, "nor_gl"], true))
 	mat.set_shader_parameter("grass_color", map["grass"])
 	mat.set_shader_parameter("green_color", map["green"])
 	mat.set_shader_parameter("rough_tint", map["rough_tint"])
