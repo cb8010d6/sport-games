@@ -22,6 +22,14 @@ log = logging.getLogger("hub")
 MAX_PLAYERS = 4
 BAD_COMMAND_WARNING_S = 60.0
 
+# Registry limits (#45): the registry used to grow without bound -- every new
+# client_id kept its entry (and its ever-increasing id) forever, until ids no
+# longer fit the u8 game protocol and the roster JSON outgrew one UDP datagram.
+MAX_CONTROLLERS = 32            ## live + recently disconnected controllers kept in the registry
+MAX_CONTROLLER_ID = 255         ## game protocol packs controller ids as u8
+REGISTRY_IDLE_EVICT_S = 300.0   ## a disconnected controller is forgotten after 5 minutes
+ROSTER_MAX_BYTES = 60000        ## roster JSON stays below the 65507-byte UDP datagram limit
+
 EVENT_FEEDBACK = {
     # event -> (toast text, beep freq, beep ms)
     "recentered": ("RECENTER OK", 2400, 60),
@@ -123,7 +131,7 @@ class Hub:
         self.controllers: dict[int, Controller] = {}
         self._ids_by_key: dict[str, int] = {}
         self._players_by_key: dict[str, int] = {}
-        self._next_id = 1
+        self._roster_trim_warned_at = 0.0
         self.game = GameLink(self, ("127.0.0.1", game_port))
         self.hub_port = hub_port
         self.recorder = recorder
@@ -143,6 +151,7 @@ class Hub:
         last_roster = 0.0
         while True:
             now = _now()
+            self._prune_registry(now)
             for c in list(self.controllers.values()):
                 if c.connected:
                     self._dispatch_events(c, c.tick(now))
@@ -157,11 +166,20 @@ class Hub:
 
     # ------------------------------------------------------------ registry ----
 
-    def attach(self, kind: str, key: str, name: str, transport: Transport, rate_hint_hz: float, wrap_bits: int | None) -> Controller:
+    def attach(self, kind: str, key: str, name: str, transport: Transport, rate_hint_hz: float, wrap_bits: int | None) -> Controller | None:
+        """Returns None when the registry is full and no disconnected entry can be
+        evicted; callers must refuse the connection gracefully (#45)."""
         cid = self._ids_by_key.get(key)
         if cid is None:
-            cid = self._next_id
-            self._next_id += 1
+            self._prune_registry()
+            if len(self.controllers) >= MAX_CONTROLLERS:
+                log.warning("attach refused for %s: registry full (%d controllers)", key, len(self.controllers))
+                return None
+            used = set(self.controllers)
+            cid = next((i for i in range(1, MAX_CONTROLLER_ID + 1) if i not in used), None)
+            if cid is None:
+                log.warning("attach refused for %s: no free controller id in 1..%d", key, MAX_CONTROLLER_ID)
+                return None
             self._ids_by_key[key] = cid
         old = self.controllers.get(cid)
         c = Controller(cid, kind, key, name, transport, rate_hint_hz, wrap_bits)
@@ -189,9 +207,38 @@ class Hub:
         if self.controllers.get(c.id) is not c:
             return
         c.connected = False
+        c.disconnected_at = _now()
         log.info("controller %d detached: %s", c.id, c.name)
         self._emit_event(c, "disconnected")
         self._roster_dirty = True
+
+    def _evict(self, c: Controller) -> None:
+        """Forget a disconnected controller entirely. The game already received its
+        disconnected event at detach time; the entry simply stops appearing in the
+        roster. _players_by_key is deliberately kept, so a returning device gets
+        its old player number back."""
+        self.controllers.pop(c.id, None)
+        if self._ids_by_key.get(c.key) == c.id:
+            del self._ids_by_key[c.key]
+        log.info("controller %d forgotten: %s (disconnected)", c.id, c.key)
+        self._roster_dirty = True
+
+    def _prune_registry(self, now: float | None = None) -> None:
+        """Evict disconnected controllers past REGISTRY_IDLE_EVICT_S; if the registry
+        is still at MAX_CONTROLLERS, evict longest-disconnected first (#45)."""
+        now = _now() if now is None else now
+        for c in list(self.controllers.values()):
+            if not c.connected and c.disconnected_at is not None and now - c.disconnected_at > REGISTRY_IDLE_EVICT_S:
+                self._evict(c)
+        if len(self.controllers) >= MAX_CONTROLLERS:
+            disconnected = sorted(
+                (c for c in self.controllers.values() if not c.connected),
+                key=lambda c: c.disconnected_at or 0.0,
+            )
+            for c in disconnected:
+                if len(self.controllers) < MAX_CONTROLLERS:
+                    break
+                self._evict(c)
 
     def assign_player(self, cid: int, player: int) -> None:
         c = self.controllers.get(cid)
@@ -221,8 +268,13 @@ class Hub:
             # sees where the controller is now rather than where it was when the sample left.
             for s in fused:
                 s.q = q_normalize(q_mul(s.q, q_from_rotvec(v_scale(s.gyro, c.predict_s))))
-        if fused:
-            for dgram in P.build_game_samples(c.id, fused):
+        if fused and not c.pack_failed:
+            try:
+                datagrams = P.build_game_samples(c.id, fused)
+            except (struct.error, OverflowError, ValueError) as exc:
+                self._drop_bad_packer(c, exc)
+                return fused
+            for dgram in datagrams:
                 self.game.send(dgram)
         self._dispatch_events(c, c.tick(_now()))
         return fused
@@ -231,7 +283,23 @@ class Hub:
         if self.recorder is not None:
             self.recorder.input(c, buttons, small, big, analog)
         c.ingest_input(buttons, small, big, analog, _now())
-        self.game.send(P.build_game_input(c.id, buttons, small, big, analog[0], analog[1]))
+        if c.pack_failed:
+            return
+        try:
+            packet = P.build_game_input(c.id, buttons, small, big, analog[0], analog[1])
+        except (struct.error, OverflowError, ValueError) as exc:
+            self._drop_bad_packer(c, exc)
+            return
+        self.game.send(packet)
+
+    def _drop_bad_packer(self, c: Controller, exc: Exception) -> None:
+        """A controller whose state cannot be packed for the game (e.g. an out-of-range
+        id) must not take its source down with an exception per message (#45). Warn
+        once and detach it; the source notices the disconnect through its usual path."""
+        c.pack_failed = True
+        log.warning("controller %d (%s): game packet packing failed (%s); detaching", c.id, c.key, exc)
+        if c.connected:
+            self.detach(c)
 
     def on_status(self, c: Controller, battery: int | None, charging: bool, **extra: Any) -> None:
         events = c.ingest_status(battery, charging)
@@ -312,8 +380,21 @@ class Hub:
                 log.warning("invalid game command ignored (%s)", type(exc).__name__)
 
     def roster(self) -> dict[str, Any]:
-        return {
-            "type": "roster",
-            "controllers": [c.roster_entry() for c in sorted(self.controllers.values(), key=lambda c: c.id)],
-            "phone_url": self.phone_url,
-        }
+        controllers = sorted(self.controllers.values(), key=lambda c: c.id)
+        entries = [c.roster_entry() for c in controllers]
+        payload: dict[str, Any] = {"type": "roster", "controllers": entries, "phone_url": self.phone_url}
+        size = len(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+        if size > ROSTER_MAX_BYTES:
+            # One oversized datagram would be dropped whole and the game would lose
+            # every controller; disconnected entries are the expendable part (#45).
+            payload = {
+                "type": "roster",
+                "controllers": [e for c, e in zip(controllers, entries, strict=True) if c.connected],
+                "phone_url": self.phone_url,
+            }
+            now = _now()
+            if now - self._roster_trim_warned_at > 60.0:
+                self._roster_trim_warned_at = now
+                log.warning("roster of %d bytes trimmed to connected controllers only (%d of %d entries)",
+                            size, len(payload["controllers"]), len(entries))
+        return payload
