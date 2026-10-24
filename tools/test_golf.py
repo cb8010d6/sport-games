@@ -25,7 +25,7 @@ def main() -> int:
     for map_index, players, invalid in cases:
         case = f"invalid-{invalid}" if invalid else f"map-{map_index}-players-{players}"
         with tempfile.TemporaryDirectory(prefix="rs-golf-") as temp:
-            env = dict(os.environ, RS_TEST_MODE="1", RS_GOLF_INVALID_DELTA=invalid, APPDATA=temp,
+            env = dict(os.environ, RS_TEST_MODE="1", RS_GOLF_INVALID_DELTA=invalid, APPDATA=temp, LOCALAPPDATA=temp,
                        XDG_DATA_HOME=temp, XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp)
             command = [executable, "--headless", "--audio-driver", "Dummy", "--fixed-fps", "60",
                        "--quit-after", "36000", "--log-file", str(output / f"{case}-engine.log"),
@@ -47,7 +47,7 @@ def main() -> int:
             records = list(Path(temp).rglob("records.cfg"))
             expected_errors = ["ERROR: RSGolfGame: delta must be finite and nonnegative"] if invalid else []
             expected_exit = 1 if invalid else 0
-            if (result.returncode != expected_exit or errors != expected_errors or records or len(markers) != 1
+            if (result.returncode != expected_exit or errors != expected_errors or environment or records or len(markers) != 1
                     or not re.fullmatch(re.escape(marker) + r" [1-9][0-9]* checks, 0 failures", markers[0])):
                 print(log)
                 print(f"{case}: failed (record files: {len(records)})")

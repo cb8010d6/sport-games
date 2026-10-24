@@ -21,6 +21,7 @@ const SDF_RANGE := 12.0          ## field values are clamped to +-this many metr
 const LINE_RANGE := 90.0         ## the line-of-play distance field reaches this far
 const TREE_CELL := 20.0
 const CHUNK := 48                ## heightfield cells per mesh chunk side
+const GREEN_FINE_PAD := 5.0 + sqrt(2.0)  ## covers green/fringe plus the 1 m interpolated field
 const MARGIN := 170.0            ## terrain beyond the features' bounds
 const OB_FROM_FAIRWAY := 62.0    ## further than this from every fairway and green = out of bounds
 const CUP_R := 0.054
@@ -396,7 +397,19 @@ func _build_heights() -> void:
 		_height_tees.append([t, _base(t.x, t.y) + 0.55])
 	if _height_links:
 		sea_level = 0.0
-	surface.build(Vector2(_x0, _z0), cells, raw_height_at)
+	if not surface.build(Vector2(_x0, _z0), cells, raw_height_at, _green_patches(cells)):
+		push_error("RSGolfCourse: terrain construction failed")
+
+
+func _green_patches(cells: Vector2i) -> Array[Rect2i]:
+	var patches: Array[Rect2i] = []
+	for hole: Dictionary in holes:
+		var g: Array = hole["def"]["green"]
+		var radius := maxf(g[2], g[3]) + GREEN_FINE_PAD
+		var first := Vector2i(floori((g[0] - radius - _x0) / CELL), floori((g[1] - radius - _z0) / CELL))
+		var end := Vector2i(ceili((g[0] + radius - _x0) / CELL), ceili((g[1] + radius - _z0) / CELL))
+		patches.append(Rect2i(first, end - first).intersection(Rect2i(Vector2i.ZERO, cells)))
+	return patches
 
 
 func raw_height_at(x: float, z: float) -> float:
