@@ -134,7 +134,8 @@ func _build_config(ui: Control) -> void:
 	var column := _column(_config, 14)
 	var device := "%s · %s / %s" % [RenderingServer.get_video_adapter_name(), RenderingServer.get_current_rendering_method(), RenderingServer.get_current_rendering_driver_name()]
 	var header := _header(column, tr("性能测试"), tr("滑板 → 滑雪 → 篮球 · 地图 1 · 约 2–3 分钟（加载另计）"))
-	header.add_child(_chip(device, RSUi.ACCENT))
+	# The adapter name can be long, so it sits under the subtitle instead of squeezing it from the right.
+	header.get_child(1).add_child(_chip(device, RSUi.ACCENT))
 	column.add_child(HSeparator.new())
 	_players = _option(column, tr("人数"), tr("双人或四人分屏；四人同时渲染更多视口。"), [tr("双人"), tr("四人")], 0)
 	var qualities: Array[String] = []

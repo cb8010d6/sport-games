@@ -85,12 +85,15 @@ python tools/subset_fonts.py <google/fonts 的 NotoSansSC[wght].ttf>   # 需要 
 | ![单人挑战](screenshots/ui-theme-solo-zh.png) | ![Party tournament](screenshots/ui-theme-party-en.png) |
 | ![新手教学](screenshots/ui-theme-tutorial-zh.png) | ![Countdown](screenshots/ui-theme-countdown-en.png) |
 | ![篮球四人](screenshots/ui-theme-hud-zh.png) | ![Results](screenshots/ui-theme-results-en.png) |
+| ![性能测试配置](screenshots/bench-ui-config-zh.png) | ![Benchmark results](screenshots/bench-ui-results-en.png) |
 
 复现截图：
 
 ```sh
 <Godot> --path game --resolution 1600x900 res://tests/ui_capture.tscn -- --ui-shots=out/ui
 ```
+
+性能测试页的截图由 `python tools/test_benchmark.py --godot <Godot> --screenshots --players 2 --output out/bench` 生成，见 [性能测试](PERFORMANCE.md)。
 
 ## 没有覆盖
 

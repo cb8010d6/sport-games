@@ -280,6 +280,8 @@ static func _style(t: Theme) -> void:
 		for key: StringName in [&"icon_hover_color", &"icon_focus_color", &"icon_pressed_color"]:
 			t.set_color(key, type, INK)
 		t.set_constant(&"h_separation", type, 10)
+	# Tint the drop-down arrow with the text so it stays visible on the accent bar.
+	t.set_constant(&"modulate_arrow", &"OptionButton", 1)
 	# A check box shows its state with the tick, and Godot picks its text colour from the toggle
 	# state rather than focus, so it is selected with a light tint and an accent edge instead of
 	# the solid bar, and keeps light text throughout.
