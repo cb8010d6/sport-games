@@ -20,6 +20,7 @@ const HOOK_MAX := 1.6              ## lateral m/s^2 at full twist
 const TWIST_FULL := 0.9            ## rad of wrist roll for full hook (~50 deg)
 const TWIST_DEAD := 0.08
 const SETTLE := 2.2                ## seconds after the ball is gone before counting pins
+const INTRO := 3.8                 ## venue flyover before the original 3-2-1
 
 enum Step { AIM, SWING, ROLLING, SETTLE_PINS, DONE }
 
@@ -76,6 +77,10 @@ func _parse_arg(arg: String) -> void:
 		_frames = clampi(int(arg.get_slice("=", 1)), 1, 10)
 
 
+func _countdown_time() -> float:
+	return INTRO + COUNTDOWN_TIME
+
+
 func _bowler(p: Player) -> Bowler:
 	return p.data
 
@@ -88,7 +93,7 @@ func _setup_world() -> void:
 	var hall := RSBowlingHall.new()
 	hall.name = "BowlingHall"
 	add_child(hall)
-	hall.configure(LANE_LEN, LANE_HALF, GUTTER, LANE_SPACING, font)
+	hall.configure(LANE_LEN, LANE_HALF, GUTTER, LANE_SPACING, RSUi.font_label())
 
 	_pin_mesh = _lathe_pin()
 	_pin_mat = RSBowlingHall.pin_material()
@@ -641,6 +646,11 @@ func _place_cam(p: Player, dt: float, snap: bool) -> void:
 	var s := _bowler(p)
 	var want := Vector3(s.lane_x + s.pos * 0.5, 1.5, 3.2)
 	var look := Vector3(s.lane_x, 0.2, -LANE_LEN * 0.6)
+	p.cam.fov = 50
+	if phase == Phase.COUNTDOWN and phase_time < INTRO:
+		RSBowlingHall.apply_intro(p.cam, phase_time, INTRO, s.lane_x, want, look)
+		s.look = look
+		return
 	if s.step in [Step.ROLLING, Step.SETTLE_PINS] or (s.step == Step.DONE and phase == Phase.PLAY):
 		# Chase the ball, then hold a few metres in front of the pins.
 		var bz := clampf(s.ball.global_position.z, -LANE_LEN + 4.5, 0.0) if s.step == Step.ROLLING else -LANE_LEN + 4.5
@@ -655,13 +665,19 @@ func _place_cam(p: Player, dt: float, snap: bool) -> void:
 # ---------------------------------------------------------------------------- HUD ----
 
 func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
+	if phase == Phase.COUNTDOWN and phase_time < INTRO:
+		return
 	var s := _bowler(p)
 	var sz := h.size
 	var col := color_of(p)
 	# Scoreboard: marks on top, running total below.
 	var marks := _marks(s)
 	var cum := _cumulative(s.rolls)
-	var box := Vector2(52, 50) * k
+	# Enlarge the whole grid with text; ten frames remain bounded by the split view.
+	var text_scale: float = RSSettings.TEXT_SCALES[RSSettings.text_size]
+	var sk := minf(k * text_scale, (sz.x - 40 * k) / (52 * (_frames + 0.4)))
+	var fs := sk / text_scale # draw_text applies the accessibility multiplier once.
+	var box := Vector2(52, 50) * sk
 	var x0 := 20 * k
 	var y0 := 72 * k
 	var x := x0
@@ -669,15 +685,15 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 		var r := Rect2(Vector2(x, y0), Vector2(box.x * (1.4 if f == _frames - 1 else 1.0), box.y))
 		x += r.size.x
 		var cur := f == s.frame and s.step != Step.DONE
-		h.draw_rect(r, Color(0.05, 0.06, 0.1, 0.65))
-		h.draw_rect(r, col.lightened(0.3) if cur else Color(1, 1, 1, 0.35), false, (2.5 if cur else 1.0) * k)
+		draw_box(h, r, RSUi.PANEL_BG, 0)
+		h.draw_rect(r, col if cur else RSUi.STROKE, false, (2.5 if cur else 1.0) * k)
 		var m: Array = marks[f]
 		for j in m.size():
-			var mx := r.end.x - (m.size() - j - 0.5) * 15 * k
-			draw_text(h, m[j], Vector2(mx, y0 + 18 * k), 15 * k, Color(1.0, 0.85, 0.3) if m[j] in ["X", "/"] else Color.WHITE, true)
+			var mx := r.end.x - (m.size() - j - 0.5) * 15 * sk
+			draw_text(h, m[j], Vector2(mx, y0 + 18 * sk), 15 * fs, RSUi.ACCENT if m[j] in ["X", "/"] else RSUi.TEXT, true, false, RSUi.font_numeric())
 		if f < cum.size():
-			draw_text(h, str(cum[f]), Vector2(r.get_center().x, y0 + 43 * k), 18 * k, Color.WHITE, true)
-		draw_text(h, str(f + 1), Vector2(r.position.x + 9 * k, y0 + 13 * k), 10 * k, Color(1, 1, 1, 0.5), true)
+			draw_text(h, str(cum[f]), Vector2(r.get_center().x, y0 + 43 * sk), 18 * fs, RSUi.TEXT, true, false, RSUi.font_numeric())
+		draw_text(h, str(f + 1), Vector2(r.position.x + 9 * sk, y0 + 13 * sk), 10 * fs, RSUi.TEXT_MUTED, true, false, RSUi.font_label())
 
 	match s.step:
 		Step.AIM:
@@ -686,25 +702,27 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 				var hint_size := 22.0 * k
 				var width := font.get_string_size(hint, HORIZONTAL_ALIGNMENT_LEFT, -1, int(hint_size)).x
 				hint_size *= minf(1.0, (sz.x - 40.0 * k) / maxf(width, 1.0))
-				draw_text(h, hint, Vector2(sz.x * 0.5, sz.y - 40 * k), hint_size, Color.WHITE, true)
+				draw_text(h, hint, Vector2(sz.x * 0.5, sz.y - 40 * k), hint_size, RSUi.TEXT, true)
 				var label := tr("第 %d 格　第 %d 球") % [mini(s.frame, _frames - 1) + 1, s.ball_in_frame + 1]
-				draw_text(h, label, Vector2(sz.x * 0.5, sz.y - 76 * k), 20 * k, Color(0.85, 0.9, 1.0), true)
+				draw_text(h, label, Vector2(sz.x * 0.5, sz.y - 76 * k), 20 * k, RSUi.TEXT_MUTED, true)
 		Step.SWING:
 			# Live twist gauge: where the ball would curve if released now.
 			var tw := 0.0 if p.fake else _twist(p)
 			var t := clampf(tw / TWIST_FULL, -1.0, 1.0)
 			var c := Vector2(sz.x * 0.5, sz.y - 70 * k)
 			var w := 150 * k
-			h.draw_rect(Rect2(c - Vector2(w, 6 * k), Vector2(w * 2.0, 12 * k)), Color(0, 0, 0, 0.4))
-			h.draw_circle(c + Vector2(t * w, 0), 11 * k, col.lightened(0.3))
-			draw_text(h, tr("左旋"), c + Vector2(-w - 30 * k, 7 * k), 18 * k, Color.WHITE, true)
-			draw_text(h, tr("右旋"), c + Vector2(w + 30 * k, 7 * k), 18 * k, Color.WHITE, true)
-			draw_text(h, tr("挥臂中……松开 B 出球"), c + Vector2(0, -24 * k), 22 * k, Color.WHITE, true)
+			draw_box(h, Rect2(c - Vector2(w, 6 * k), Vector2(w * 2.0, 12 * k)), RSUi.SCRIM, 0)
+			h.draw_circle(c + Vector2(t * w, 0), 11 * k, col)
+			draw_text(h, tr("左旋"), c + Vector2(-w - 30 * k, 7 * k), 18 * k, RSUi.TEXT, true)
+			draw_text(h, tr("右旋"), c + Vector2(w + 30 * k, 7 * k), 18 * k, RSUi.TEXT, true)
+			draw_text(h, tr("挥臂中……松开 B 出球"), c + Vector2(0, -24 * k), 22 * k, RSUi.TEXT, true)
 		Step.DONE:
 			if phase == Phase.PLAY:
-				draw_text(h, tr("打完了，等其他玩家"), Vector2(sz.x * 0.5, sz.y * 0.6), 26 * k, Color.WHITE, true)
+				draw_text(h, tr("打完了，等其他玩家"), Vector2(sz.x * 0.5, sz.y * 0.6), 26 * k, RSUi.TEXT, true)
 
 
 func _draw_overlay(o: Overlay, k: float) -> void:
-	if phase == Phase.COUNTDOWN:
-		draw_text(o, tr("像真的扔保龄球一样挥臂"), Vector2(o.size.x * 0.5, o.size.y * 0.45 + 60 * k), 26 * k, Color(0.92, 0.95, 1.0), true)
+	if phase == Phase.COUNTDOWN and phase_time < INTRO:
+		draw_title_card(o, _game_name(), tr("像真的扔保龄球一样挥臂"), RSIntro.fade(phase_time, INTRO), k)
+	elif phase == Phase.COUNTDOWN:
+		draw_text(o, tr("像真的扔保龄球一样挥臂"), Vector2(o.size.x * 0.5, o.size.y * 0.45 + 60 * k), 26 * k, RSUi.TEXT, true)

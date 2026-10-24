@@ -73,7 +73,7 @@ func _collision_layout() -> void:
 func _resources(hall: RSBowlingHall) -> void:
 	_check(hall.find_children("*", "CollisionObject3D", true, false).is_empty(), "decorative hall has no physics")
 	_check(hall.find_children("*", "MultiMeshInstance3D", true, false).size() >= 10, "repeated arrows, seating and lights are batched")
-	for id: String in ["plywood", "metal_plate", "painted_plaster_wall", "large_grey_tiles"]:
+	for id: String in ["plywood", "metal_plate", "painted_plaster_wall", "large_grey_tiles", "red_brick", "white_plaster_02", "beam_wall_01"]:
 		for map: Variant in RSPbr.maps(id):
 			_check(map is Texture2D, "registered PBR map resolves: " + id)
 	var world := hall.find_children("*", "WorldEnvironment", true, false)[0] as WorldEnvironment
@@ -86,12 +86,21 @@ func _resources(hall: RSBowlingHall) -> void:
 	_check(not environment.ssao_enabled and not environment.glow_enabled, "low quality disables requested screen effects")
 	RSSettings.quality = quality
 	RSSettings.environment(environment)
-	_check(environment.ssao_enabled and environment.glow_enabled, "quality restoration restores requested screen effects")
+	_check(environment.ssao_enabled == (quality >= 1) and environment.glow_enabled == (quality >= 1), "quality restoration restores requested screen effects")
 	var key := hall.find_children("*", "DirectionalLight3D", true, false)[0] as DirectionalLight3D
 	_check(key.shadow_enabled and key.light_angular_distance == 0, "pin shadows remain on with ordinary filtering at medium quality")
+	_check(hall.find_children("LanePool*", "SpotLight3D", true, false).size() == 6, "six actual spotlights align with visible lane luminaires")
+	_check(hall.find_children("PinDeckLight*", "SpotLight3D", true, false).size() == 4, "each masking unit has independent pin-deck lighting")
+	for label: Label3D in hall.find_children("*", "Label3D", true, false):
+		_check(label.font == RSUi.font_label(), "lane signage uses the shared label font")
+	var cushions := hall.get_node("SeatCushions") as MultiMeshInstance3D
+	_check(cushions.multimesh.mesh is ArrayMesh and cushions.multimesh.instance_count == 8, "eight seats share a procedural bevelled cushion mesh")
+	_check((hall.get_node("LampHousings") as MultiMeshInstance3D).multimesh.mesh is ArrayMesh, "luminaires have rounded three-dimensional housings")
 	for lane in 4:
 		var light := hall._materials["player%d" % (lane + 1)] as StandardMaterial3D
 		_check(light.emission == RSControllerModel.PLAYER_COLORS[lane + 1], "each lane retains its original distinct player colour")
+		var artwork := hall._materials["panel%d" % (lane + 1)] as ShaderMaterial
+		_check(artwork.shader == RSBowlingHall.MASK_SHADER and artwork.get_shader_parameter("player_color") == RSControllerModel.PLAYER_COLORS[lane + 1], "masking artwork has its own graphic shader and player colour")
 		var surface := hall.get_node("Lane%d" % (lane + 1)) as MeshInstance3D
 		_check(surface.material_override is ShaderMaterial and (surface.material_override as ShaderMaterial).shader == RSBowlingHall.LANE_SHADER, "lane uses the dedicated varnish/oil shader")
 		var data := surface.mesh.surface_get_arrays(0)
@@ -126,6 +135,102 @@ func _scores() -> void:
 	_scene._frames = frames
 
 
+func _hud_layout() -> void:
+	var count: int = _scene._frames
+	var states: Array = []
+	for player: RSPartyGame.Player in _scene.ordered():
+		var state: Variant = _scene._bowler(player)
+		states.append([state.rolls.duplicate(), state.frame, state.step])
+		state.step = _scene.Step.DONE
+	for frames: int in [5, 10]:
+		_scene._frames = frames
+		for player: RSPartyGame.Player in _scene.ordered():
+			var state: Variant = _scene._bowler(player)
+			state.rolls.clear()
+			for _i in frames + 2:
+				state.rolls.append(10)
+			state.frame = frames - 1
+			player.hud.queue_redraw()
+		await _frames()
+		for player: RSPartyGame.Player in _scene.ordered():
+			var cells: Array = _scene.score_cells.get(player.hud.get_instance_id(), [])
+			_check(cells.size() == frames, "actual HUD draws all five/ten score cells")
+			for cell: Array in cells:
+				_check(Rect2(Vector2.ZERO, player.hud.size).encloses(cell[0]), "score cells fit the real split-screen HUD")
+				_check(not (cell[1] as Array).is_empty(), "actual score cell draws frame, roll and cumulative numbers")
+				for row: Array in cell[1]:
+					_check((cell[0] as Rect2).grow(0.5).encloses(row[1]), "actual enlarged scoreboard glyphs fit their own cell: %s %s in %s" % [row[0], row[1], cell[0]])
+	_scene._frames = count
+	for i in states.size():
+		var state: Variant = _scene._bowler(_scene.ordered()[i])
+		state.rolls.assign(states[i][0])
+		state.frame = states[i][1]
+		state.step = states[i][2]
+	var label_font := RSUi.font_label()
+	_check(label_font.has_char(0x4fdd) and label_font.has_char(0x9f84), "shared label font resolves Chinese fallback glyphs")
+
+
+func _intro() -> void:
+	await _wait_phase(RSPartyGame.Phase.COUNTDOWN)
+	_scene.set_process(false)
+	var count: int = _scene.get_child_count()
+	for fraction: float in [0.0, 0.48, 1.0]:
+		_scene.phase_time = _scene.INTRO * fraction
+		for player: RSPartyGame.Player in _scene.ordered():
+			_scene._place_cam(player, 0.0, true)
+			var state: Variant = _scene._bowler(player)
+			var expected := Vector3(5.7, 2.7, 8.5)
+			var fov := 62.0
+			if fraction == 0.48:
+				expected = Vector3(state.lane_x + 0.35, 1.3, -15.0)
+				fov = 45.0
+			elif fraction == 1.0:
+				expected = Vector3(state.lane_x + state.pos * 0.5, 1.5, 3.2)
+				fov = 50.0
+			_check(player.cam.position.distance_to(expected) < 0.001, "intro anchors join the lounge, pin detail and original aim camera")
+			_check(is_equal_approx(player.cam.fov, fov), "intro FOV joins both segments and returns to the original aim FOV")
+			_check(player.cam.global_transform.is_finite() and player.score == 0, "intro keeps finite cameras and unchanged scores")
+	var shake := RSSettings.camera_shake
+	_scene.phase_time = _scene.INTRO * 0.3
+	for player: RSPartyGame.Player in _scene.ordered():
+		RSSettings.camera_shake = true
+		_scene._place_cam(player, 0.0, true)
+		var transform := player.cam.transform
+		RSSettings.camera_shake = false
+		_scene._place_cam(player, 0.0, true)
+		_check(player.cam.transform.is_equal_approx(transform), "smooth venue flyover introduces no jitter with either camera-shake setting")
+	RSSettings.camera_shake = shake
+	_scene.phase_time = _scene.INTRO * 0.18
+	_scene._countdown_process(0.0)
+	await _capture("intro")
+	_scene.set_process(true)
+	_scene.open_pause()
+	var time: float = _scene.phase_time
+	var pose: Transform3D = _scene.ordered()[0].cam.transform
+	await _frames()
+	_check(get_tree().paused and _scene.phase_time == time and _scene.ordered()[0].cam.transform == pose, "pause freezes venue flyover and camera")
+	_scene.ui.pause.close()
+	_check(_scene.get_child_count() == count, "flyover reuses the loaded venue")
+	_scene.set_process(true)
+
+
+func _play_cameras() -> void:
+	for player: RSPartyGame.Player in _scene.ordered():
+		var state: Variant = _scene._bowler(player)
+		var step: int = state.step
+		state.step = _scene.Step.AIM
+		_scene._place_cam(player, 0.0, true)
+		_check(player.cam.position.is_equal_approx(Vector3(state.lane_x + state.pos * 0.5, 1.5, 3.2)) and is_equal_approx(player.cam.fov, 50), "play restores the original aim pose and FOV")
+		_check(state.look.is_equal_approx(Vector3(state.lane_x, 0.2, -18.29 * 0.6)), "play restores the original aim target")
+		state.step = _scene.Step.ROLLING
+		_scene._place_cam(player, 0.0, true)
+		var z := clampf(state.ball.global_position.z, -18.29 + 4.5, 0.0)
+		_check(player.cam.position.is_equal_approx(Vector3(state.lane_x, 1.1, z + 2.6)) and is_equal_approx(player.cam.fov, 50), "rolling retains the original chase pose and FOV")
+		_check(state.look.is_equal_approx(Vector3(state.lane_x, 0.15, -18.29 - 0.2)), "rolling retains the original chase target")
+		state.step = step
+		_scene._place_cam(player, 0.0, true)
+
+
 func _capture(suffix: String) -> void:
 	var prefix := OS.get_environment("RS_BOWLING_SCREENSHOT")
 	if prefix.is_empty():
@@ -158,9 +263,34 @@ func _hall_capture() -> void:
 
 func _run() -> void:
 	await _missing_hdri()
-	_scene = (load("res://scenes/bowling/bowling_game.tscn") as PackedScene).instantiate()
+	# Observe the actual drawing calls; do not duplicate scoreboard geometry in the test.
+	var probe := GDScript.new()
+	probe.source_code = """extends "res://scenes/bowling/bowling_game.gd"
+var score_cells: Dictionary = {}
+func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
+	score_cells[h.get_instance_id()] = []
+	super._draw_hud(h, p, k)
+func draw_box(ci: CanvasItem, rect: Rect2, color: Color, radius: float = RSUi.RADIUS) -> void:
+	if ci is PlayerHud and color == RSUi.PANEL_BG:
+		score_cells[ci.get_instance_id()].append([rect, []])
+	super.draw_box(ci, rect, color, radius)
+func draw_text(ci: CanvasItem, text: String, pos: Vector2, size: float, color: Color, center := false, right := false, f: Font = null) -> void:
+	if ci is PlayerHud and not score_cells[ci.get_instance_id()].is_empty():
+		var cell: Array = score_cells[ci.get_instance_id()][-1]
+		if pos.y >= cell[0].position.y and pos.y <= cell[0].end.y:
+			var used: Font = font if f == null else f
+			var width: float = 2.0 * minf(pos.x - 4.0, ci.size.x - pos.x - 4.0) if center else (pos.x - 4.0 if right else ci.size.x - pos.x - 4.0)
+			var fs := RSUi.fit_text_size(text, size, width, pos.y - 4.0, ci.size.y - 8.0, used)
+			var w := used.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+			var at := pos - Vector2(w * (0.5 if center else (1.0 if right else 0.0)), used.get_ascent(fs))
+			cell[1].append([text, Rect2(at, Vector2(w, used.get_height(fs)))])
+	super.draw_text(ci, text, pos, size, color, center, right, f)
+"""
+	_check(probe.reload() == OK, "actual bowling HUD observer compiles")
+	_scene = probe.new()
 	get_tree().root.add_child(_scene)
 	get_tree().current_scene = _scene
+	await _intro()
 	await _wait_phase(RSPartyGame.Phase.PLAY)
 	_scene.set_process(false)
 	_scene.set_physics_process(false)
@@ -168,6 +298,8 @@ func _run() -> void:
 	_collision_layout()
 	_resources(hall)
 	_scores()
+	_play_cameras()
+	await _hud_layout()
 	var nodes := hall.get_child_count()
 	var materials: Array = hall._materials.values().map(func(material: Material) -> int: return material.get_instance_id())
 	await _capture("play")

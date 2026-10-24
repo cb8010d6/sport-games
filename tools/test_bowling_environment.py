@@ -18,6 +18,8 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot")
     parser.add_argument("--gpu-index", type=int, help="explicit Godot rendering-device index")
+    parser.add_argument("--quality", type=int, choices=(0, 1, 2, 3), default=2)
+    parser.add_argument("--text-size", nargs="+", type=int, choices=(100, 125), default=[100, 125])
     parser.add_argument("--screenshots", action="store_true")
     parser.add_argument("--players", nargs="+", type=int, choices=(2, 4), default=[2, 4])
     parser.add_argument("--output", type=Path, default=ROOT / "audit-output/bowling-environment")
@@ -27,15 +29,16 @@ def main() -> int:
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     for players in args.players:
-        for language in (0, 1):
-            name = f"bowling-{players}-{language}"
+        for language, text_size in ((language, size) for language in (0, 1) for size in args.text_size):
+            name = f"bowling-{players}-{language}-{text_size}"
             prefix = output / name
             with tempfile.TemporaryDirectory(prefix="rs-bowling-b1-") as temporary:
                 user = Path(temporary) / ("Godot/app_userdata/Regina Sports" if os.name == "nt"
                                           else "godot/app_userdata/Regina Sports")
                 user.mkdir(parents=True)
                 (user / "settings.cfg").write_text(
-                    f"[general]\nlanguage={language}\n[display]\nquality=1\n", encoding="utf-8")
+                    f"[general]\nlanguage={language}\n[display]\nquality={args.quality}\n"
+                    f"[accessibility]\ntext_size={int(text_size == 125)}\n", encoding="utf-8")
                 env = dict(os.environ, RS_TEST_MODE="1", APPDATA=temporary, XDG_DATA_HOME=temporary,
                            XDG_CONFIG_HOME=temporary, XDG_CACHE_HOME=temporary,
                            RS_BOWLING_SCREENSHOT=str(prefix) if args.screenshots else "")
@@ -57,7 +60,7 @@ def main() -> int:
                 print(log)
                 return 1
             if args.screenshots:
-                for suffix in ("play", "hall"):
+                for suffix in ("intro", "play", "hall"):
                     if png_size((output / f"{name}-{suffix}.png").read_bytes()) != (1600, 900):
                         raise ValueError("Wrong B1 screenshot dimensions")
             print(f"{name}: {markers[0]} (environment notes: {len(environment)})", flush=True)
