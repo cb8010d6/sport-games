@@ -1,0 +1,211 @@
+{
+  "schema_version": 1,
+  "method": "Frozen bench.summarize_samples; pooled individual frames, R7 percentiles, reciprocal mean of slowest ceil(1%) frames",
+  "gpu_scope": "Per-viewport render work reported separately; never summed as a whole presented frame",
+  "groups": [
+    {
+      "players": 2,
+      "frames": 8010,
+      "pooled_statistics": {
+        "avg_fps": 88.9882723344649,
+        "frame_ms_p50": 11.2075,
+        "frame_ms_p95": 12.737549999999999,
+        "frame_ms_p99": 13.447919999999998,
+        "frame_ms_worst": 26.372,
+        "one_percent_low_fps": 70.18960725881854,
+        "cpu_process_ms_avg": 12.66377141073658,
+        "gpu_ms_avg": null,
+        "gpu_samples": 0,
+        "draw_calls_avg": 573.3352059925094,
+        "video_memory_bytes_max": 863815456,
+        "nodes_max": 359
+      },
+      "repeats": [
+        {
+          "repeat": 1,
+          "frames": 2696,
+          "statistics": {
+            "avg_fps": 89.8598732602482,
+            "frame_ms_p50": 11.105,
+            "frame_ms_p95": 12.56025,
+            "frame_ms_p99": 13.277700000000001,
+            "frame_ms_worst": 17.703,
+            "one_percent_low_fps": 71.997504086525,
+            "cpu_process_ms_avg": 12.636881305637981,
+            "gpu_ms_avg": null,
+            "gpu_samples": 0,
+            "draw_calls_avg": 573.3249258160238,
+            "video_memory_bytes_max": 855164704,
+            "nodes_max": 359
+          }
+        },
+        {
+          "repeat": 2,
+          "frames": 2662,
+          "statistics": {
+            "avg_fps": 88.72267478266944,
+            "frame_ms_p50": 11.237,
+            "frame_ms_p95": 12.7809,
+            "frame_ms_p99": 13.47078,
+            "frame_ms_worst": 17.805,
+            "one_percent_low_fps": 71.07077332898135,
+            "cpu_process_ms_avg": 12.528423365890308,
+            "gpu_ms_avg": null,
+            "gpu_samples": 0,
+            "draw_calls_avg": 573.2160030052592,
+            "video_memory_bytes_max": 863815456,
+            "nodes_max": 359
+          }
+        },
+        {
+          "repeat": 3,
+          "frames": 2652,
+          "statistics": {
+            "avg_fps": 88.3823559356767,
+            "frame_ms_p50": 11.2665,
+            "frame_ms_p95": 12.821599999999998,
+            "frame_ms_p99": 13.556859999999997,
+            "frame_ms_worst": 26.372,
+            "one_percent_low_fps": 67.86289684085648,
+            "cpu_process_ms_avg": 12.826966063348417,
+            "gpu_ms_avg": null,
+            "gpu_samples": 0,
+            "draw_calls_avg": 573.4653092006033,
+            "video_memory_bytes_max": 846776096,
+            "nodes_max": 359
+          }
+        }
+      ],
+      "gpu_viewports": {
+        "root": {
+          "mean_ms": 0.2842993755763241,
+          "coverage": 1.0,
+          "valid_samples": 8010,
+          "total_samples": 8010
+        },
+        "player_1": {
+          "mean_ms": 4.889727840679564,
+          "coverage": 1.0,
+          "valid_samples": 8010,
+          "total_samples": 8010
+        },
+        "player_2": {
+          "mean_ms": 5.1836887653698485,
+          "coverage": 1.0,
+          "valid_samples": 8010,
+          "total_samples": 8010
+        }
+      },
+      "actual_per_player_viewport_dimensions_aa_scale": null,
+      "whole_frame_gpu_ms": null
+    },
+    {
+      "players": 4,
+      "frames": 6268,
+      "pooled_statistics": {
+        "avg_fps": 69.62846161790485,
+        "frame_ms_p50": 14.234,
+        "frame_ms_p95": 16.529849999999996,
+        "frame_ms_p99": 19.036559999999998,
+        "frame_ms_worst": 30.125,
+        "one_percent_low_fps": 47.087418914343495,
+        "cpu_process_ms_avg": 16.162264837268665,
+        "gpu_ms_avg": null,
+        "gpu_samples": 0,
+        "draw_calls_avg": 1417.2109125717932,
+        "video_memory_bytes_max": 804171520,
+        "nodes_max": 441
+      },
+      "repeats": [
+        {
+          "repeat": 1,
+          "frames": 2074,
+          "statistics": {
+            "avg_fps": 69.11972596328204,
+            "frame_ms_p50": 14.154,
+            "frame_ms_p95": 18.211849999999995,
+            "frame_ms_p99": 21.19808,
+            "frame_ms_worst": 30.125,
+            "one_percent_low_fps": 42.16884405158253,
+            "cpu_process_ms_avg": 17.11531918997107,
+            "gpu_ms_avg": null,
+            "gpu_samples": 0,
+            "draw_calls_avg": 1416.8712632594022,
+            "video_memory_bytes_max": 802074368,
+            "nodes_max": 441
+          }
+        },
+        {
+          "repeat": 2,
+          "frames": 2110,
+          "statistics": {
+            "avg_fps": 70.31758688171095,
+            "frame_ms_p50": 14.131,
+            "frame_ms_p95": 15.942,
+            "frame_ms_p99": 17.71970999999999,
+            "frame_ms_worst": 23.731,
+            "one_percent_low_fps": 52.392803134042225,
+            "cpu_process_ms_avg": 16.006069194312797,
+            "gpu_ms_avg": null,
+            "gpu_samples": 0,
+            "draw_calls_avg": 1416.578672985782,
+            "video_memory_bytes_max": 802074368,
+            "nodes_max": 441
+          }
+        },
+        {
+          "repeat": 3,
+          "frames": 2084,
+          "statistics": {
+            "avg_fps": 69.44806615961359,
+            "frame_ms_p50": 14.38,
+            "frame_ms_p95": 15.82255,
+            "frame_ms_p99": 16.61193,
+            "frame_ms_worst": 18.197,
+            "one_percent_low_fps": 57.89094999048935,
+            "cpu_process_ms_avg": 15.371928023032629,
+            "gpu_ms_avg": null,
+            "gpu_samples": 0,
+            "draw_calls_avg": 1418.1890595009597,
+            "video_memory_bytes_max": 804171520,
+            "nodes_max": 441
+          }
+        }
+      ],
+      "gpu_viewports": {
+        "root": {
+          "mean_ms": 0.2850974790048242,
+          "coverage": 1.0,
+          "valid_samples": 6268,
+          "total_samples": 6268
+        },
+        "player_1": {
+          "mean_ms": 3.0950800896679893,
+          "coverage": 1.0,
+          "valid_samples": 6268,
+          "total_samples": 6268
+        },
+        "player_2": {
+          "mean_ms": 3.3778663047499617,
+          "coverage": 1.0,
+          "valid_samples": 6268,
+          "total_samples": 6268
+        },
+        "player_3": {
+          "mean_ms": 3.38788353423062,
+          "coverage": 1.0,
+          "valid_samples": 6268,
+          "total_samples": 6268
+        },
+        "player_4": {
+          "mean_ms": 3.2340521705173426,
+          "coverage": 1.0,
+          "valid_samples": 6268,
+          "total_samples": 6268
+        }
+      },
+      "actual_per_player_viewport_dimensions_aa_scale": null,
+      "whole_frame_gpu_ms": null
+    }
+  ]
+}

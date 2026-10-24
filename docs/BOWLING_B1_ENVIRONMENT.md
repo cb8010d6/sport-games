@@ -77,3 +77,6 @@
 
 新增 `bowling-b1-r2-*` 画面及其裁剪的版本、方法、哈希与静态审查范围见 [B1 返工画面记录](BOWLING_B1_REVISION.md#2026-10-24-最终样式的静态画面证据)，本页历史截图和短采样仍保持原版本含义。
 这些新增画面仅含合成 P1–P4，来源沿用项目 MIT 代码/程序几何及已登记 CC0 素材，联合画面登记为 MIT AND CC0-1.0；许可与既有资源记录沿用 [THIRD_PARTY.md](THIRD_PARTY.md)。
+
+新增 `bowling-b1-r3-125-*` 四张 125% 代表原图与实际验收状态见 [单份 B1 返工记录](BOWLING_B1_REVISION.md) 及其白名单 metadata；本页历史图与数字保留原版本含义。
+这四张原图仅含合成 P1–P4，沿用既有项目 MIT / CC0 来源，联合画面登记为 MIT AND CC0-1.0；无新外部素材，来源与字体许可仍见 [THIRD_PARTY.md](THIRD_PARTY.md)。
