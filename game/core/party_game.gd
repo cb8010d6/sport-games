@@ -270,7 +270,6 @@ func _ready() -> void:
 	solo_mode = demo == 0 and RSSolo.active(game_id())
 	font = RSUi.font()
 	num_font = RSUi.font_numeric()
-	ControllerHub.process_mode = Node.PROCESS_MODE_ALWAYS   # buttons still arrive while paused
 	if not benchmark_mode:
 		map_index = posmod(int(_last_map.get(get_script().resource_path, map_index)), maxi(_maps().size(), 1))
 	lobby_cam = Camera3D.new()

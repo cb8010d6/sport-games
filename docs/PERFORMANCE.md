@@ -74,6 +74,8 @@ GPU 计时必须先在对应 RID 调用 `viewport_set_measure_render_time`。只
 
 ## 输出与比较
 
+CLI 按 Godot 4.7.2 的诊断格式检查 stdout、stderr 和引擎日志：行首的引擎/脚本/着色器错误（包括解析错误与 `ERROR: FATAL:`）、原生崩溃与 backtrace 标记，以及退出泄漏/资源仍被使用的信息都会使运行失败。普通玩法日志里的 `CRASH`（例如滑雪摔倒）不单独判为引擎崩溃；完成标记、退出码、超时、报告和逐帧数据仍须全部有效。格式依据固定提交 `ed1daf0bf` 的 [Logger](https://github.com/godotengine/godot/blob/ed1daf0bf001b61586d9930840f2f1394092c079/core/io/logger.cpp#L56-L76)、[错误与 fatal 宏](https://github.com/godotengine/godot/blob/ed1daf0bf001b61586d9930840f2f1394092c079/core/error/error_macros.h#L561-L580)、[Windows 崩溃处理](https://github.com/godotengine/godot/blob/ed1daf0bf001b61586d9930840f2f1394092c079/platform/windows/crash_handler_windows_seh.cpp#L144-L153)与 [Linux/BSD 崩溃处理](https://github.com/godotengine/godot/blob/ed1daf0bf001b61586d9930840f2f1394092c079/platform/linuxbsd/crash_handler_linuxbsd.cpp#L105-L114)。历史失败证据保留原状态；离线重分类应另存诊断，不能改写 raw 或日志，也不能当作重新测量。
+
 每次运行位于 `<项目>-m<地图>-p<人数>-q<画质>-r<重复序号>/`，保留 `engine-output.txt`（原始 JSON）、`raw.json`（结合进程退出与严格校验后的结果）、`run.log` 和 `engine.log`。`raw.json` 的 `runner_status` / `runner_errors` 保留原 runner 状态；即使 runner 先报告 PASS，随后退出出现引擎/资源错误，最终 `status` 仍为 FAIL。矩阵目录输出 `summary.json` 与 `summary.md`，顶层含 schema 版本、状态、计划/完成数量、错误、每次运行及重复分组。
 
 raw 顶层包括 `game`、`map`、`players`、`quality`、`warmup_seconds`、`duration_seconds`、`elapsed_seconds`、`frames`、`samples` 和 `metadata`；逐帧字段为 `frame_ms`、`cpu_process_ms`、`gpu_ms`、`gpu_viewports_ms`、`cpu_render_viewports_ms`、`draw_calls`、`video_memory_bytes`、`nodes`。重复组统计包括 `avg_fps`、`frame_ms_p50/p95/p99/worst`、`one_percent_low_fps`、`cpu_process_ms_avg`、`gpu_ms_avg`、`gpu_samples`、`draw_calls_avg`、`video_memory_bytes_max`、`nodes_max`。
