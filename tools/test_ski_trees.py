@@ -25,7 +25,7 @@ def main() -> int:
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     with temporary_data(output) as temporary:
-        env = dict(os.environ, RS_TEST_MODE="1", APPDATA=temporary, XDG_DATA_HOME=temporary,
+        env = dict(os.environ, RS_TEST_MODE="1", APPDATA=temporary, LOCALAPPDATA=temporary, XDG_DATA_HOME=temporary,
                    XDG_CONFIG_HOME=temporary, XDG_CACHE_HOME=temporary,
                    RS_SKI_TREE_RENDERER_CHECK="1" if args.renderer_check else "0")
         command = [find_godot(args.godot), "--path", str(ROOT / "game"), "res://tests/test_ski_trees.tscn"]

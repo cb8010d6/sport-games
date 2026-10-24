@@ -91,13 +91,14 @@ static func generate(course: RSSkiCourse, material: Material, lift_u: float) -> 
 	trng.seed = int(map["seed"]) * 31
 	var meshes: Array[ArrayMesh] = []
 	var low_meshes: Array[ArrayMesh] = []
+	var low_material := _coarse_material(material)
 	for v in 4:
 		# The low mesh gets a private copy: its random draws must never move a tree.
 		var low_rng := RandomNumberGenerator.new()
 		low_rng.seed = trng.seed
 		low_rng.state = trng.state
 		meshes.append(fir_mesh(trng, HEIGHTS[v], TIERS[v], LOBES[v], material))
-		low_meshes.append(fir_mesh(low_rng, HEIGHTS[v], TIERS[v], LOW_LOBES, material))
+		low_meshes.append(fir_mesh(low_rng, HEIGHTS[v], TIERS[v], LOW_LOBES, low_material))
 	var tree_line: float = map["tree_line"]
 	var chunk := 150.0
 	var c0 := -RSSkiCourse.PRE
@@ -142,6 +143,21 @@ static func generate(course: RSSkiCourse, material: Material, lift_u: float) -> 
 	if not far.is_empty():
 		batches.append({"mesh": meshes[3], "low": null, "xfs": far, "name": "far_firs", "shadows": false})
 	return batches
+
+
+static func _coarse_material(material: Material) -> Material:
+	# Data-only callers may supply a standard material. Production firs use the
+	# project shader; only the distant low mesh gets the cheaper fragment path.
+	if not material is ShaderMaterial:
+		return material
+	var source := material as ShaderMaterial
+	var coarse := ShaderMaterial.new()
+	coarse.shader = preload("res://scenes/ski/ski_fir_coarse.gdshader")
+	for parameter: StringName in [&"snow_tint", &"needle_light"]:
+		var value: Variant = source.get_shader_parameter(parameter)
+		if value != null:
+			coarse.set_shader_parameter(parameter, value)
+	return coarse
 
 
 static func build(course: RSSkiCourse, material: Material, lift_u: float) -> void:
