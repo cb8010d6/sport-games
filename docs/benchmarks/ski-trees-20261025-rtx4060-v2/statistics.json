@@ -1,0 +1,220 @@
+{
+  "schema_version": 1,
+  "status": "DIAGNOSTIC_VALID_OVERALL_OPTIMIZATION_NOT_ACCEPTED",
+  "groups": [
+    {
+      "side": "A",
+      "source_sha": "a181ce50998b0bd9621d1e746b1edb3da9353365",
+      "frames": 9679,
+      "repeat_fps": [
+        108.15762829419555,
+        107.139831710151,
+        107.28257373393981
+      ],
+      "repeat_fps_min": 107.139831710151,
+      "repeat_fps_max": 108.15762829419555,
+      "repeat_fps_range_percent_of_mean": 0.9465526172679668,
+      "repeat_statistics": [
+        {
+          "avg_fps": 108.15762829419555,
+          "frame_ms_p50": 9.157,
+          "frame_ms_p95": 10.0224,
+          "frame_ms_p99": 10.32448,
+          "frame_ms_worst": 15.114,
+          "one_percent_low_fps": 92.09542202029448,
+          "cpu_process_ms_avg": 10.372029583975348,
+          "gpu_ms_avg": null,
+          "gpu_samples": 0,
+          "draw_calls_avg": 610.8523882896765,
+          "video_memory_bytes_max": 1315445600,
+          "nodes_max": 338
+        },
+        {
+          "avg_fps": 107.139831710151,
+          "frame_ms_p50": 9.213,
+          "frame_ms_p95": 10.026299999999999,
+          "frame_ms_p99": 10.44486,
+          "frame_ms_worst": 31.348,
+          "one_percent_low_fps": 73.28756931782598,
+          "cpu_process_ms_avg": 10.956135614307932,
+          "gpu_ms_avg": null,
+          "gpu_samples": 0,
+          "draw_calls_avg": 611.8388802488336,
+          "video_memory_bytes_max": 1313348448,
+          "nodes_max": 338
+        },
+        {
+          "avg_fps": 107.28257373393981,
+          "frame_ms_p50": 9.232,
+          "frame_ms_p95": 10.0551,
+          "frame_ms_p99": 10.292819999999999,
+          "frame_ms_worst": 20.555,
+          "one_percent_low_fps": 92.58194203248223,
+          "cpu_process_ms_avg": 10.373147561354457,
+          "gpu_ms_avg": null,
+          "gpu_samples": 0,
+          "draw_calls_avg": 609.8981050015533,
+          "video_memory_bytes_max": 1321737056,
+          "nodes_max": 338
+        }
+      ],
+      "repeat_frames": [
+        3245,
+        3215,
+        3219
+      ],
+      "pooled_statistics": {
+        "avg_fps": 107.52664997861353,
+        "frame_ms_p50": 9.201,
+        "frame_ms_p95": 10.04,
+        "frame_ms_p99": 10.35285999999999,
+        "frame_ms_worst": 31.348,
+        "one_percent_low_fps": 84.66816625336381,
+        "cpu_process_ms_avg": 10.566419464820745,
+        "gpu_ms_avg": null,
+        "gpu_samples": 0,
+        "draw_calls_avg": 610.8626924269035,
+        "video_memory_bytes_max": 1321737056,
+        "nodes_max": 338
+      },
+      "gpu_viewports": {
+        "root": {
+          "mean_ms": 0.03785535693322595,
+          "valid_samples": 9679,
+          "total_samples": 9679,
+          "coverage": 1.0,
+          "actual_viewport_dimensions_aa_scale": null
+        },
+        "player_1": {
+          "mean_ms": 4.562065607211427,
+          "valid_samples": 9679,
+          "total_samples": 9679,
+          "coverage": 1.0,
+          "actual_viewport_dimensions_aa_scale": null
+        },
+        "player_2": {
+          "mean_ms": 4.294854736485774,
+          "valid_samples": 9679,
+          "total_samples": 9679,
+          "coverage": 1.0,
+          "actual_viewport_dimensions_aa_scale": null
+        }
+      }
+    },
+    {
+      "side": "B",
+      "source_sha": "a0252c3dcd3d70bf82abd7f6926dd9e0893e8ca1",
+      "frames": 9764,
+      "repeat_fps": [
+        108.71733376571414,
+        108.21630730098464,
+        108.47650037413561
+      ],
+      "repeat_fps_min": 108.21630730098464,
+      "repeat_fps_max": 108.71733376571414,
+      "repeat_fps_range_percent_of_mean": 0.4619030579481204,
+      "repeat_statistics": [
+        {
+          "avg_fps": 108.71733376571414,
+          "frame_ms_p50": 9.125,
+          "frame_ms_p95": 9.84395,
+          "frame_ms_p99": 10.039,
+          "frame_ms_worst": 15.392,
+          "one_percent_low_fps": 95.58152669765825,
+          "cpu_process_ms_avg": 10.12400521152667,
+          "gpu_ms_avg": null,
+          "gpu_samples": 0,
+          "draw_calls_avg": 610.509196811772,
+          "video_memory_bytes_max": 1313348512,
+          "nodes_max": 338
+        },
+        {
+          "avg_fps": 108.21630730098464,
+          "frame_ms_p50": 9.132,
+          "frame_ms_p95": 9.883,
+          "frame_ms_p99": 10.15924,
+          "frame_ms_worst": 50.733,
+          "one_percent_low_fps": 73.63458058412304,
+          "cpu_process_ms_avg": 11.388433939020635,
+          "gpu_ms_avg": null,
+          "gpu_samples": 0,
+          "draw_calls_avg": 610.7874961502926,
+          "video_memory_bytes_max": 1304959904,
+          "nodes_max": 338
+        },
+        {
+          "avg_fps": 108.47650037413561,
+          "frame_ms_p50": 9.142,
+          "frame_ms_p95": 9.8456,
+          "frame_ms_p99": 10.05768,
+          "frame_ms_worst": 31.459,
+          "one_percent_low_fps": 83.05438804016812,
+          "cpu_process_ms_avg": 10.60456129032258,
+          "gpu_ms_avg": null,
+          "gpu_samples": 0,
+          "draw_calls_avg": 611.4660522273425,
+          "video_memory_bytes_max": 1298668448,
+          "nodes_max": 338
+        }
+      ],
+      "repeat_frames": [
+        3262,
+        3247,
+        3255
+      ],
+      "pooled_statistics": {
+        "avg_fps": 108.4700464366001,
+        "frame_ms_p50": 9.133,
+        "frame_ms_p95": 9.856,
+        "frame_ms_p99": 10.08937,
+        "frame_ms_worst": 50.733,
+        "one_percent_low_fps": 82.95334213090206,
+        "cpu_process_ms_avg": 10.704690393281442,
+        "gpu_ms_avg": null,
+        "gpu_samples": 0,
+        "draw_calls_avg": 610.9207292093404,
+        "video_memory_bytes_max": 1313348512,
+        "nodes_max": 338
+      },
+      "gpu_viewports": {
+        "root": {
+          "mean_ms": 0.03835036865535122,
+          "valid_samples": 9764,
+          "total_samples": 9764,
+          "coverage": 1.0,
+          "actual_viewport_dimensions_aa_scale": null
+        },
+        "player_1": {
+          "mean_ms": 4.51396579251139,
+          "valid_samples": 9764,
+          "total_samples": 9764,
+          "coverage": 1.0,
+          "actual_viewport_dimensions_aa_scale": null
+        },
+        "player_2": {
+          "mean_ms": 4.2550458830675595,
+          "valid_samples": 9764,
+          "total_samples": 9764,
+          "coverage": 1.0,
+          "actual_viewport_dimensions_aa_scale": null
+        }
+      }
+    }
+  ],
+  "change_percent_B_vs_A": {
+    "avg_fps": 0.8773605968140918,
+    "one_percent_low_fps": -2.0253469495610132,
+    "frame_ms_p95": -1.8326693227091573,
+    "frame_ms_p99": -2.5450938194855333,
+    "frame_ms_worst": 61.83807579430904
+  },
+  "all_B_repeat_fps_above_all_A": true,
+  "pooled_gain_exceeds_larger_repeat_span": false,
+  "method": "Unchanged pinned summarize_samples over pooled original samples; time-weighted FPS, R7 quantiles and slowest ceil(N*0.01) frames for1%low. Never average repeat quantiles.",
+  "interpretation": "Very small mean gain with worse1%low and worst frame; root does not accept overall optimization. Three repeats and their ranges are descriptive, not a significance test. No skate drift anchor in this focused diagnostic.",
+  "scope": "RTX4060 current-core v1/v2, ski map1/2P only; excludes all old780M runs and probes; no LOD/image acceptance",
+  "unavailable": {
+    "whole_frame_gpu_ms": null,
+    "actual_per_viewport_dimensions_aa_scale": null
+  }
+}
