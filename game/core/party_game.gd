@@ -99,6 +99,7 @@ var _smoke_report := ""
 var _smoke_shot := ""
 var _smoke_done := false
 var _tournament_final_shown := false
+var _tournament_final_msec := 0  ## when the final podium appeared; A is ignored for 1 s (#55)
 var _tutorials: Dictionary = {}  ## controller id -> its active lobby lesson
 var _music: RSMusic
 
@@ -639,7 +640,9 @@ func _on_button(c: RSController, button: int, pressed: bool) -> void:
 	if ui.pause.is_open():
 		if pressed:
 			ui.pause.on_button(button)
-		return
+			return
+		# Releases still fall through to the game while paused: letting go of a
+		# held button here must not leave it "held" after resuming (#55).
 	if pressed and button == RSController.BTN_C and phase in [Phase.LOBBY, Phase.RESULTS]:
 		go_menu()
 		return
@@ -663,13 +666,18 @@ func _on_button(c: RSController, button: int, pressed: bool) -> void:
 				if RSTournament.last_round():
 					if not _tournament_final_shown:
 						_tournament_final_shown = true
+						_tournament_final_msec = Time.get_ticks_msec()
 						ui.show_tournament_podium(RSTournament.standings())
 						for participant: Player in players.values():
 							send_ui(participant, {"clear": true, "title": "PARTY", "main": "FINISHED", "legends": ["MENU", "", "MENU", null]})
-					else:
+					elif Time.get_ticks_msec() - _tournament_final_msec >= 1000:
 						go_menu()
+					# else: a second A within 1 s of the podium appearing (two
+					# players pressing together) must not skip it (#55).
 				else:
-					get_tree().change_scene_to_file(RSTournament.advance())
+					var next_scene := RSTournament.advance()
+					if next_scene != "":
+						get_tree().change_scene_to_file(next_scene)
 			else:
 				_to_lobby()
 	elif phase in [Phase.COUNTDOWN, Phase.PLAY]:
