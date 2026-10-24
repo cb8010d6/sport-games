@@ -12,15 +12,14 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from tools import release_launcher as launcher
-from tools.package_archive import validate_package
+from tools.package_archive import REQUIRED, validate_package
 
 
 class LauncherLogTests(unittest.TestCase):
     def test_rotated_logs_cannot_be_published(self):
         with tempfile.TemporaryDirectory() as temp:
             root = Path(temp)
-            for name in ("SportGames.exe", "game/SportGames.exe", "game/SportGames.pck", "hub/sport-hub.exe",
-                         "hub/config.json", "licenses/LICENSE", "BUILD_INFO.json"):
+            for name in REQUIRED:
                 file = root / name
                 file.parent.mkdir(parents=True, exist_ok=True)
                 file.touch()

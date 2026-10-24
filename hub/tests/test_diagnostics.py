@@ -119,7 +119,7 @@ async def test_scan_failures_are_redacted_and_rate_limited(caplog, monkeypatch):
             raise asyncio.CancelledError
 
     monkeypatch.setitem(sys.modules, "bleak", SimpleNamespace(BleakScanner=Scanner))
-    monkeypatch.setattr(ble, "asyncio", SimpleNamespace(sleep=sleep))
+    monkeypatch.setattr(ble, "asyncio", SimpleNamespace(sleep=sleep, gather=asyncio.gather))
     monkeypatch.setattr(diagnostics, "time", SimpleNamespace(monotonic=lambda: 0))
     with pytest.raises(asyncio.CancelledError):
         await ble.ReginaBleSource(Hub()).run()
