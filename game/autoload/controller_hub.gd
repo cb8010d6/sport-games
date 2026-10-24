@@ -39,6 +39,7 @@ var _last_rx_msec := -100000
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS  # menus pause the tree; hub input/OLED must keep flowing (#56)
 	RSSettings.load_once()       # sets the interface language before the first scene's UI
 	process_priority = -100  # update before game nodes read controller state
 	# Bind before any scene parses arguments; see docs/ARCHITECTURE.md (test-mode ports).

@@ -88,6 +88,8 @@ func _run() -> void:
 	add_child(pause)
 	pause.open()
 	_check(get_tree().paused and pause.is_open(), "main menu settings open")
+	_check(ControllerHub.process_mode == Node.PROCESS_MODE_ALWAYS, "controller hub opts out of pausing itself")
+	_check(ControllerHub.can_process(), "controller hub keeps polling while settings pause the tree (#56)")
 	pause._choose(0) # display
 	pause.back()
 	_check(pause._page == "settings", "settings back navigation")
