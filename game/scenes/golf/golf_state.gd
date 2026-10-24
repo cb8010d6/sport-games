@@ -1,99 +1,107 @@
 class_name RSGolfState
 extends RefCounted
-## G1 round state and deliberately scripted flight, in metres/seconds. No terrain physics,
-## penalties or gesture detection yet; G2/G3 replace those parts without changing score units.
+## Scene/input adapter around pure rules. Flight is still a scripted 144-tick arc, not G3 physics.
 
-const HOLE_SECONDS := 150.0  ## effective play seconds per hole
-const FLIGHT_SECONDS := 1.2  ## placeholder arc duration, s
-const ARC_HEIGHT := 12.0    ## placeholder apex above the straight segment, m
+const FLIGHT_TICKS := 144
+const ARC_HEIGHT := 12.0  ## placeholder apex above the straight segment, m
 const REACHES := [60.0, 120.0, 220.0]  ## selectable placeholder distance, m
 
+var rules := RSGolfRules.new()
+var events: Array[RSGolfRules.Event] = []  ## reused at 120 Hz; entries exist only on contact
 var ball: MeshInstance3D
-var hole := 0
-var par := 4
-var strokes := PackedInt32Array([0, 0, 0])
-var points := PackedInt32Array([0, 0, 0])
-var capped := PackedByteArray([0, 0, 0])
 var position := Vector3.ZERO
 var armed := false
+var requested := false
 var flying := false
-var done := false
 var reach_index := 2
-var bot_wait := 0.0
+var bot_ticks := 0
+var done: bool:
+	get:
+		return rules.finished()
 var _from := Vector3.ZERO
 var _target := Vector3.ZERO
 var _pin := Vector3.ZERO
-var _flight_time := 0.0
+var _flight_tick := 0
+var _command_seq := 0
+var _command: RSGolfRules.StrokeKey
+var _shot: RSGolfRules.StrokeKey
 
 
-func reset() -> void:
-	strokes.fill(0)
-	points.fill(0)
-	capped.fill(0)
+func reset(pars: PackedInt32Array, slot: int) -> void:
+	rules.reset_round(pars, slot)
+	cancel_input()
+	events.clear()
 	reach_index = 2
-	armed = false
 	flying = false
-	done = false
-	bot_wait = 0.0
+	bot_ticks = 0
+	_command_seq = 0
+	_shot = null
 
 
-func start_hole(index: int, standard: int, tee: Vector3) -> void:
-	hole = index
-	par = standard
-	position = tee
-	armed = false
-	flying = false
-	done = false
-	bot_wait = 0.0
-	_flight_time = 0.0
-
-
-func launch(target: Vector3, pin: Vector3) -> bool:
-	if done or flying:
+func start_hole(index: int, tee: Vector3) -> bool:
+	if not rules.start_hole(index):
 		return false
-	armed = false
-	strokes[hole] += 1
-	_from = position
-	_target = target
-	_pin = pin
-	_flight_time = 0.0
-	flying = true
-	bot_wait = 0.0
+	position = tee
+	cancel_input()
+	events.clear()
+	flying = false
+	bot_ticks = 0
+	_flight_tick = 0
+	_shot = null
 	return true
 
 
-func advance(delta: float) -> void:
+func arm(at_tick: int) -> void:
+	if rules.ready() and not requested:
+		_command_seq += 1
+		_command = rules.command_key(_command_seq, at_tick)
+		armed = true
+
+
+func request(at_tick: int) -> void:
+	if armed:
+		_command.tick = at_tick
+		requested = true
+		armed = false
+
+
+func cancel_input() -> void:
+	armed = false
+	requested = false
+	_command = null
+
+
+func launch(target: Vector3, pin: Vector3) -> bool:
+	if not requested:
+		return false
+	requested = false
+	_shot = rules.try_stroke(_command)
+	_command = null
+	if _shot == null:
+		return false
+	_from = position
+	_target = target
+	_pin = pin
+	_flight_tick = 0
+	flying = true
+	bot_ticks = 0
+	return true
+
+
+func advance_tick(next_tick: int) -> void:
+	events.clear()
 	if not flying or done:
 		return
-	_flight_time = minf(_flight_time + delta, FLIGHT_SECONDS)
-	var u := _flight_time / FLIGHT_SECONDS
+	_flight_tick += 1
+	var u := float(_flight_tick) / FLIGHT_TICKS
 	position = _from.lerp(_target, u) + Vector3.UP * (4.0 * ARC_HEIGHT * u * (1.0 - u))
-	if u < 1.0:
-		return
-	flying = false
-	if position.distance_to(_pin) < 0.03:
-		_finish(false)
-	elif strokes[hole] >= par + 4:
-		cap_hole()
+	if _flight_tick == FLIGHT_TICKS:
+		flying = false
+		var kind := RSGolfRules.Outcome.HOLED if position.distance_to(_pin) < 0.03 else RSGolfRules.Outcome.REST
+		events.append(RSGolfRules.Event.new(_shot, kind, next_tick))
 
 
-func cap_hole() -> void:
+func after_tick() -> void:
 	if done:
-		return
-	strokes[hole] = par + 4
-	_finish(true)
-
-
-func score() -> int:
-	var total := 0
-	for value: int in points:
-		total += value
-	return total
-
-
-func _finish(limit: bool) -> void:
-	done = true
-	armed = false
-	flying = false
-	capped[hole] = int(limit)
-	points[hole] = maxi(0, 2 + par - strokes[hole])
+		flying = false
+		cancel_input()

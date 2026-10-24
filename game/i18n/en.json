@@ -471,7 +471,7 @@
   "大（125%）": "Large (125%)",
   "界面字号　◀ %s ▶": "Text size  ◀ %s ▶",
   "高尔夫": "Golf",
-  "G1占位输入：A切换60/120/220米，按住B再松开击球，C取消。三洞一局，每洞150秒，各自同时打球；不计正式纪录。": "G1 placeholder input: A selects 60/120/220 m; hold and release B to shoot; C cancels. Three holes per round, 150 seconds each; players shoot simultaneously. No official records.",
-  "3洞 · 标准杆12 · G1占位局": "3 holes · Par 12 · G1 placeholder round",
-  "G1占位局 · %d杆 · %d洞上限（不计纪录）": "G1 placeholder · %d strokes · %d capped holes (no records)"
+  "占位输入：A切换60/120/220米，按住B再松开击球，C取消。三洞一局，每洞150秒，各自同时打球；不计正式纪录。": "Placeholder input: A selects 60/120/220 m; hold and release B to shoot; C cancels. Three holes per round, 150 seconds each; players shoot simultaneously. No official records.",
+  "3洞 · 标准杆12 · 占位出手": "3 holes · Par 12 · Placeholder shots",
+  "占位局 · %d杆（%s）· %d洞上限 · 各洞%s（杆/分，不计纪录）": "Placeholder · %d strokes (%s) · %d capped · Holes %s (strokes/points, no records)"
 }
