@@ -179,7 +179,7 @@ def main() -> int:
     godot = find_godot(args.godot)
     games = list(dict.fromkeys(args.games))
     with tempfile.TemporaryDirectory(prefix="rs-catalog-") as temp:
-        env = dict(os.environ, APPDATA=temp, XDG_DATA_HOME=temp, XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp)
+        env = dict(os.environ, RS_TEST_MODE="1", APPDATA=temp, XDG_DATA_HOME=temp, XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp)
         try:
             cases = discover_cases(godot, env, output, games)
         except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
@@ -201,7 +201,7 @@ def main() -> int:
         report.unlink(missing_ok=True)
         shot.unlink(missing_ok=True)
         with tempfile.TemporaryDirectory(prefix="rs-smoke-") as temp:
-            env = dict(os.environ, APPDATA=temp, XDG_DATA_HOME=temp, XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp)
+            env = dict(os.environ, RS_TEST_MODE="1", APPDATA=temp, XDG_DATA_HOME=temp, XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp)
             user = Path(temp) / ("Godot/app_userdata/Regina Sports" if os.name == "nt" else "godot/app_userdata/Regina Sports")
             user.mkdir(parents=True, exist_ok=True)
             (user / "settings.cfg").write_text(f'[general]\nlanguage={int(args.language == "en")}\n[display]\nquality=0\n', encoding="utf-8")

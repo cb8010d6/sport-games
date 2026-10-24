@@ -61,7 +61,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 正式单人模式使用 `RSSolo.begin(game_id, slot, difficulty)`：一个已分配本地槽的真人和一个电脑对手，共用原有物理、名次和教学流程；只有真人可以写纪录。电脑独占另一个槽，`RSPartyGame` 保证真人缺席时不会自动开局，其他手柄不会加入。项目通过 `bot_error()` / `bot_ability()` 取得难度参数，演示默认参数保持原样。退出到菜单时清除会话。每项目三个分数挑战基于地图 1 的正式个人最佳导出（每档一星），复用 `records.cfg`，不另加进度文件；主菜单标明规则、个人星数与难度。
 
-调试参数（`--` 之后）只在 `party_game.gd` 和 `main_menu.gd` 里解析（ARCH-ARGS）：`--demo=N`、`--shots=<前缀>`、`--map=N`、`--game=<id>`；项目自己的参数通过 `_parse_arg(arg)` 拿到。
+调试参数（`--` 之后）只在 `party_game.gd` 和 `main_menu.gd` 里解析（ARCH-ARGS）：`--demo=N`、`--shots=<前缀>`、`--map=N`、`--game=<id>`；项目自己的参数通过 `_parse_arg(arg)` 拿到。唯一例外是 `--hub-port=N`：`ControllerHub` 必须在任何场景之前绑定端口，所以由它自己读取（`# allow: ARCH-ARGS`），见第 4 节。
 
 ## 3. 公共模块
 
@@ -103,6 +103,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 界面字号由 `RSSettings.text_size` 保存在同一设置文件，标准为 100%，大号为 125%。`RSUi` 保留控件、Theme 和成绩富文本的原始字号，切换时一次更新现有界面，新控件按当前设置创建；不重载比赛、不逐帧遍历节点、不重复累乘。主菜单项目列表和菜单子页滚动跟随焦点。六项目通过 `RSPartyGame.draw_text / draw_pill` 统一放大 HUD，受分屏宽度与屏幕边缘限制的单行文字按实际字体度量适配；3D 世界标签和手柄 OLED 保持原尺寸。
 
 - **中枢 ↔ 游戏**：只有 [protocol.md](protocol.md) 定义的 UDP 消息。新增字段要同时改协议文档、hub 和 `ControllerHub`，并保持旧字段兼容。
+- **端口**：正常游戏监听 `127.0.0.1:47800`、发往 hub 的 47801，同一时间只能运行一个实例。`RS_TEST_MODE=1` 时 `ControllerHub` 绑定系统分配的临时端口、不向 hub 发任何消息，同一台电脑上可以并行跑任意多个测试实例，也不会打扰正在运行的真实 hub；测试用 `ControllerHub.listen_port()` 取得端口，向它发送合成的 hub 数据包。需要真实 hub 的双实例测试给每个实例传 `--hub-port=N`（任何模式都有效）：游戏发往 N、监听 N-1，对应 hub 用 `--hub-port N --game-port N-1` 启动。端口无效（不在 2–65535）时报错且不绑定。`tools/` 下启动游戏项目的测试脚本都设置 `RS_TEST_MODE=1`；`tools/test_hub_port.py` 在占住 47800 的情况下同时启动多个实例检查以上行为。发行包冒烟（`smoke_release.py`、`release_launcher.py`）按正常模式运行，自带 hub，仍使用固定端口。
 - **存档**：`user://*.cfg`（ConfigFile）。`RSSave.read(path)` 读原文件、`.bak`、`.tmp` 中的有效副本；`RSSave.write(path, config)` 使用版本 1 元数据、SHA-256 校验、验证后的临时文件和上一份有效备份。无版本旧档按版本 0 读取，下次成功保存时升级。未知版本只读保护，不用旧备份覆盖；所有副本损坏时返回默认配置并记录警告。备份与临时文件是现有存档的恢复副本，不新增业务存档或 autoload。Windows 替换目标文件存在短暂间隙，因此承诺可恢复写入，不承诺断电原子性或磁盘硬件损坏恢复。`override.cfg` 仍是启动时派生的渲染设置；两份设置文件无法构成跨文件事务，驱动变更保存失败时返回错误。
 - **文案**：中文原文就是 key。改中文原文等于换了 key，必须同步 `en.json`，并通过 `python tools/i18n_check.py`。
 - **素材**：`res://assets/...`。新增素材必须记录来源和许可（[ASSETS.md](ASSETS.md)、[THIRD_PARTY.md](THIRD_PARTY.md)）。Poly Haven 原图不进 Git，由 `tools/sync_assets.mjs` 下载并按 `tools/assets.lock.json` 校验。

@@ -23,7 +23,7 @@ func _ready() -> void:
 	_slot = [1, 3, 4][_level]
 	_captures = OS.get_environment("RS_SOLO_CAPTURE")
 	_layout = not _captures.is_empty()
-	_peer.set_dest_address("127.0.0.1", ControllerHub.LISTEN_PORT)
+	_peer.set_dest_address("127.0.0.1", ControllerHub.listen_port())
 	_run.call_deferred()
 
 

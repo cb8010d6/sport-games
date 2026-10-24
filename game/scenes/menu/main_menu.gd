@@ -2,8 +2,10 @@ extends Control
 ## Start screen: pick a game. Mouse, keyboard (arrows + Enter) or any controller
 ## (B = next, C = previous, A = open). Esc in a game comes back here. The last entry switches
 ## the language (中文 / English) and rebuilds the screen.
-## Behind the menu, two bot riders skate the seaside street from the skate game, filmed by a
-## camera that cuts between a chase shot and a tracking shot alongside.
+## Layout: the numbered sport list and a grid of modes on the left, the selected sport's
+## picture full screen behind them with its title plate bottom right, button prompts along the
+## bottom. Non-sport entries show the live backdrop instead: two bot riders skate the seaside
+## street from the skate game, filmed by a camera that cuts between chase and tracking shots.
 
 const GAMES := RSCatalog.GAMES + [
 	{"name": "单人挑战", "oled": "SOLO", "scene": "", "page": "solo", "desc": "选择电脑难度，挑战三个分数目标，收集每个项目的星星。"},
@@ -20,15 +22,20 @@ const GAMES := RSCatalog.GAMES + [
 const SHOT_TIME := 7.0           ## seconds per camera shot in the backdrop
 
 var _buttons: Array[Button] = []
+var _row_labels: Array = []      ## per button: its labels, recoloured when it is selected
 var _desc: Label
 var _status: Label
-var _offline_chip := RSUi.chip_style(RSUi.BAD)
-var _online_chip := RSUi.chip_style(RSUi.GOOD)
 var _index := 0
 var _pages: RSMenuPages
 var _settings: RSPauseMenu
-var _menu_grid: GridContainer
+var _menu_grid: VBoxContainer    ## both lists, inside the scroll container
 var _preview: RSGamePreview
+var _info: VBoxContainer         ## title plate, bottom right
+var _info_title: Label
+var _info_tag: Label
+var _stats: HBoxContainer
+var _best: Label
+var _backdrop: SubViewport
 
 var _course: RSSkateCourse
 var _cam: Camera3D
@@ -72,87 +79,113 @@ func _ready() -> void:
 	else:
 		_build_backdrop()
 
-	# Darken the left side for the menu column; the street stays clear on the right.
-	var shade := TextureRect.new()
-	var grad := GradientTexture2D.new()
-	grad.gradient = Gradient.new()
-	grad.gradient.offsets = PackedFloat32Array([0.0, 0.42, 0.75])
-	grad.gradient.colors = PackedColorArray([Color(0.02, 0.04, 0.08, 0.86), Color(0.02, 0.04, 0.08, 0.7), Color(0.02, 0.04, 0.08, 0.0)])
-	grad.fill_from = Vector2(0, 0)
-	grad.fill_to = Vector2(1, 0)
-	shade.texture = grad
-	shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-	shade.stretch_mode = TextureRect.STRETCH_SCALE
-	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
-	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(shade)
+	_preview = RSGamePreview.new()
+	add_child(_preview)
+	# Darken the left side for the lists and the bottom for the title plate and prompts.
+	add_child(_shade(Vector2(0, 0), Vector2(1, 0), [0.0, 0.36, 0.66], [0.94, 0.8, 0.0]))
+	add_child(_shade(Vector2(0, 1), Vector2(0, 0.45), [0.0, 1.0], [0.9, 0.0]))
 
 	var margin := MarginContainer.new()
 	margin.set_anchors_preset(Control.PRESET_LEFT_WIDE)
-	margin.add_theme_constant_override("margin_left", 48)
-	margin.add_theme_constant_override("margin_top", 48)
-	margin.add_theme_constant_override("margin_bottom", 40)
+	margin.add_theme_constant_override("margin_left", 64)
+	margin.add_theme_constant_override("margin_top", 44)
+	margin.add_theme_constant_override("margin_bottom", 96)
 	add_child(margin)
 	var col := VBoxContainer.new()
-	col.custom_minimum_size = Vector2(660, 0)
-	col.alignment = BoxContainer.ALIGNMENT_CENTER
-	col.add_theme_constant_override("separation", 10)
+	col.custom_minimum_size = Vector2(540, 0)
+	col.add_theme_constant_override("separation", 4)
 	margin.add_child(col)
-	var title := RSUi.label("Regina Sports", 64)
-	col.add_child(title)
-	title.add_theme_font_override("font", RSUi.font_bold())
-	var sub := RSUi.label(tr("体感运动游戏 · 拿起手柄就能玩"), 22, Color(0.85, 0.9, 1.0))
-	sub.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(sub)
+	var logo := HBoxContainer.new()
+	logo.add_theme_constant_override("separation", 12)
+	col.add_child(logo)
+	for part: Array in [["REGINA", RSUi.TEXT], ["SPORTS", RSUi.ACCENT]]:
+		var word := RSUi.label(part[0], 52, part[1])
+		word.add_theme_font_override("font", RSUi.font_bold())
+		logo.add_child(word)
+	col.add_child(RSUi.label(tr("体感运动游戏 · 拿起手柄就能玩"), 17, RSUi.TEXT_MUTED))
 	var gap := Control.new()
-	gap.custom_minimum_size = Vector2(0, 6)
+	gap.custom_minimum_size = Vector2(0, 22)
 	col.add_child(gap)
 
-	var normal := RSUi.button_style("normal")
-	var hover := RSUi.button_style("hover")
-	var focus := RSUi.button_style("focus")
-	for s: StyleBox in [normal, hover, focus]:
-		s.content_margin_top = 6
-		s.content_margin_bottom = 6
 	var scroll := ScrollContainer.new()
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	scroll.follow_focus = true
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	col.add_child(scroll)
-	_menu_grid = GridContainer.new()
+	_menu_grid = VBoxContainer.new()
 	_menu_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_menu_grid.columns = 2
-	_menu_grid.add_theme_constant_override("h_separation", 12)
-	_menu_grid.add_theme_constant_override("v_separation", 8)
+	_menu_grid.add_theme_constant_override("separation", 4)
 	scroll.add_child(_menu_grid)
+	var modes := GridContainer.new()
+	modes.columns = 2
+	modes.add_theme_constant_override("h_separation", 8)
+	modes.add_theme_constant_override("v_separation", 4)
 	for i in GAMES.size():
-		var b := Button.new()
-		b.text = "  " + _name(i)
-		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
-		b.custom_minimum_size = Vector2(324, 48)
-		RSUi.set_text_size(b, 22)
-		b.add_theme_stylebox_override("normal", normal)
-		b.add_theme_stylebox_override("hover", hover)
-		b.add_theme_stylebox_override("pressed", hover)
-		b.add_theme_stylebox_override("focus", focus)
-		b.pressed.connect(_open.bind(i))
-		b.focus_entered.connect(_on_focus.bind(i))
-		b.mouse_entered.connect(b.grab_focus)
-		_menu_grid.add_child(b)
+		var sport := i < RSCatalog.GAMES.size()
+		if i == RSCatalog.GAMES.size():
+			var line := HSeparator.new()
+			line.add_theme_constant_override("separation", 22)
+			_menu_grid.add_child(line)
+			_menu_grid.add_child(modes)
+		var b := _row(i, sport)
+		(_menu_grid if sport else modes).add_child(b)
 		_buttons.append(b)
-	_desc = RSUi.label("", 18, Color(0.95, 0.97, 1.0))
-	_desc.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	_desc.add_theme_stylebox_override("normal", RSUi.card_style())
-	_desc.custom_minimum_size = Vector2(660, 72)
-	col.add_child(_desc)
-	var hint := RSUi.label(tr("手柄：B / C 选择，A 进入　　键盘：方向键 + 回车\n游戏里短按 D 或 Esc 打开暂停菜单：重新开始、画面设置、语言、回主菜单"), 15, Color(0.88, 0.92, 1.0, 0.8))
-	hint.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(hint)
-	_status = RSUi.label("", 15)
-	_status.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	col.add_child(_status)
-	_preview = RSGamePreview.new()
-	add_child(_preview)
+
+	_info = VBoxContainer.new()
+	_info.anchor_left = 1.0
+	_info.anchor_right = 1.0
+	_info.anchor_top = 1.0
+	_info.anchor_bottom = 1.0
+	_info.offset_left = -704
+	_info.offset_right = -64
+	_info.offset_bottom = -100
+	_info.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_info.alignment = BoxContainer.ALIGNMENT_END
+	_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_info.add_theme_constant_override("separation", 14)
+	add_child(_info)
+	var heading := HBoxContainer.new()
+	heading.add_theme_constant_override("separation", 18)
+	_info.add_child(heading)
+	_info_title = RSUi.label("", 84)
+	_info_title.add_theme_font_override("font", RSUi.font_bold())
+	heading.add_child(_info_title)
+	_info_tag = RSUi.label("", 34, RSUi.ACCENT)
+	_info_tag.add_theme_font_override("font", RSUi.font_bold())
+	_info_tag.size_flags_vertical = Control.SIZE_SHRINK_END
+	heading.add_child(_info_tag)
+	_desc = RSUi.label("", 18, Color(RSUi.TEXT, 0.85), true)
+	_desc.add_theme_constant_override("line_spacing", 6)
+	_info.add_child(_desc)
+	_stats = HBoxContainer.new()
+	_stats.add_theme_constant_override("separation", 2)
+	_info.add_child(_stats)
+	_stat(tr("人数"), "1–4")
+	_best = _stat(tr("最佳成绩"), "")
+
+	# Button prompts and the hub status along the bottom.
+	var bar := PanelContainer.new()
+	bar.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	bar.offset_top = -64
+	var bar_bg := RSUi.panel_style(0, Color(0.01, 0.015, 0.03, 0.86))
+	bar_bg.border_width_top = 1
+	bar_bg.content_margin_left = 64
+	bar_bg.content_margin_right = 64
+	bar_bg.content_margin_top = 8
+	bar_bg.content_margin_bottom = 8
+	bar.add_theme_stylebox_override("panel", bar_bg)
+	add_child(bar)
+	var prompts := HBoxContainer.new()
+	prompts.add_theme_constant_override("separation", 30)
+	bar.add_child(prompts)
+	_status = RSUi.label("", 15, RSUi.TEXT, true)
+	_status.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_status.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	prompts.add_child(_status)
+	prompts.add_child(_prompt(["A"], tr("进入")))
+	prompts.add_child(_prompt(["B", "C"], tr("选择")))
+	prompts.add_child(_prompt(["D"], tr("游戏中暂停")))
+	prompts.add_child(RSUi.label(tr("键盘：方向键 + 回车 · Esc"), 15, RSUi.TEXT_MUTED))
 	_pages = RSMenuPages.new()
 	add_child(_pages)
 	_pages.closed.connect(_restore_focus)
@@ -167,6 +200,7 @@ func _ready() -> void:
 	ControllerHub.button_pressed.connect(_on_button)
 	ControllerHub.controller_connected.connect(_send_oled)
 	_buttons[0].grab_focus()
+	_on_focus(0)
 	RSSettings.apply(get_tree())
 	RSMusic.attach(self).play_track("menu")
 	if RSBenchmarkMenu.return_to_settings:
@@ -186,6 +220,7 @@ func _build_backdrop() -> void:
 	svc.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(svc)
 	var vp := SubViewport.new()
+	_backdrop = vp
 	vp.msaa_3d = Viewport.MSAA_2X
 	vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA
 	vp.own_world_3d = true
@@ -213,6 +248,11 @@ func _build_backdrop() -> void:
 func _process(delta: float) -> void:
 	_status_text()
 	if _riders.is_empty():
+		return
+	# A sport picture covers the street: stop rendering and simulating it until it shows again.
+	var covered := _preview.covers_screen()
+	_backdrop.render_target_update_mode = SubViewport.UPDATE_DISABLED if covered else SubViewport.UPDATE_ALWAYS
+	if covered:
 		return
 	for i in _riders.size():
 		var sk := _riders[i]
@@ -265,25 +305,144 @@ func _film(dt: float, snap: bool) -> void:
 func _status_text() -> void:
 	if not ControllerHub.is_hub_connected():
 		_status.text = tr("● 未连接 hub —— 请先运行 hub/run_hub.bat")
-		_status.add_theme_color_override("font_color", Color(1.0, 0.82, 0.78))
-		_status.add_theme_stylebox_override("normal", _offline_chip)
+		_status.add_theme_color_override("font_color", RSUi.BAD)
 		return
 	var live := ControllerHub.connected_controllers()
 	_status.text = tr("● hub 已连接 · %d 个手柄") % live.size() if not live.is_empty() else tr("● hub 已连接 · 还没有手柄：打开 Regina 或用手机扫码（二维码在游戏大厅和调试场景里）")
-	_status.add_theme_color_override("font_color", Color(0.8, 1.0, 0.85))
-	_status.add_theme_stylebox_override("normal", _online_chip)
+	_status.add_theme_color_override("font_color", RSUi.GOOD)
 
 
 func _on_focus(i: int) -> void:
+	_paint_row(_index, false)
 	_index = i
+	_paint_row(i, true)
 	_preview.show_game(GAMES[i])
+	_info_title.text = _name(i)
+	_info_tag.text = GAMES[i]["oled"] if RSSettings.language == 0 else ""
 	_desc.text = tr(GAMES[i]["desc"])
 	var game_id: String = GAMES[i].get("id", "")
-	if not game_id.is_empty():
+	_stats.visible = not game_id.is_empty()
+	if _stats.visible:
 		var best := RSRecords.overall_best(game_id)
-		_desc.text += "\n" + (tr("最佳成绩：%d") % best if best >= 0 else tr("暂无纪录"))
+		_best.text = str(best) if best >= 0 else "—"
 	for c in ControllerHub.connected_controllers():
 		_send_oled(c)
+
+
+func _row(i: int, sport: bool) -> Button:
+	## A list entry: number, name and English tag for sports; a smaller name for the modes.
+	## The leaning accent bar comes from the theme's hover / focus styles.
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(530 if sport else 261, RSUi.text_size(54 if sport else 42))
+	var empty := StyleBoxEmpty.new()
+	b.add_theme_stylebox_override("normal", empty)
+	b.add_theme_stylebox_override("disabled", empty)
+	b.pressed.connect(_open.bind(i))
+	b.focus_entered.connect(_on_focus.bind(i))
+	b.mouse_entered.connect(b.grab_focus)
+	var box := HBoxContainer.new()
+	box.set_anchors_preset(Control.PRESET_FULL_RECT)
+	box.offset_left = 22
+	box.offset_right = -22
+	box.add_theme_constant_override("separation", 16)
+	box.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(box)
+	var labels: Array[Label] = []
+	if sport:
+		var num := RSUi.label("%02d" % (i + 1), 21)
+		num.add_theme_font_override("font", RSUi.font_numeric())
+		num.custom_minimum_size.x = 26
+		num.set_meta("rs_alpha", 0.55)
+		labels.append(num)
+	var title := RSUi.label(_name(i), 24 if sport else 18)
+	title.add_theme_font_override("font", RSUi.font_strong())
+	if not sport:   # mode names share a half-width cell; long English ones are trimmed
+		title.clip_text = true
+		title.text_overrun_behavior = TextServer.OVERRUN_TRIM_ELLIPSIS
+		title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	title.set_meta("rs_alpha", 0.86 if sport else 0.76)
+	labels.append(title)
+	if sport and RSSettings.language == 0:
+		var tag := RSUi.label(GAMES[i]["oled"], 15)
+		tag.add_theme_font_override("font", RSUi.font_label())
+		tag.set_meta("rs_alpha", 0.5)
+		labels.append(tag)
+	for l: Label in labels:
+		l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		l.size_flags_vertical = Control.SIZE_FILL
+		box.add_child(l)
+	_row_labels.append(labels)
+	_paint_row(_row_labels.size() - 1, false)
+	return b
+
+
+func _paint_row(i: int, selected: bool) -> void:
+	if i >= _row_labels.size():
+		return
+	for l: Label in _row_labels[i]:
+		l.add_theme_color_override("font_color", RSUi.INK if selected else Color(RSUi.TEXT, l.get_meta("rs_alpha")))
+
+
+func _stat(caption: String, value: String) -> Label:
+	var cell := PanelContainer.new()
+	var bg := RSUi.hud_style(0)
+	bg.content_margin_left = 18
+	bg.content_margin_right = 18
+	bg.content_margin_top = 10
+	bg.content_margin_bottom = 10
+	cell.add_theme_stylebox_override("panel", bg)
+	cell.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	_stats.add_child(cell)
+	var box := VBoxContainer.new()
+	box.add_theme_constant_override("separation", 0)
+	cell.add_child(box)
+	box.add_child(RSUi.label(caption, 14, RSUi.TEXT_MUTED))
+	var number := RSUi.label(value, 32, RSUi.TEXT)
+	number.add_theme_font_override("font", RSUi.font_numeric())
+	box.add_child(number)
+	return number
+
+
+func _prompt(keys: Array, action: String) -> HBoxContainer:
+	## Controller button glyphs followed by what they do.
+	var box := HBoxContainer.new()
+	box.add_theme_constant_override("separation", 8)
+	for key: String in keys:
+		var glyph := RSUi.label(key, 15, RSUi.INK)
+		glyph.add_theme_font_override("font", RSUi.font_numeric())
+		glyph.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		glyph.custom_minimum_size = Vector2(28, 28)
+		glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+		var disc := StyleBoxFlat.new()
+		disc.bg_color = RSUi.TEXT
+		disc.set_corner_radius_all(14)
+		glyph.add_theme_stylebox_override("normal", disc)
+		box.add_child(glyph)
+	var l := RSUi.label(action, 15)
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.size_flags_vertical = Control.SIZE_FILL
+	box.add_child(l)
+	return box
+
+
+func _shade(from: Vector2, to: Vector2, offsets: Array, alphas: Array) -> TextureRect:
+	var shade := TextureRect.new()
+	var grad := GradientTexture2D.new()
+	grad.gradient = Gradient.new()
+	grad.gradient.offsets = PackedFloat32Array(offsets)
+	var colors := PackedColorArray()
+	for a: float in alphas:
+		colors.append(Color(0.02, 0.03, 0.05, a))
+	grad.gradient.colors = colors
+	grad.fill_from = from
+	grad.fill_to = to
+	shade.texture = grad
+	shade.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	shade.stretch_mode = TextureRect.STRETCH_SCALE
+	shade.set_anchors_preset(Control.PRESET_FULL_RECT)
+	shade.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return shade
 
 
 func _on_button(_c: RSController, button: int) -> void:
@@ -318,6 +477,7 @@ func _open(i: int) -> void:
 		return
 	if GAMES[i].has("page"):
 		_menu_grid.visible = false
+		_info.visible = false
 		_preview.visible = false
 		if GAMES[i]["page"] == "settings":
 			_settings.open()
@@ -333,5 +493,6 @@ func _open(i: int) -> void:
 
 func _restore_focus() -> void:
 	_menu_grid.visible = true
+	_info.visible = true
 	_buttons[_index].grab_focus()
 	_preview.show_game(GAMES[_index])
