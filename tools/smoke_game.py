@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import subprocess
 from pathlib import Path
@@ -12,9 +13,10 @@ SHUTDOWN_RESOURCES = re.compile(r"(?m)^ERROR: \d+ resources still in use at exit
 
 
 def checked_run(command: list[str], *, timeout: int = 180) -> str:
-    result = subprocess.run(command, cwd=ROOT, stdout=subprocess.PIPE,
-                            stderr=subprocess.STDOUT, text=True, encoding="utf-8",
-                            errors="replace", timeout=timeout)
+    # Test mode keeps ControllerHub off UDP 47800, so parallel checks do not collide.
+    result = subprocess.run(command, cwd=ROOT, env=dict(os.environ, RS_TEST_MODE="1"),
+                            stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True,
+                            encoding="utf-8", errors="replace", timeout=timeout)
     # Static resource caches currently emit this shutdown diagnostic. Keep it visible;
     # it is separate from the scene-load/runtime errors this startup check rejects.
     checked_output, shutdown_count = SHUTDOWN_RESOURCES.subn("", result.stdout)

@@ -61,7 +61,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 正式单人模式使用 `RSSolo.begin(game_id, slot, difficulty)`：一个已分配本地槽的真人和一个电脑对手，共用原有物理、名次和教学流程；只有真人可以写纪录。电脑独占另一个槽，`RSPartyGame` 保证真人缺席时不会自动开局，其他手柄不会加入。项目通过 `bot_error()` / `bot_ability()` 取得难度参数，演示默认参数保持原样。退出到菜单时清除会话。每项目三个分数挑战基于地图 1 的正式个人最佳导出（每档一星），复用 `records.cfg`，不另加进度文件；主菜单标明规则、个人星数与难度。
 
-调试参数（`--` 之后）只在 `party_game.gd` 和 `main_menu.gd` 里解析（ARCH-ARGS）：`--demo=N`、`--shots=<前缀>`、`--map=N`、`--game=<id>`；项目自己的参数通过 `_parse_arg(arg)` 拿到。
+调试参数（`--` 之后）只在 `party_game.gd` 和 `main_menu.gd` 里解析（ARCH-ARGS）：`--demo=N`、`--shots=<前缀>`、`--map=N`、`--game=<id>`；项目自己的参数通过 `_parse_arg(arg)` 拿到。唯一例外是 `--hub-port=N`：`ControllerHub` 必须在任何场景之前绑定端口，所以由它自己读取（`# allow: ARCH-ARGS`），见第 4 节。
 
 ## 3. 公共模块
 
@@ -103,6 +103,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 界面字号由 `RSSettings.text_size` 保存在同一设置文件，标准为 100%，大号为 125%。`RSUi` 保留控件、Theme 和成绩富文本的原始字号，切换时一次更新现有界面，新控件按当前设置创建；不重载比赛、不逐帧遍历节点、不重复累乘。主菜单项目列表和菜单子页滚动跟随焦点。六项目通过 `RSPartyGame.draw_text / draw_pill` 统一放大 HUD，受分屏宽度与屏幕边缘限制的单行文字按实际字体度量适配；3D 世界标签和手柄 OLED 保持原尺寸。
 
 - **中枢 ↔ 游戏**：只有 [protocol.md](protocol.md) 定义的 UDP 消息。新增字段要同时改协议文档、hub 和 `ControllerHub`，并保持旧字段兼容。
+- **端口**：正常游戏监听 `127.0.0.1:47800`、发往 hub 的 47801，同一时间只能运行一个实例。`RS_TEST_MODE=1` 时 `ControllerHub` 绑定系统分配的临时端口、不向 hub 发任何消息，同一台电脑上可以并行跑任意多个测试实例，也不会打扰正在运行的真实 hub；测试用 `ControllerHub.listen_port()` 取得端口，向它发送合成的 hub 数据包。需要真实 hub 的双实例测试给每个实例传 `--hub-port=N`（任何模式都有效）：游戏发往 N、监听 N-1，对应 hub 用 `--hub-port N --game-port N-1` 启动。端口无效（不在 2–65535）时报错且不绑定。`tools/` 下启动游戏项目的测试脚本都设置 `RS_TEST_MODE=1`；`tools/test_hub_port.py` 在占住 47800 的情况下同时启动多个实例检查以上行为。发行包冒烟（`smoke_release.py`、`release_launcher.py`）按正常模式运行，自带 hub，仍使用固定端口。
 - **存档**：`user://*.cfg`（ConfigFile）。`RSSave.read(path)` 读原文件、`.bak`、`.tmp` 中的有效副本；`RSSave.write(path, config)` 使用版本 1 元数据、SHA-256 校验、验证后的临时文件和上一份有效备份。无版本旧档按版本 0 读取，下次成功保存时升级。未知版本只读保护，不用旧备份覆盖；所有副本损坏时返回默认配置并记录警告。备份与临时文件是现有存档的恢复副本，不新增业务存档或 autoload。Windows 替换目标文件存在短暂间隙，因此承诺可恢复写入，不承诺断电原子性或磁盘硬件损坏恢复。`override.cfg` 仍是启动时派生的渲染设置；两份设置文件无法构成跨文件事务，驱动变更保存失败时返回错误。
 - **文案**：中文原文就是 key。改中文原文等于换了 key，必须同步 `en.json`，并通过 `python tools/i18n_check.py`。
 - **素材**：`res://assets/...`。新增素材必须记录来源和许可（[ASSETS.md](ASSETS.md)、[THIRD_PARTY.md](THIRD_PARTY.md)）。Poly Haven 原图不进 Git，由 `tools/sync_assets.mjs` 下载并按 `tools/assets.lock.json` 校验。
@@ -122,3 +123,16 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 - 以下脚本超过 1000 行，下次修改时顺便拆分（SIZE 警告）：`basketball_game.gd`、`skate_course.gd`、`skater.gd`、`ski_course.gd`。
 - 高尔夫（`scenes/golf/`）还没有接入回合框架，只有球场原型；保留，不要删除。
 - 少数解析 JSON 的地方用了无类型变量（Variant），这是有意的。
+
+## 7. 内置性能测试
+
+本功能的接口设计先于代码提交，在独立 draft PR 中实现；不扩展 GPT-B 原测量工具 PR 的文件权限，也不改变标准引擎版本或优化运动项目。
+
+- 主菜单“设置 → 性能测试”进入专用菜单场景，比赛暂停页不提供该入口。菜单选择人数、画质、输出分辨率，按滑板/滑雪/篮球地图 1 顺序实例化真实运动场景；前一场景完全释放后才开始下一段。默认每段 PLAY 预热 10 秒、采样 30 秒，总流程约 2–3 分钟，加载时间另计。
+- `RSBenchmark` 公共采样器只接收 `RSPartyGame`、视口及参数，不选择运动项目；菜单宿主引用 `RSCatalog`，负责场景序列。CLI 测试适配器调用同一公共实现，发行代码不依赖 `game/tests` 或 `tools`。不新增 autoload 或依赖。
+- `RSPartyGame` 提供入树前的 benchmark 配置，覆盖 demo 人数、地图和记录禁用。测试实例屏蔽原有游戏键盘/手柄操作；测试宿主单独接收取消输入。普通真人、派对与单人流程保持原接口。
+- `RSBenchmarkSession` 保存本次临时设置和实际窗口状态，结束、失败或取消均恢复，不调用 `RSSettings.save()`，不改变档案、纪录、教学或挑战进度。测试结果的 JSON/CSV 经其统一接口导出到 `user://benchmarks/`，写入与 flush 失败向菜单返回错误，不属于业务存档。
+- 帧时间采用真实单调时钟，加载、倒数及最终成绩不入样本；提前结束或窗口最小化等条件使结果明确失效。逐视口 GPU 读数保留，整帧 GPU 不可用时为 null；统计定义与 CLI 基线一致。界面曲线和采样本身的开销保留在结果中。
+- 固定地图和起始种子不代表跨帧率确定性回放。现有按帧随机消耗、物理与 GPU 粒子限制应在界面和元数据说明，不能用固定 FPS 模拟或录像替代真实渲染测量。
+
+验收涵盖成功/取消/失败恢复、哨兵存档字节不变、同一统计样本、2/4 人实际渲染、中英文截图和严格退出检查。只交付测量能力，不自动调画质，不承诺尚未实测的 FPS。

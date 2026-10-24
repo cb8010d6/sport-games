@@ -32,6 +32,8 @@ var qr_rows := PackedStringArray()
 
 var _udp := PacketPeerUDP.new()
 var _bound := false
+var _port := 0
+var _hub_port := 0
 var _hello_timer := 0.0
 var _last_rx_msec := -100000
 
@@ -39,12 +41,33 @@ var _last_rx_msec := -100000
 func _ready() -> void:
 	RSSettings.load_once()       # sets the interface language before the first scene's UI
 	process_priority = -100  # update before game nodes read controller state
-	var err := _udp.bind(LISTEN_PORT, "127.0.0.1")
+	# Bind before any scene parses arguments; see docs/ARCHITECTURE.md (test-mode ports).
+	var ports := ports_for(OS.get_cmdline_user_args(), OS.get_environment("RS_TEST_MODE") == "1")  # allow: ARCH-ARGS
+	if ports.x < 0:
+		push_error("ControllerHub: --hub-port must be 2-65535")
+		return
+	var err := _udp.bind(ports.x, "127.0.0.1")
 	_bound = err == OK
 	if not _bound:
-		push_error("ControllerHub: cannot bind UDP %d (another game instance running?)" % LISTEN_PORT)
-	_udp.set_dest_address("127.0.0.1", HUB_PORT)
+		push_error("ControllerHub: cannot bind UDP %d (another game instance running?)" % ports.x)
+		return
+	_port = _udp.get_local_port()
+	_hub_port = ports.y
+	if _hub_port > 0:
+		_udp.set_dest_address("127.0.0.1", _hub_port)
 	_send({"cmd": "hello"})
+
+
+static func ports_for(args: PackedStringArray, test_mode: bool) -> Vector2i:
+	## (listen, hub). Normal play: 47800 / 47801. Test mode: an OS-assigned port and no hub,
+	## so parallel instances never collide or reach a real hub. --hub-port=N talks to a hub
+	## on N and listens on N - 1 (regina_hub --hub-port N --game-port N-1). x < 0 = invalid.
+	for a: String in args:
+		if a.begins_with("--hub-port="):
+			var value := a.trim_prefix("--hub-port=")
+			var hub := int(value)
+			return Vector2i(hub - 1, hub) if value.is_valid_int() and hub >= 2 and hub <= 65535 else Vector2i(-1, 0)
+	return Vector2i(0, 0) if test_mode else Vector2i(LISTEN_PORT, HUB_PORT)
 
 
 func _process(delta: float) -> void:
@@ -75,6 +98,11 @@ func _exit_tree() -> void:
 
 
 # ------------------------------------------------------------------------ queries ----
+
+func listen_port() -> int:
+	## The bound local UDP port (0 = not bound). Tests send synthetic hub packets here.
+	return _port
+
 
 func is_hub_connected() -> bool:
 	return Time.get_ticks_msec() - _last_rx_msec < int(HUB_TIMEOUT * 1000.0)
@@ -169,7 +197,7 @@ func request_qr() -> void:
 # ----------------------------------------------------------------------- internals ----
 
 func _send(msg: Dictionary) -> void:
-	if _bound:
+	if _bound and _hub_port > 0:
 		_udp.put_packet(JSON.stringify(msg).to_utf8_buffer())
 
 
