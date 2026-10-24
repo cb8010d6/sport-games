@@ -15,7 +15,7 @@ extends Node3D
 enum Lie { TEE, FAIRWAY, FIRST_CUT, ROUGH, GREEN, FRINGE, BUNKER, WATER, OB }
 
 const LIE_NAMES := ["发球台", "球道", "浅长草", "长草", "果岭", "果岭边", "沙坑", "水障碍", "界外"]
-const CELL := 2.5                ## heightfield grid, m
+const CELL := RSGolfSurface.CELL  ## unchanged coarse heightfield grid, m
 const SDF := 1.0                 ## surface field texel, m
 const SDF_RANGE := 12.0          ## field values are clamped to +-this many metres
 const LINE_RANGE := 90.0         ## the line-of-play distance field reaches this far
@@ -98,9 +98,10 @@ var _water := PackedFloat32Array()
 var _line := PackedFloat32Array()  ## distance to the nearest hole's line of play (tee - fairway - green)
 var _tree_grid: Dictionary = {}  ## Vector2i cell -> tree indices
 var _dir := PackedByteArray()    ## fairway mowing direction, 2 bytes a texel
-var _hw := 0                     ## heightfield vertices per row / column
-var _hh := 0
-var _h := PackedFloat32Array()
+var surface := RSGolfSurface.new()
+var _height_links := false
+var _height_greens: Array[Array] = []
+var _height_tees: Array[Array] = []
 var _noise := FastNoiseLite.new()
 var _noise2 := FastNoiseLite.new()
 var _rng := RandomNumberGenerator.new()
@@ -377,68 +378,67 @@ func in_bounds(p: Vector3) -> bool:
 # --------------------------------------------------------------------- heightfield ----
 
 func _build_heights() -> void:
-	_hw = int(ceilf(_sw * SDF / CELL)) + 1
-	_hh = int(ceilf(_sh * SDF / CELL)) + 1
-	_h.resize(_hw * _hh)
-	var links: bool = map["links"]
+	var cells := Vector2i(int(ceilf(_sw * SDF / CELL)), int(ceilf(_sh * SDF / CELL)))
+	_height_links = map["links"]
 	# Ponds sit at the low ground of their surroundings.
 	for h: Dictionary in holes:
 		for w: Array in h["def"]["water"]:
 			water_levels.append([Vector2(w[0], w[1]), Vector2(w[2], w[3]), w[4], _base(w[0], w[1]) - 0.7])
-	var greens := []
+	_height_greens.clear()
 	for h: Dictionary in holes:
 		var gc: Vector2 = h["green_c"]
 		var path: PackedVector2Array = h["path"]
 		var into := (gc - path[path.size() - 2]).normalized()
-		greens.append([gc, into, _base(gc.x, gc.y) + 0.45])
-	var tees := []
+		_height_greens.append([gc, into, _base(gc.x, gc.y) + 0.45])
+	_height_tees.clear()
 	for h: Dictionary in holes:
 		var t: Vector2 = h["tee2"]
-		tees.append([t, _base(t.x, t.y) + 0.55])
-	if links:
+		_height_tees.append([t, _base(t.x, t.y) + 0.55])
+	if _height_links:
 		sea_level = 0.0
-	for j in _hh:
-		for i in _hw:
-			var x := _x0 + i * CELL
-			var z := _z0 + j * CELL
-			var fd := _field(_fair, x, z)
-			var gd := _field(_green, x, z)
-			var bd := _field(_bunk, x, z)
-			var wd := _field(_water, x, z)
-			var y := _base(x, z)
-			# Bumps: smooth on the short grass, more in the rough, dunes on the links.
-			var play := minf(fd, gd)
-			var rough_w := smoothstep(1.0, 14.0, play)
-			var n2 := _noise2.get_noise_2d(x, z)
-			y += n2 * (0.25 + rough_w * (1.6 if links else 0.7))
-			if links:
-				var dune := smoothstep(30.0, 70.0, _field(_line, x, z)) * smoothstep(10.0, 12.0, play)
-				y += (absf(_noise2.get_noise_2d(x * 0.35 + 40.0, z * 0.35)) * 9.0 + 1.0) * dune
-				# The shore: west of the course the land runs down into the sea.
-				y = lerpf(y, -3.5, smoothstep(-95.0, -175.0, x + n2 * 18.0))
-			# Greens: raised, tilted up away from the approach, gently rolling.
-			for g: Array in greens:
-				var gc: Vector2 = g[0]
-				var dist := Vector2(x, z).distance_to(gc)
-				if dist > 45.0:
-					continue
-				var w := smoothstep(5.0, -1.0, gd) if dist < 30.0 else 0.0
-				var rel := Vector2(x, z) - gc
-				var gy: float = g[2] + rel.dot(g[1]) * 0.022 + _noise2.get_noise_2d(x * 2.2, z * 2.2) * 0.22
-				y = lerpf(y, gy, w)
-			for t: Array in tees:
-				var dist := Vector2(x, z).distance_to(t[0])
-				y = lerpf(y, t[1], smoothstep(14.0, 8.0, dist))
-			# Bunkers: a bowl and a little lip.
-			if bd < 3.0:
-				y -= 0.85 * smoothstep(0.6, -3.0, bd)
-				y += 0.3 * exp(-pow((bd - 0.9) / 0.9, 2.0))
-			# Ponds: banks down to below the water.
-			if wd < 8.0:
-				var lvl := _pond_level(x, z)
-				y = lerpf(y, minf(y, lvl + 0.25), smoothstep(8.0, 0.5, wd))
-				y = lerpf(y, lvl - 1.4, smoothstep(0.5, -4.0, wd))
-			_h[j * _hw + i] = y
+	surface.build(Vector2(_x0, _z0), cells, raw_height_at)
+
+
+func raw_height_at(x: float, z: float) -> float:
+	## Construction sampler: preserve the original shaping formula and operation order.
+	var fd := _field(_fair, x, z)
+	var gd := _field(_green, x, z)
+	var bd := _field(_bunk, x, z)
+	var wd := _field(_water, x, z)
+	var y := _base(x, z)
+	# Bumps: smooth on the short grass, more in the rough, dunes on the links.
+	var play := minf(fd, gd)
+	var rough_w := smoothstep(1.0, 14.0, play)
+	var n2 := _noise2.get_noise_2d(x, z)
+	y += n2 * (0.25 + rough_w * (1.6 if _height_links else 0.7))
+	if _height_links:
+		var dune := smoothstep(30.0, 70.0, _field(_line, x, z)) * smoothstep(10.0, 12.0, play)
+		y += (absf(_noise2.get_noise_2d(x * 0.35 + 40.0, z * 0.35)) * 9.0 + 1.0) * dune
+		# The shore: west of the course the land runs down into the sea.
+		y = lerpf(y, -3.5, smoothstep(-95.0, -175.0, x + n2 * 18.0))
+	# Greens: raised, tilted up away from the approach, gently rolling.
+	for g: Array in _height_greens:
+		var gc: Vector2 = g[0]
+		var dist := Vector2(x, z).distance_to(gc)
+		if dist > 45.0:
+			continue
+		var w := smoothstep(5.0, -1.0, gd) if dist < 30.0 else 0.0
+		var rel := Vector2(x, z) - gc
+		var gy: float = g[2] + rel.dot(g[1]) * 0.022 + _noise2.get_noise_2d(x * 2.2, z * 2.2) * 0.22
+		y = lerpf(y, gy, w)
+	for t: Array in _height_tees:
+		var dist := Vector2(x, z).distance_to(t[0])
+		y = lerpf(y, t[1], smoothstep(14.0, 8.0, dist))
+	# Bunkers: a bowl and a little lip.
+	if bd < 3.0:
+		y -= 0.85 * smoothstep(0.6, -3.0, bd)
+		y += 0.3 * exp(-pow((bd - 0.9) / 0.9, 2.0))
+	# Ponds: banks down to below the water.
+	if wd < 8.0:
+		var lvl := _pond_level(x, z)
+		y = lerpf(y, minf(y, lvl + 0.25), smoothstep(8.0, 0.5, wd))
+		y = lerpf(y, lvl - 1.4, smoothstep(0.5, -4.0, wd))
+	return y
 
 
 func _base(x: float, z: float) -> float:
@@ -457,28 +457,11 @@ func _pond_level(x: float, z: float) -> float:
 
 
 func height_at(x: float, z: float) -> float:
-	var fx := clampf((x - _x0) / CELL, 0.0, _hw - 1.001)
-	var fz := clampf((z - _z0) / CELL, 0.0, _hh - 1.001)
-	var i := int(fx)
-	var j := int(fz)
-	var u := fx - i
-	var v := fz - j
-	var k := j * _hw + i
-	# The same two triangles the mesh draws (split along the i+j diagonal).
-	var h00 := _h[k]
-	var h10 := _h[k + 1]
-	var h01 := _h[k + _hw]
-	var h11 := _h[k + _hw + 1]
-	if u + v <= 1.0:
-		return h00 + (h10 - h00) * u + (h01 - h00) * v
-	return h11 + (h01 - h11) * (1.0 - u) + (h10 - h11) * (1.0 - v)
+	return surface.height_at(x, z)
 
 
 func normal_at(x: float, z: float) -> Vector3:
-	var e := 0.35
-	var dx := height_at(x + e, z) - height_at(x - e, z)
-	var dz := height_at(x, z + e) - height_at(x, z - e)
-	return Vector3(-dx, 2.0 * e, -dz).normalized()
+	return surface.normal_at(x, z)
 
 
 func water_level_at(x: float, z: float) -> float:
@@ -533,10 +516,11 @@ func _build_terrain_meshes() -> void:
 	fn.fractal_octaves = 4
 	nt.noise = fn
 	mat.set_shader_parameter("noise_tex", nt)
-	for cj in range(0, _hh - 1, CHUNK):
-		for ci in range(0, _hw - 1, CHUNK):
+	var cells := surface.cells
+	for cj in range(0, cells.y, CHUNK):
+		for ci in range(0, cells.x, CHUNK):
 			var mi := MeshInstance3D.new()
-			mi.mesh = _chunk_mesh(ci, cj, mini(ci + CHUNK, _hw - 1), mini(cj + CHUNK, _hh - 1))
+			mi.mesh = surface.chunk_mesh(Rect2i(ci, cj, mini(CHUNK, cells.x - ci), mini(CHUNK, cells.y - cj)))
 			mi.material_override = mat
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			add_child(mi)
@@ -544,40 +528,6 @@ func _build_terrain_meshes() -> void:
 
 static func _enc(d: float) -> int:
 	return clampi(int(roundf((d / SDF_RANGE * 0.5 + 0.5) * 255.0)), 0, 255)
-
-
-func _chunk_mesh(i0: int, j0: int, i1: int, j1: int) -> ArrayMesh:
-	var w := i1 - i0 + 1
-	var verts := PackedVector3Array()
-	var norms := PackedVector3Array()
-	verts.resize(w * (j1 - j0 + 1))
-	norms.resize(verts.size())
-	var n := 0
-	for j in range(j0, j1 + 1):
-		for i in range(i0, i1 + 1):
-			var x := _x0 + i * CELL
-			var z := _z0 + j * CELL
-			verts[n] = Vector3(x, _h[j * _hw + i], z)
-			var hl := _h[j * _hw + maxi(i - 1, 0)]
-			var hr := _h[j * _hw + mini(i + 1, _hw - 1)]
-			var hd := _h[maxi(j - 1, 0) * _hw + i]
-			var hu := _h[mini(j + 1, _hh - 1) * _hw + i]
-			norms[n] = Vector3(hl - hr, 2.0 * CELL, hd - hu).normalized()
-			n += 1
-	var idx := PackedInt32Array()
-	for j in range(j1 - j0):
-		for i in range(w - 1):
-			var a := j * w + i
-			# Triangles (a, a+1, a+w) and (a+1, a+w+1, a+w): split on the i+j diagonal like height_at().
-			idx.append_array([a, a + 1, a + w, a + 1, a + w + 1, a + w])
-	var arrays := []
-	arrays.resize(Mesh.ARRAY_MAX)
-	arrays[Mesh.ARRAY_VERTEX] = verts
-	arrays[Mesh.ARRAY_NORMAL] = norms
-	arrays[Mesh.ARRAY_INDEX] = idx
-	var mesh := ArrayMesh.new()
-	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
-	return mesh
 
 
 func _build_water() -> void:
