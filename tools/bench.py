@@ -20,7 +20,13 @@ from test_game import find_godot
 ROOT = Path(__file__).resolve().parents[1]
 GAMES = ("plane", "archery", "bowling", "skate", "ski", "basketball")
 RESOLUTION = [1600, 900]
-DIAGNOSTIC = re.compile(r"ERROR:|SCRIPT ERROR|Parse Error|FATAL|CRASH|leaked at exit|still in use at exit", re.IGNORECASE)
+# Godot 4.7.2 (ed1daf0bf): Logger prefixes include parse/fatal errors; native
+# crash handlers print these markers. A gameplay event may also contain CRASH.
+DIAGNOSTIC = re.compile(
+    r"^\s*(?:(?:ERROR|SCRIPT ERROR|SHADER ERROR|UNKNOWN ERROR):|"
+    r"(?:CrashHandlerException|handle_crash): Program crashed\b|Dumping the backtrace\.|"
+    r"-- END OF C\+\+ BACKTRACE --|GDScript backtrace \(most recent call first\):)|"
+    r"leaked at exit|still in use at exit", re.IGNORECASE)
 
 
 @dataclass(frozen=True)

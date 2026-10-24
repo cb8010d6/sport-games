@@ -471,7 +471,7 @@ func _on_controller_event(c: RSController, ev: String) -> void:
 	var names := {"connected": tr("已连接"), "disconnected": tr("已断开"), "recentered": tr("已归零"), "calibrated": tr("零偏校准完成"),
 		"calibrate_failed": tr("校准失败（请保持静止）"), "low_battery": tr("电量低")}
 	var color := "#f59e0b" if ev in ["calibrate_failed", "low_battery", "disconnected"] else "#22c55e"
-	_log_line("[color=%s]#%d %s %s[/color]" % [color, c.id, c.display_name, names.get(ev, ev)])
+	_log_line("[color=%s]#%d %s %s[/color]" % [color, c.id, RSProfiles.bbcode(c.display_name), names.get(ev, ev)])
 	if ev == "connected":
 		_send_debug_ui(c)
 
