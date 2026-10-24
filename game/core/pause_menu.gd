@@ -14,6 +14,7 @@ extends Control
 signal restart_requested
 signal menu_requested
 signal tutorial_requested
+signal benchmark_requested
 
 var game: Node                  ## a party game, or the main menu's settings host
 var settings_only := false
@@ -24,7 +25,7 @@ const PAGES := {
 	"main": ["resume", "restart", "tutorial", "display", "sound", "accessibility", "language", "menu"],
 	"display": ["fps", "quality", "upscale", "window", "hdr", "back"],
 	"sound": ["vol_master", "vol_music", "vol_sfx", "vol_ambience", "back"],
-	"settings": ["display", "sound", "accessibility", "language", "resume"],
+	"settings": ["display", "sound", "accessibility", "benchmark", "language", "resume"],
 	"accessibility": ["camera_shake", "color_safe", "text_size", "back"],
 }
 const VALUES := ["fps", "quality", "upscale", "window", "hdr", "language", "color_safe", "camera_shake", "text_size", "vol_master", "vol_music", "vol_sfx", "vol_ambience"]
@@ -85,6 +86,11 @@ func _home_page() -> String:
 
 func is_open() -> bool:
 	return visible
+
+
+func focus_benchmark() -> void:
+	if settings_only:
+		_show_page("settings", (PAGES["settings"] as Array).find("benchmark"))
 
 
 func open() -> void:
@@ -214,6 +220,10 @@ func _choose(i: int) -> void:
 			if can_tutorial:
 				close()
 				tutorial_requested.emit()
+		"benchmark":
+			if settings_only:
+				close()
+				benchmark_requested.emit()
 		"display", "sound", "accessibility":
 			_show_page(_items()[i], 0)
 			RSSfx.play(self, "beep", -18.0, 1.6)
@@ -283,6 +293,8 @@ func _label(item: String) -> String:
 			return tr("声音　▸")
 		"accessibility":
 			return tr("无障碍　▸")
+		"benchmark":
+			return tr("性能测试　▸")
 		"back":
 			return tr("◀ 返回")
 		"fps":
@@ -329,6 +341,8 @@ func _oled_label(item: String) -> Array:
 			return ["SOUND", ">"]
 		"accessibility":
 			return ["ACCESS", ">"]
+		"benchmark":
+			return ["BENCHMARK", ">"]
 		"back":
 			return ["BACK", ""]
 		"fps":
