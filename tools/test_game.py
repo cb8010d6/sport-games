@@ -10,6 +10,7 @@ import json
 import os
 import re
 import shutil
+import subprocess
 import sys
 import tempfile
 from pathlib import Path
@@ -45,12 +46,57 @@ def find_godot(explicit: str | None) -> str:
     return str(Path(candidate).resolve()) if Path(candidate).exists() else candidate
 
 
+def run_party_recovery(godot: str, output: Path) -> int:
+    """Retain independent real-scene 2/4-player normal, missing-entrant and exit cases."""
+    for players in (2, 4):
+        for mode in ("normal", "missing", "exit"):
+            case = output / f"{mode}-{players}p"
+            case.mkdir()
+            env = dict(os.environ, RS_TEST_MODE="1", RS_PARTY_RECOVERY_MODE=mode, RS_PARTY_PLAYERS=str(players))
+            for key in ("APPDATA", "LOCALAPPDATA", "XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME"):
+                directory = case / "user-data" / key.lower()
+                directory.mkdir(parents=True)
+                env[key] = str(directory)
+            try:
+                result = run_engine([godot, "--headless", "--fixed-fps", "60", "--path", str(ROOT / "game"),
+                                     "res://tests/test_party_flow.tscn", "--log-file", str(case / "engine.log"),
+                                     "--", f"--demo={players}", "--round=5"], env=env, timeout=180)
+            except (subprocess.TimeoutExpired, OSError) as exc:
+                log = str(exc)
+                if isinstance(exc, subprocess.TimeoutExpired):
+                    for stream in (exc.stdout, exc.stderr):
+                        log += stream.decode("utf-8", errors="replace") if isinstance(stream, bytes) else (stream or "")
+                (case / "stdout.log").write_text(log, encoding="utf-8")
+                (case / "result.json").write_text(json.dumps({"status": "FAIL", "error": type(exc).__name__}), encoding="utf-8")
+                print(f"party {mode} {players}p: FAIL; evidence retained", flush=True)
+                return 1
+            log = result.stdout + result.stderr
+            (case / "stdout.log").write_text(log, encoding="utf-8")
+            passed = suite_passed(log, result.returncode, "RS_PARTY_FLOW: PASS")
+            passed = passed and not list((case / "user-data").rglob("records.cfg*"))
+            (case / "result.json").write_text(json.dumps({"status": "PASS" if passed else "FAIL",
+                "mode": mode, "players": players, "exit_code": result.returncode}), encoding="utf-8")
+            print(f"party {mode} {players}p: {'PASS' if passed else 'FAIL'}", flush=True)
+            if not passed:
+                print(log)
+                return 1
+    return 0
+
+
 def main() -> int:
     silence_native_crash_dialogs()
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot")
     parser.add_argument("--party", action="store_true", help="also run the complete three-event party flow")
+    parser.add_argument("--party-recovery", action="store_true", help="also run 2/4-player missing-entrant and exit recovery")
+    parser.add_argument("--party-output", type=Path, default=ROOT / "audit-output/party-recovery",
+                        help="new retained evidence directory for --party-recovery")
     args = parser.parse_args()
+    if args.party_recovery:
+        args.party_output = args.party_output.resolve()
+        if args.party_output.exists():
+            parser.error("--party-output must be a new directory; preserve prior attempts")
+        args.party_output.mkdir(parents=True)
     with tempfile.TemporaryDirectory(prefix="rs-shell-tests-") as temp:
         env = dict(os.environ, RS_TEST_MODE="1", APPDATA=temp, XDG_DATA_HOME=temp,
                    XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp)
@@ -65,6 +111,8 @@ def main() -> int:
             return 1
     if run_storage(find_godot(args.godot)) != 0:
         return 1
+    if args.party_recovery:
+        return run_party_recovery(find_godot(args.godot), args.party_output)
     if args.party:
         with tempfile.TemporaryDirectory(prefix="rs-party-tests-") as temp:
             env = dict(os.environ, RS_TEST_MODE="1", APPDATA=temp, XDG_DATA_HOME=temp,

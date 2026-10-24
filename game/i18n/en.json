@@ -424,9 +424,7 @@
  "大赛总积分 · %d / %d": "Party standings · %d / %d",
  "大赛完成！A 查看总领奖台": "Party complete! A: overall podium",
  "大赛总领奖台": "Overall podium",
- "A / C 返回主菜单": "A / C: main menu",
  "A 进入下一个项目": "A: next event",
- "A 继续　　C 返回菜单　　D / Esc 暂停菜单": "A: continue   C: main menu   D / Esc: pause",
  "设置": "Settings",
  "色弱友好配色　◀ %s ▶": "Color-blind friendly   ◀ %s ▶",
  "派对大赛": "Party tournament",
@@ -473,5 +471,14 @@
  "Regina Sports 原创代码与维护者声明的 AI 原创素材：MIT。\n\nGodot Engine：MIT；Jolt Physics：MIT。\n背景音乐：本项目乐谱与合成，CC0。\n界面字体：Noto Sans SC、Barlow Condensed，SIL OFL 1.1。\nPoly Haven：CC0 天空、材质、模型及树木素材。\nMakeHuman / MPFB：使用官方 CC0 系统素材导出的角色。\n角色素材历史署名：Data Collection AB、Joel Palmius、Jonas Hauquier。\n\n当前音效、手柄模型与涂鸦的 AI 原创声明见 ASSET_PROVENANCE.md。\n逐项作者、素材 ID 与来源见 docs/THIRD_PARTY.md 和素材目录中的 CREDITS.md。\n打包发布时仍需汇总实际捆绑依赖的完整许可。": "Regina Sports original code and maintainer-declared AI originals: MIT.\n\nGodot Engine: MIT; Jolt Physics: MIT.\nBackground music: project score and synthesis, CC0.\nUI fonts: Noto Sans SC and Barlow Condensed, SIL OFL 1.1.\nPoly Haven: CC0 skies, materials, models and trees.\nMakeHuman / MPFB: characters exported from official CC0 system assets.\nHistorical character asset credits: Data Collection AB, Joel Palmius, Jonas Hauquier.\n\nSee ASSET_PROVENANCE.md for the AI originality declarations covering sound effects, the controller model and decals.\nPer-asset authors, IDs and sources: docs/THIRD_PARTY.md and CREDITS.md files in the asset folders.\nBinary releases must also include the full notices for their bundled dependencies.",
   "标准（100%）": "Standard (100%)",
   "大（125%）": "Large (125%)",
-  "界面字号　◀ %s ▶": "Text size  ◀ %s ▶"
+  "界面字号　◀ %s ▶": "Text size  ◀ %s ▶",
+  "出手超时，按 0 环计": "Shot timed out: 0 rings",
+  "出手超时，按 0 瓶计": "Throw timed out: 0 pins",
+  "出手剩余 %d 秒": "%d seconds to take your shot",
+  "P%d 本项目缺席：0 大赛积分，保留此前积分": "P%d absent this event: 0 tournament points; earlier points kept",
+  "在场参赛者全部准备即可继续；缺席者本项目加 0 大赛积分。": "Continue when all present entrants are ready. Absent entrants earn 0 tournament points for this event.",
+  "A 返回主菜单　　C 二次确认退出": "A: main menu   C: press twice to confirm exit",
+  "A 准备 / 取消　　C 二次确认退出大赛　　D / Esc 暂停菜单": "A: ready / cancel   C: press twice to exit tournament   D / Esc: pause",
+  "A 继续　　C 二次确认退出大赛　　D / Esc 暂停菜单": "A: continue   C: press twice to exit tournament   D / Esc: pause",
+  "退出将清空大赛积分。3 秒内同一手柄再按一次 C 确认，其他按键取消。": "Exiting clears tournament points. Press C again on the same controller within 3 seconds to confirm; any other button cancels."
 }
