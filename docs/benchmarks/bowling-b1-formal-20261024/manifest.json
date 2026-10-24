@@ -70,7 +70,7 @@
     "no_records_files": true,
     "all_power_endpoints_online": true
   },
-  "raw_export_policy": "All sample keys, numeric types/values, nulls and ordering preserved after JSON parsing; whitelisted metadata rewritten. Original and public SHA256 recorded separately.",
+  "raw_export_policy": "All sample keys, numeric types/values, nulls and ordering preserved after JSON parsing; whitelisted metadata rewritten. Original and public SHA256 recorded separately. Public files use repository LF line endings; public SHA256 names the committed file bytes.",
   "limitations": [
     "No old-style matched benchmark; these six runs cannot attribute a performance change to the style",
     "Balanced, frequency unlocked, normal user desktop available; block order not randomized",
@@ -90,7 +90,7 @@
         "seed": 20261023
       },
       "file": "docs/benchmarks/bowling-b1-formal-20261024/raw/bowling-m0-p2-q2-r1.json",
-      "sha256": "e4893435aaa0014d22771e5970e577fa2e13d59281a2970bb56a6a7fdc536591",
+      "sha256": "e7723b970a34a786fde4dd749918d866fd5962869468844c61ee93fb114bcb32",
       "original_raw_sha256": "cb691945605e7252a8d74f8e931ad90662be93e9943b182da504dfae48cb337e",
       "frames": 2696,
       "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
@@ -107,7 +107,7 @@
         "seed": 20261023
       },
       "file": "docs/benchmarks/bowling-b1-formal-20261024/raw/bowling-m0-p2-q2-r2.json",
-      "sha256": "ffc650b7cdf796dd6df50cb50060b12d01394ec83c4a7730f1af2e2af3189b4a",
+      "sha256": "3763d148b1e0892e04a7969644cd99a4f919ddefd63ead4831faf6f9307fcb9d",
       "original_raw_sha256": "9a93e75f045eb5aa8f579373de7c7104dc4c48fb0b6c36683d42e6aca9dad82b",
       "frames": 2662,
       "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
@@ -124,7 +124,7 @@
         "seed": 20261023
       },
       "file": "docs/benchmarks/bowling-b1-formal-20261024/raw/bowling-m0-p2-q2-r3.json",
-      "sha256": "ce997b22be2a6b4bf33fc2c72101d7250d42fd8b22d2618d0911e7f826fcbfb6",
+      "sha256": "fdefabeca40a3c5a89b2a8068185d88b181c499cedd16088e19d8065ba743334",
       "original_raw_sha256": "e7e3e97264c7c2683cf38e449f9cde0e71f9b24b752ce67205daef7f02a5f9fb",
       "frames": 2652,
       "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
@@ -141,7 +141,7 @@
         "seed": 20261023
       },
       "file": "docs/benchmarks/bowling-b1-formal-20261024/raw/bowling-m0-p4-q2-r1.json",
-      "sha256": "0f839e633ada146c32d8b210504d5704dcba313ab3a10a4fb4cf4489f2c01887",
+      "sha256": "de15282c9918a9c1f671395e71c5e2d7b4aa5e22026fce9ea6b943ecc2b1bd74",
       "original_raw_sha256": "aaa92b4d07989868a307bddc8108b42a06cb501035323d8eff3019fe7a3a2d20",
       "frames": 2074,
       "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
@@ -158,7 +158,7 @@
         "seed": 20261023
       },
       "file": "docs/benchmarks/bowling-b1-formal-20261024/raw/bowling-m0-p4-q2-r2.json",
-      "sha256": "301c4c2344e6f2359eb5a5140d200ebb343915f78563cc71fe88acef506ae90e",
+      "sha256": "8c1795922ed3e41a55a4cc5bfdc7bd24581b8665cb20ef396a55e82762bfa261",
       "original_raw_sha256": "27e14845b4465b47f8dd2e7b1aee7792a1b9150f9d842cb48cb1142d81e204d9",
       "frames": 2110,
       "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
@@ -175,7 +175,7 @@
         "seed": 20261023
       },
       "file": "docs/benchmarks/bowling-b1-formal-20261024/raw/bowling-m0-p4-q2-r3.json",
-      "sha256": "cce0eb33269e82822ee97f8aa5418a569c2f448994d1ce1c48844eacf2154158",
+      "sha256": "5b6d8a2f19c8af0404f05ab7b49380e80a45c30e577384a969d22aff808f07bd",
       "original_raw_sha256": "4c99780151932b498e295141aad48d92b63b596f096af14f879476a02615aed8",
       "frames": 2084,
       "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",

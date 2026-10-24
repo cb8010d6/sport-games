@@ -103,7 +103,7 @@ headless 不验证灯光观感、shader 实际渲染、字体视觉可读性或 
 | 2 | 8010 | 88.98827 | 12.7375 | 13.4479 | 70.18961 | 26.372 |
 | 4 | 6268 | 69.62846 | 16.52985 | 19.03656 | 47.08742 | 30.125 |
 
-从三次逐帧样本合并计算，分位使用 R7，1% low 为最慢 ceil(1%) 帧耗时均值的倒数。[manifest](benchmarks/bowling-b1-formal-20261024/manifest.json) 登记六份完整公开 raw、原私有 raw 与公开导出各自的 SHA256；[stats](benchmarks/bowling-b1-formal-20261024/stats.json) 给出逐次统计和逐视口 GPU 均值/覆盖率。公开 raw 的逐帧键、数值、null 与顺序完整保留，只重写元数据。
+从三次逐帧样本合并计算，分位使用 R7，1% low 为最慢 ceil(1%) 帧耗时均值的倒数。[manifest](benchmarks/bowling-b1-formal-20261024/manifest.json) 登记六份完整公开 raw、原私有 raw 与公开导出各自的 SHA256；[stats](benchmarks/bowling-b1-formal-20261024/stats.json) 给出逐次统计和逐视口 GPU 均值/覆盖率。公开 raw 的逐帧键、数值类型、数值、null 与顺序完整保留，元数据经过白名单重写，并采用仓库规定的 LF 换行；公开 SHA256 对应实际提交文件字节。
 
 逐视口 GPU 为 last-available render work，分别报告，不能相加成为整帧 GPU；整帧 GPU 未采集，保持 null。CPU TIME_PROCESS 是引擎处理时间。此 sampler 未采集逐玩家实际视口尺寸、AA 和 scale，相关字段为 null，不能用静态截图替代实测。源码、资产导入缓存和真实存档前后一致，无 records，隐藏 helper 持续 AC 监控通过。
 
