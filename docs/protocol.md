@@ -126,6 +126,7 @@ hub → 客户端：
 
 ```jsonc
 {"t":"welcome","id":3,"player":2}
+{"t":"error","reason":"hub full"}           // hello 被拒：控制器注册表已满，hub 随即以 1013 关闭连接
 {"t":"pong","c":123}                        // 对 ping 的回复
 {"t":"profile","name":"Example Player"} // 昵称修改确认；设备 name 与重连 ID 不变
 {"t":"player","player":2}

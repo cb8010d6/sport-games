@@ -116,6 +116,15 @@ func _run() -> void:
 		pages.close()
 	pages.queue_free()
 	_check(load("res://scenes/menu/main_menu.gd") != null, "main menu compiles")
+	# The hub forgets long-disconnected controllers (#45): a controller that is in
+	# one roster and gone from the next is dropped locally, with a disconnect first.
+	var forgotten := [0]
+	ControllerHub.controller_disconnected.connect(func(_c: RSController) -> void: forgotten[0] += 1)
+	ControllerHub._handle_json(JSON.stringify({"type": "roster", "controllers": [{"id": 7, "kind": "phone", "name": "T", "player": 1, "connected": true}]}).to_utf8_buffer())
+	_check(ControllerHub.controllers.has(7), "roster adds the controller locally")
+	ControllerHub._handle_json(JSON.stringify({"type": "roster", "controllers": []}).to_utf8_buffer())
+	_check(not ControllerHub.controllers.has(7), "controller missing from the next roster is forgotten locally (#45)")
+	_check(forgotten[0] == 1, "forgotten controller emits controller_disconnected first")
 	TutorialCases.run(_check)
 	await TutorialCases.integration(self, _check)
 	await get_tree().process_frame

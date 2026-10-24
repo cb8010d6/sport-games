@@ -26,6 +26,7 @@ MAX_ACCEL_M_S2 = 160.0
 MAX_TIMESTAMP_MS = (1 << 53) - 1   ## JavaScript's exact integer range
 MIN_SAMPLE_INTERVAL_MS = 0.001   ## 1 MHz ceiling, well above browser sensor rates
 TIMESTAMP_GAP_ALLOWANCE_MS = 1000.0
+MAX_WS_CONNECTIONS = 16         ## simultaneous phone/simulator sockets (#45)
 PHONE_PREDICT_S = 0.03          ## phones: Wi-Fi + browser event delay, roughly
 
 
@@ -128,6 +129,7 @@ def clean_profile_name(value: Any, limit: int = 20) -> str:
 class WebSource:
     def __init__(self, hub: Hub, phone_axis_map: Any = PHONE_AXIS_MAP):
         self.hub = hub
+        self._ws_count = 0
         self.remaps = {"device": make_remap(phone_axis_map), "canonical": make_remap(CANONICAL_AXIS_MAP)}
         self.app = web.Application()
         self.app.add_routes(
@@ -168,6 +170,16 @@ class WebSource:
             await self._runner.cleanup()
 
     async def _ws(self, request: web.Request) -> web.StreamResponse:
+        if self._ws_count >= MAX_WS_CONNECTIONS:
+            log.warning("websocket refused: %d connections already open", self._ws_count)
+            return web.Response(status=503, text="too many controller connections")
+        self._ws_count += 1
+        try:
+            return await self._ws_session(request)
+        finally:
+            self._ws_count -= 1
+
+    async def _ws_session(self, request: web.Request) -> web.StreamResponse:
         ws = web.WebSocketResponse(heartbeat=5.0, max_msg_size=1 << 20)
         await ws.prepare(request)
         transport = WsTransport(ws)
@@ -193,6 +205,11 @@ class WebSource:
                     client_id = str(data.get("client_id") or id(ws))[:64]
                     name = clean_profile_name(str(data.get("name") or kind), limit=32) or kind
                     controller = self.hub.attach(kind, f"{kind}:{client_id}", name, transport, rate_hint_hz=60.0 if kind == "phone" else 100.0, wrap_bits=None)
+                    if controller is None:
+                        log.warning("hello refused for %s: controller registry full", client_id)
+                        await ws.send_str(json.dumps({"t": "error", "reason": "hub full"}))
+                        await ws.close(code=1013)
+                        break
                     controller.extra["profile_name"] = clean_profile_name(data.get("profile_name"))
                     if kind == "phone":
                         controller.predict_s = PHONE_PREDICT_S
