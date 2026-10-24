@@ -133,6 +133,7 @@
  "全屏": "Fullscreen",
  "独占全屏": "Exclusive fullscreen",
  "原生": "Native",
+ "FSR 原生抗锯齿": "FSR Native AA",
  "FSR 质量": "FSR Quality",
  "FSR 均衡": "FSR Balanced",
  "FSR 性能": "FSR Performance",
