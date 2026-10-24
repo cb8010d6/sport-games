@@ -161,6 +161,7 @@ func _lifecycle() -> void:
 	_disconnect_checks(p)
 	_deadline_checks(p)
 	_chunk_checks(p)
+	_coordination_checks(p)
 	var ball: WeakRef = weakref(state.ball)
 	_game._remove_player(p.c.id)
 	await get_tree().process_frame
@@ -191,6 +192,98 @@ func _disconnect_checks(p: RSPartyGame.Player) -> void:
 		_check(state.rules.stroke_count() == 1 and state.flying, "reconnected player requires a fresh release")
 	for other: RSPartyGame.Player in _game.players.values():
 		other.fake = true
+
+
+func _coordination_setup(human: RSPartyGame.Player, bot: RSPartyGame.Player, seed_value: int) -> void:
+	_game.phase = RSPartyGame.Phase.PLAY
+	_game._round_started(_game.ordered())
+	for p: RSPartyGame.Player in _game.players.values():
+		p.fake = false
+		p.c.connected = true
+		if p != bot:
+			var state := p.data as RSGolfState
+			var pin := _game.course.pin_pos(0) + Vector3.UP * RSGolfGame.BALL_RADIUS
+			state.arm(0)
+			state.request(0)
+			state.launch(pin, pin)
+			state._flight_tick = RSGolfState.FLIGHT_TICKS - 1
+	_game._play_tick()  # Legal first-step contacts; the bot remains READY on the same clock.
+	for p: RSPartyGame.Player in _game.players.values():
+		p.fake = p != human
+	var rng := RandomNumberGenerator.new()
+	rng.seed = seed_value
+	var state := bot.data as RSGolfState
+	state.position = _game.course.pin_pos(0) - _game.course.tee_dir(0) * rng.randf_range(80, 180)
+	state.reach_index = 0
+
+
+func _coordination_run(human: RSPartyGame.Player, bot: RSPartyGame.Player, seed_value: int, batched: bool) -> Dictionary:
+	_coordination_setup(human, bot, seed_value)
+	var calls := 0
+	while _game.card_elapsed < 0.0 and calls < RSGolfRules.HOLE_TICKS:
+		if batched:
+			_game._play_process(RSGolfGame.STEP)  # Four unchanged fixed steps per render interval.
+		else:
+			_game._play_tick()  # 1x reference scheduler; same immediate-shot policy and rule clock.
+		calls += 1
+	var state := bot.data as RSGolfState
+	_check(state.done and _game.card_elapsed == 0.0, "only the final bot terminal state opens the scorecard")
+	return {"summary": state.rules.summary(), "position": state.position, "tick": _game.hole_tick, "calls": calls}
+
+
+func _coordination_checks(human: RSPartyGame.Player) -> void:
+	var extra_id := -9401  # synthetic demo-1 opponent, never registered in ControllerHub
+	if _game.players.size() == 1:
+		var controller := RSController.new()
+		controller.id = extra_id
+		controller.player = 2
+		controller.connected = true
+		controller.kind = "bot"
+		_game._add_player(controller, true)
+	var bot: RSPartyGame.Player = _game.ordered()[1]
+	_game.phase = RSPartyGame.Phase.PLAY
+	_game._round_started(_game.ordered())
+	_check(not _game._humans_finished() and _game._simulation_speed() == 1.0, "pure demo never accelerates")
+	human.fake = false
+	_check(not _game._humans_finished() and _game._simulation_speed() == 1.0, "an unfinished human keeps the normal cadence")
+	_coordination_setup(human, bot, 71)
+	_check(_game._humans_finished() and _game._simulation_speed() == 4.0 and _game.card_elapsed < 0.0, "human finish enables speed without cutting off bot")
+	var tick := _game.hole_tick
+	_game.open_pause()
+	_game._play_process(1.0)
+	_check(_game.hole_tick == tick and _game._accumulator == 0.0, "pause also freezes accelerated match time")
+	_game.ui.pause.close()
+	_game._play_process(RSGolfGame.STEP)
+	var state := bot.data as RSGolfState
+	_check(state.flying and state.rules.stroke_count() == 1 and state._flight_tick == 4 and _game.hole_tick == tick + 4, "ready bot shoots on next step and advances at most4x")
+	for seed_value: int in [71, 913, 2026]:
+		var reference := _coordination_run(human, bot, seed_value, false)
+		var fast := _coordination_run(human, bot, seed_value, true)
+		_check(reference["summary"] == fast["summary"] and reference["position"] == fast["position"] and reference["tick"] == fast["tick"], "same-seed 1x and4x preserve strokes/points/landing/deadline")
+		_check(fast["calls"] <= ceili(float(reference["calls"]) / 4.0), "speed changes scheduling, not fixed-step size")
+	_game._play_process(RSGolfGame.CARD_SECONDS * 0.5)
+	_check(_game.hole_index == 0 and _game.card_elapsed == RSGolfGame.CARD_SECONDS * 0.5, "scorecard wall time is not accelerated")
+	_game._play_process(RSGolfGame.CARD_SECONDS * 0.5)
+	_check(_game.hole_index == 1 and _game.hole_tick == 0 and _game._accumulator == 0.0 and _game._simulation_speed() == 1.0, "new hole clears speed transition and accumulated time")
+	for left: int in [2, 3]:
+		_coordination_setup(human, bot, 71)
+		bot.fake = false  # Hold this READY player without bot input until the final two ticks.
+		_game._play_process(float(RSGolfRules.HOLE_TICKS - 3) * RSGolfGame.STEP)
+		bot.fake = true
+		state = bot.data as RSGolfState
+		state.arm(_game.hole_tick)
+		state.request(_game.hole_tick)
+		_game._shoot(bot)
+		state._target = state._pin
+		state._flight_tick = RSGolfState.FLIGHT_TICKS - left
+		_game._play_process(RSGolfGame.STEP)
+		var row: Dictionary = state.rules.summary()["holes"][0]
+		_check(state.done and row["status"] == (RSGolfRules.Status.HOLED if left == 2 else RSGolfRules.Status.CAPPED), "4x contact at deadline wins; a later contact cannot score")
+		_check(_game.hole_tick == RSGolfRules.HOLE_TICKS and _game._accumulator == 0.0 and _game.card_elapsed == 0.0, "4x gives no extra match time or future-hole debt")
+	if _game.players.has(extra_id):
+		_game._remove_player(extra_id)
+	for p: RSPartyGame.Player in _game.players.values():
+		p.fake = true
 
 
 func _deadline_checks(p: RSPartyGame.Player) -> void:

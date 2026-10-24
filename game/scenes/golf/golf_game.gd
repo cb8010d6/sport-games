@@ -5,6 +5,7 @@ extends RSPartyGame
 
 const BALL_RADIUS := 0.12  ## enlarged placeholder ball for visibility, m
 const BOT_TICKS := 180    ## 1.5 effective play seconds before a bot shot
+const BOT_FINISH_SPEED := 4.0  ## maximum presentation speed after every human has finished
 const CARD_SECONDS := 6.0 ## between-hole holding time; formal scorecard arrives in G6
 const STEP := 1.0 / RSGolfRules.HZ  ## effective play seconds
 const TICK_EPS := 1e-10  ## seconds; floating-point comparison tolerance, debt is retained
@@ -135,7 +136,11 @@ func _play_process(delta: float) -> void:
 			for p: Player in players.values():
 				_place(p)
 		return
-	_accumulator += delta
+	var elapsed := delta * _simulation_speed()
+	if not is_finite(_accumulator + elapsed):
+		push_error("RSGolfGame: delta must be finite and nonnegative")
+		return
+	_accumulator += elapsed
 	while _accumulator + TICK_EPS >= STEP:
 		_accumulator -= STEP
 		_play_tick()
@@ -149,13 +154,14 @@ func _play_process(delta: float) -> void:
 func _play_tick() -> void:
 	var next_tick := hole_tick + 1
 	var complete := not _round_players.is_empty()
+	var skip_bot_wait := _humans_finished()
 	for p: Player in _round_players:
 		var state := _state(p)
 		if not p.c.connected:
 			state.cancel_input()
 		elif p.fake and state.rules.ready():
 			state.bot_ticks += 1
-			if state.bot_ticks >= BOT_TICKS:
+			if skip_bot_wait or state.bot_ticks >= BOT_TICKS:
 				state.arm(hole_tick)
 				state.request(hole_tick)
 		if state.requested:
@@ -171,6 +177,20 @@ func _play_tick() -> void:
 			finish_round()
 		else:
 			card_elapsed = 0.0
+
+
+func _humans_finished() -> bool:
+	var found := false
+	for p: Player in _round_players:
+		if not p.fake:
+			found = true
+			if not _state(p).done:
+				return false
+	return found  # Pure demo has no human finish transition and keeps the benchmark cadence.
+
+
+func _simulation_speed() -> float:
+	return BOT_FINISH_SPEED if _humans_finished() else 1.0
 
 
 func _player_button(p: Player, button: int, pressed: bool) -> void:
