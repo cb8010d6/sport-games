@@ -1,0 +1,178 @@
+{
+  "schema_version": 1,
+  "suite": "golf12",
+  "valid_runs": 12,
+  "failed_runs": 0,
+  "scope": "Fixed provisional first-PLAY tee-camera static rendering-cost gate; not playable-game or full-round performance",
+  "source_commits": {
+    "golf_A_mip": "5dc4f7083cd5641c30232771e6c4fdc12db76165",
+    "golf_B_mip": "c36e1b0a4eb5cf9658ff70680311ff859e0013b3"
+  },
+  "engine": {
+    "version": "4.7.2.stable.official.ed1daf0bf",
+    "commit": "ed1daf0bf001b61586d9930840f2f1394092c079",
+    "console_executable_sha256": "c8f0a6bc45a19b33541501e57f6f7cd972ab18453743266339d495cbbe846643"
+  },
+  "tools": {
+    "classifier_commit": "6242fecad082a8c047765be0b596e1a90547c2a0",
+    "classifier_bench_sha256": "ccecc62c460eff06bed98f7595c9e37bad56b402b520663bcffb8e17989b9791",
+    "classifier_bridge_sha256": "087723ad6bb2b21dfae16b2667509f339dea766bed34864c043e2ecb645b9f2c",
+    "unchanged_functions": {
+      "build_parser": {
+        "ast_sha256": "caac12d0723cd712ef80ba1cd8afe1ef08eca192a8a676a3644c4b8c7f75d7f0",
+        "source_sha256": "ba662a2003a05b2b07952ff14396e8d6dcfbb90246e1f3396a1464ee1b031cc8"
+      },
+      "expand_matrix": {
+        "ast_sha256": "9c4899fe42809e9c4b9da82771f3fd0c934dad449fd36e0e11704c1eb5a8152c",
+        "source_sha256": "c78e377702c3be1aae04f9c7b2e1118df235481099834c1b88f13d3949d0409b"
+      },
+      "summarize_samples": {
+        "ast_sha256": "31713de86ea143bcfd2331eb3a21f28f26ec4ef454b48dd5edd99b1e195f9ac1",
+        "source_sha256": "126d8169fafd816f32dc675328d910eb3fc49d4faf6d83a170828ddf55ec2870"
+      },
+      "validate_report": {
+        "ast_sha256": "9b05e8d551ce95c7e7cdea51a0c9f89c50f1539ae9bff4764988448239e62fe2",
+        "source_sha256": "8f6cdee79f915ac9254dd6fb8446da8826b2e8613a66f7449cd5b09dc888d485"
+      },
+      "run_case": {
+        "ast_sha256": "28e395a3167ca537e49ad7b73c149906cac45667efa782454e2af4498189cbe3",
+        "source_sha256": "c9ea4a049167e63f3b4d3dd48f850b432bf3b3e4b18c4c02813cebf96079d68f"
+      },
+      "write_reports": {
+        "ast_sha256": "ba794a848143063f2ad6ef47858c055ec664ba228c3a176b059153d682c7f3bc",
+        "source_sha256": "318206d35e0c6b08aa9268f2eb461f91512d9eb56dc6aa8d83577a1a63f53fb3"
+      }
+    },
+    "measurement_bench_sha256": "6fb78b7c72f566359a596169fe1d7c37310365d2d937c4d892809c2830cebe51",
+    "suite_wrapper_sha256": "113532ebc7de10debce97366e7e1b8db6b5ef316ae00828bb5ad8db442252b10",
+    "geometry_probe_py_sha256": "1c9715bee7c85dcc0648ad97e3cc63b61da13273bb375cf20c1ba9948daf1826",
+    "geometry_probe_gd_sha256": "285bbfcf8143935c064f8477646f4538da677efcab269e8ef2dacf3e11cd69fa"
+  },
+  "environment": {
+    "gpu": "AMD Radeon 780M Graphics",
+    "driver": "AMD 32.0.31019.2002",
+    "renderer": "forward_plus",
+    "api": "vulkan",
+    "power_mode": "Balanced",
+    "frequency_locked": false,
+    "ac_check": "Hidden helper polled once per second; no AC-loss/unknown-power failure; endpoints online",
+    "desktop": "Hidden non-input rendering desktop; normal user desktop remained available",
+    "background": "No concurrent Godot, headless, heavy tests, imports, large copies, or builds"
+  },
+  "integrity": {
+    "all_sources_clean_unchanged": true,
+    "all_real_save_hashes_unchanged": true,
+    "no_records_files": true
+  },
+  "raw_export_policy": "All sample keys, numeric values, nulls and ordering preserved exactly after JSON parsing; whitelisted metadata is rewritten. Public JSON bytes and hash differ from private original. Both hashes recorded.",
+  "files": [
+    {
+      "identity": "38-golf_A_mip-golf-m0-p4-q1-r1",
+      "file": "docs/benchmarks/golf-m1-static-cost-20261024/raw/38-golf_A_mip-golf-m0-p4-q1-r1.json",
+      "sha256": "fb8eb673e86e4bc620cc9ee3fbfb9a4a3c1a42365a7ddeaaa14d854985b6c91b",
+      "original_raw_sha256": "783203b64cfa4891964a6e34b1cd035bb7f0751602317b8198281b0de2fc311d",
+      "frames": 701,
+      "source_sha": "5dc4f7083cd5641c30232771e6c4fdc12db76165",
+      "formal_repeat": 1
+    },
+    {
+      "identity": "39-golf_A_mip-golf-m0-p4-q1-r2",
+      "file": "docs/benchmarks/golf-m1-static-cost-20261024/raw/39-golf_A_mip-golf-m0-p4-q1-r2.json",
+      "sha256": "81471860bbc229c984e9108464f7ab0cbb9b7e4a6c02cfe9d9f83242a5a0d5a9",
+      "original_raw_sha256": "9f4c6a8755c53370ea087b30ef06b4370909245bf70f774efb184acce50e2f09",
+      "frames": 732,
+      "source_sha": "5dc4f7083cd5641c30232771e6c4fdc12db76165",
+      "formal_repeat": 2
+    },
+    {
+      "identity": "40-golf_A_mip-golf-m0-p4-q1-r3",
+      "file": "docs/benchmarks/golf-m1-static-cost-20261024/raw/40-golf_A_mip-golf-m0-p4-q1-r3.json",
+      "sha256": "9dae6043c4086ba224717fb6472d5eeed7e817f5e4b9adc25e99b103ad5e66f3",
+      "original_raw_sha256": "f0d7e0c79fc363ec5f413065d31ec6101efe4d95807558b91b2da40871cd8ce5",
+      "frames": 729,
+      "source_sha": "5dc4f7083cd5641c30232771e6c4fdc12db76165",
+      "formal_repeat": 3
+    },
+    {
+      "identity": "41-golf_B_mip-golf-m0-p4-q1-r1",
+      "file": "docs/benchmarks/golf-m1-static-cost-20261024/raw/41-golf_B_mip-golf-m0-p4-q1-r1.json",
+      "sha256": "69b6f5038649908d21cde4da9b5e859612776b7cc41ae755710a0fc84b2ffa11",
+      "original_raw_sha256": "11feeb54ef01274e85aa74dc5a7ca70dc495bf2fb50b3e34fe65d30f637f2120",
+      "frames": 721,
+      "source_sha": "c36e1b0a4eb5cf9658ff70680311ff859e0013b3",
+      "formal_repeat": 1
+    },
+    {
+      "identity": "42-golf_B_mip-golf-m0-p4-q1-r2",
+      "file": "docs/benchmarks/golf-m1-static-cost-20261024/raw/42-golf_B_mip-golf-m0-p4-q1-r2.json",
+      "sha256": "7a5ab79251e9fb640205c4af9bff57c5e916fa7e3df7d76a18a75b85fa18a938",
+      "original_raw_sha256": "d974080fd69e0157fd23f60502cd78324b105f2f13ddc6315614cb3589091367",
+      "frames": 706,
+      "source_sha": "c36e1b0a4eb5cf9658ff70680311ff859e0013b3",
+      "formal_repeat": 2
+    },
+    {
+      "identity": "43-golf_B_mip-golf-m0-p4-q1-r3",
+      "file": "docs/benchmarks/golf-m1-static-cost-20261024/raw/43-golf_B_mip-golf-m0-p4-q1-r3.json",
+      "sha256": "56a805c0ce282efa24e29f4747bedd827a7c0e4fc8e80ae65d76eb57be5d002b",
+      "original_raw_sha256": "2f1a68a74cfdc0749d1ef2bd1cff9a8db3626a813943b9ade72e8793ae1e9271",
+      "frames": 748,
+      "source_sha": "c36e1b0a4eb5cf9658ff70680311ff859e0013b3",
+      "formal_repeat": 3
+    },
+    {
+      "identity": "44-golf_A_mip-golf-m1-p4-q1-r1",
+      "file": "docs/benchmarks/golf-m1-static-cost-20261024/raw/44-golf_A_mip-golf-m1-p4-q1-r1.json",
+      "sha256": "dc7187ac1840a14892600d50c217ce0712051a626a8c556a5d4ec3188fca673a",
+      "original_raw_sha256": "2225912efdbfdb0e6bf538573822425a9e84b9d1747f1af494125679699f4988",
+      "frames": 391,
+      "source_sha": "5dc4f7083cd5641c30232771e6c4fdc12db76165",
+      "formal_repeat": 1
+    },
+    {
+      "identity": "45-golf_A_mip-golf-m1-p4-q1-r2",
+      "file": "docs/benchmarks/golf-m1-static-cost-20261024/raw/45-golf_A_mip-golf-m1-p4-q1-r2.json",
+      "sha256": "17201b2ba0637a6c6bc28b666b385ef81aba345f32b5f0819eb5d03c629445ac",
+      "original_raw_sha256": "39baff253e07d675b0988f39f2f318af46b61713b80cffed7f5b8f2f7aefab93",
+      "frames": 445,
+      "source_sha": "5dc4f7083cd5641c30232771e6c4fdc12db76165",
+      "formal_repeat": 2
+    },
+    {
+      "identity": "46-golf_A_mip-golf-m1-p4-q1-r3",
+      "file": "docs/benchmarks/golf-m1-static-cost-20261024/raw/46-golf_A_mip-golf-m1-p4-q1-r3.json",
+      "sha256": "611f8fbb7a6c341b912044a6e7fc459774f94b0b8c8752055f74ed99f9ecfe14",
+      "original_raw_sha256": "9e121a3f2fdc6af2d13e2a23921749c3b52ff1d8ad5bb0056e2f57383537aecf",
+      "frames": 387,
+      "source_sha": "5dc4f7083cd5641c30232771e6c4fdc12db76165",
+      "formal_repeat": 3
+    },
+    {
+      "identity": "47-golf_B_mip-golf-m1-p4-q1-r1",
+      "file": "docs/benchmarks/golf-m1-static-cost-20261024/raw/47-golf_B_mip-golf-m1-p4-q1-r1.json",
+      "sha256": "f32d62d0b25c361207bc6ea5f61e9bce1a1969a0f45455c64b7edb4cc42278b1",
+      "original_raw_sha256": "89be9a673e5fa0c6fffe253c2efb3367bd0d6bc6b4b3b0b437cecea29cf9bcab",
+      "frames": 435,
+      "source_sha": "c36e1b0a4eb5cf9658ff70680311ff859e0013b3",
+      "formal_repeat": 1
+    },
+    {
+      "identity": "48-golf_B_mip-golf-m1-p4-q1-r2",
+      "file": "docs/benchmarks/golf-m1-static-cost-20261024/raw/48-golf_B_mip-golf-m1-p4-q1-r2.json",
+      "sha256": "c513a1eb2895f7a04140470b9ca8afb37634d3734f05d39cf6c2310d52eceb63",
+      "original_raw_sha256": "7db3f00a1fd8deb92225bc03f377c5f05a1de28e1afd0e67e3418e34ac641440",
+      "frames": 447,
+      "source_sha": "c36e1b0a4eb5cf9658ff70680311ff859e0013b3",
+      "formal_repeat": 2
+    },
+    {
+      "identity": "49-golf_B_mip-golf-m1-p4-q1-r3",
+      "file": "docs/benchmarks/golf-m1-static-cost-20261024/raw/49-golf_B_mip-golf-m1-p4-q1-r3.json",
+      "sha256": "54b61ece4a77fe1c62e882cb3445cb488686222e6e7a42f759bb52665b9b7ba7",
+      "original_raw_sha256": "20820374fcd5707f21b1925a9d338bbb1fe96378dc2f435e53dd727c0b5ed770",
+      "frames": 443,
+      "source_sha": "c36e1b0a4eb5cf9658ff70680311ff859e0013b3",
+      "formal_repeat": 3
+    }
+  ]
+}

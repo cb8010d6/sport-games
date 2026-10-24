@@ -119,6 +119,11 @@
       "prefix": "docs/screenshots/bench-ui-",
       "license": "MIT",
       "evidence": "docs/PERFORMANCE.md#游戏内性能测试"
+    },
+    {
+      "prefix": "docs/screenshots/golf-g1-",
+      "license": "MIT AND CC0-1.0",
+      "evidence": "docs/GOLF_M1.md#截图与来源"
     }
   ]
 }
