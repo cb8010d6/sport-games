@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import os
 import re
-import socket
 import subprocess
 import tempfile
 from pathlib import Path
@@ -20,12 +19,6 @@ def main() -> int:
     args = parser.parse_args()
     output = ROOT / "audit-output/golf-g3-a"
     output.mkdir(parents=True, exist_ok=True)
-    try:
-        with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
-            probe.bind(("127.0.0.1", 47800))
-    except OSError:
-        print("UDP 47800 is occupied; wait for the other game instance. No process was stopped.")
-        return 1
     with tempfile.TemporaryDirectory(prefix="rs-golf-surface-") as temp:
         env = dict(os.environ, RS_TEST_MODE="1", APPDATA=temp, XDG_DATA_HOME=temp,
                    XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp)

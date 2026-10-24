@@ -4,7 +4,6 @@ from __future__ import annotations
 import argparse
 import os
 import re
-import socket
 import subprocess
 import tempfile
 from pathlib import Path
@@ -25,12 +24,6 @@ def main() -> int:
     cases += [(0, 1, kind) for kind in ("negative", "nan")]
     for map_index, players, invalid in cases:
         case = f"invalid-{invalid}" if invalid else f"map-{map_index}-players-{players}"
-        try:
-            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as probe:
-                probe.bind(("127.0.0.1", 47800))
-        except OSError:
-            print("UDP 47800 is occupied; wait for the other game instance. No process was stopped.")
-            return 1
         with tempfile.TemporaryDirectory(prefix="rs-golf-") as temp:
             env = dict(os.environ, RS_TEST_MODE="1", RS_GOLF_INVALID_DELTA=invalid, APPDATA=temp,
                        XDG_DATA_HOME=temp, XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp)
