@@ -85,7 +85,7 @@ static func draw_hud(game: RSBasketballGame, h: RSPartyGame.PlayerHud, p: RSPart
 		var a := clampf((1.3 - fa) / 0.4, 0.0, 1.0)
 		var grow := 1.0 + 0.25 * maxf(0.0, 1.0 - fa * 6.0)
 		# Keep verdicts below the shared rising score popups, including large text.
-		game.draw_text(h, s.flash, Vector2(sz.x * 0.5, sz.y * 0.52), 46 * k * grow, Color(s.flash_col, a), true)
+		game.draw_text(h, s.flash, Vector2(sz.x * 0.5, sz.y * 0.54), 46 * k * grow, Color(s.flash_col, a), true)
 
 	if s.st == RSBasketballGame.St.SET and not p.fake:
 		game.draw_text(h, game.tr("甩手腕 + 松开 B 出手"), Vector2(sz.x * 0.5, sz.y - 66 * k), 20 * k, Color(1, 1, 1, 0.8), true)
