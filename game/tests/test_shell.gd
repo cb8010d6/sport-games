@@ -84,6 +84,18 @@ func _run() -> void:
 	RSSettings._loaded = false
 	RSSettings.load_once()
 	_check(RSSettings.volumes == [9, 0, 6, 5] and RSSettings.color_safe, "settings round trip")
+	var hub_events := [0]
+	ControllerHub.controller_connected.connect(func(_c: RSController) -> void: hub_events[0] += 1)
+	var hub_event := func(ev: String) -> PackedByteArray:
+		return JSON.stringify({"type": "event", "controller": 9, "name": ev}).to_utf8_buffer()
+	ControllerHub._handle_json(hub_event.call("connected"))
+	_check(hub_events[0] == 1, "first connect emits controller_connected")
+	ControllerHub._handle_json(JSON.stringify({"type": "roster", "controllers": [{"id": 9, "kind": "phone", "name": "T", "player": 1, "connected": true}]}).to_utf8_buffer())
+	_check(hub_events[0] == 1, "roster after the connect event does not emit twice")
+	ControllerHub._handle_json(hub_event.call("disconnected"))
+	ControllerHub._handle_json(hub_event.call("connected"))
+	_check(hub_events[0] == 2, "reconnect emits controller_connected again (#50)")
+	ControllerHub.controllers.erase(9)
 	var pause := RSPauseMenu.new(self, true)
 	add_child(pause)
 	pause.open()
