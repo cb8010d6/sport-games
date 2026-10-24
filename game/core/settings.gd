@@ -26,9 +26,11 @@ const OLD_FPS := [VSYNC, 30, 60, 120, UNCAPPED]          ## the "fps" key's indi
 const QUALITY_NAMES := ["低", "中", "高", "极高"]
 const WINDOW_NAMES := ["窗口", "全屏", "独占全屏"]
 ## Upscaling: render 3D smaller and let AMD FSR 2 rebuild the detail (its own temporal
-## anti-aliasing replaces MSAA / FXAA). Scales are AMD's presets.
-const UPSCALE_NAMES := ["原生", "FSR 质量", "FSR 均衡", "FSR 性能", "FSR 超级性能"]
-const UPSCALE_SCALES := [1.0, 0.77, 0.67, 0.59, 0.5]
+## anti-aliasing replaces MSAA / FXAA). At 1.0 FSR 2 only anti-aliases (AMD's "Native AA",
+## like DLAA). Scales are AMD's FSR 2 presets.
+const UPSCALE_NAMES := ["原生", "FSR 原生抗锯齿", "FSR 质量", "FSR 均衡", "FSR 性能", "FSR 超级性能"]
+const UPSCALE_SCALES := [1.0, 1.0, 0.67, 0.59, 0.5, 0.33]
+const OLD_UPSCALE := [0, 2, 2, 3, 4]   ## the "upscale" key's scales 1.0 / 0.77 / 0.67 / 0.59 / 0.5
 const TEXT_SCALES := [1.0, 1.25]
 
 static var fps := 0                          ## index into FPS
@@ -65,7 +67,8 @@ static func load_once() -> void:
 	window = clampi(RSSave.integer(cf, "display", "window", 1 if RSSave.boolean(cf, "display", "fullscreen", false) else 0),
 		0, WINDOW_NAMES.size() - 1)
 	hdr = RSSave.boolean(cf, "display", "hdr", false)
-	upscale = clampi(RSSave.integer(cf, "display", "upscale", 0), 0, UPSCALE_NAMES.size() - 1)
+	upscale = clampi(RSSave.integer(cf, "display", "upscaling",
+		OLD_UPSCALE[clampi(RSSave.integer(cf, "display", "upscale", 0), 0, OLD_UPSCALE.size() - 1)]), 0, UPSCALE_NAMES.size() - 1)
 
 
 static func save() -> Error:
@@ -74,7 +77,7 @@ static func save() -> Error:
 	cf.set_value("display", "quality", quality)
 	cf.set_value("display", "window", window)
 	cf.set_value("display", "hdr", hdr)
-	cf.set_value("display", "upscale", upscale)
+	cf.set_value("display", "upscaling", upscale)
 	cf.set_value("general", "language", language)
 	cf.set_value("accessibility", "color_safe", color_safe)
 	cf.set_value("accessibility", "camera_shake", camera_shake)

@@ -184,3 +184,14 @@ func _public_compatibility() -> void:
 	override.save(RSSettings.OVERRIDE_PATH)
 	_check(RSSettings.save() == OK, "public settings migration")
 	_check(RSSave.read(RSSettings.OVERRIDE_PATH).get_value("custom", "preserved") == "keep", "override preserves unknown keys")
+	settings.set_value("display", "upscale", 1)   # 0.77, which FSR 2 has no preset for
+	settings.save(RSSettings.PATH)
+	RSSettings._loaded = false
+	RSSettings.load_once()
+	_check(RSSettings.UPSCALE_SCALES[RSSettings.upscale] == 0.67, "legacy upscale moves to the nearest FSR 2 preset")
+	settings.set_value("display", "upscaling", 1)
+	settings.save(RSSettings.PATH)
+	RSSettings._loaded = false
+	RSSettings.load_once()
+	_check(RSSettings.upscale == 1 and RSSettings.UPSCALE_SCALES[1] == 1.0, "new upscale key wins over the legacy one")
+	_check(RSSettings.save() == OK and not RSSave.read(RSSettings.PATH).has_section_key("display", "upscale"), "legacy upscale key dropped on save")
