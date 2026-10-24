@@ -353,7 +353,7 @@ func _oled_label(item: String) -> Array:
 		"quality":
 			return ["QUALITY", ["LOW", "MID", "HIGH", "ULTRA"][RSSettings.quality]]
 		"upscale":
-			return ["UPSCALE", ["NATIVE", "FSR Q", "FSR B", "FSR P", "FSR UP"][RSSettings.upscale]]
+			return ["UPSCALE", ["NATIVE", "FSR AA", "FSR Q", "FSR B", "FSR P", "FSR UP"][RSSettings.upscale]]
 		"window":
 			return ["WINDOW", ["WINDOW", "FULL", "EXCL"][RSSettings.window]]
 		"hdr":
