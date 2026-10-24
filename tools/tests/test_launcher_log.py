@@ -12,9 +12,28 @@ from types import SimpleNamespace
 from unittest.mock import Mock, patch
 
 from tools import release_launcher as launcher
+from tools.package_archive import validate_package
 
 
 class LauncherLogTests(unittest.TestCase):
+    def test_rotated_logs_cannot_be_published(self):
+        with tempfile.TemporaryDirectory() as temp:
+            root = Path(temp)
+            for name in ("SportGames.exe", "game/SportGames.exe", "game/SportGames.pck", "hub/sport-hub.exe",
+                         "hub/config.json", "licenses/LICENSE", "BUILD_INFO.json"):
+                file = root / name
+                file.parent.mkdir(parents=True, exist_ok=True)
+                file.touch()
+            for name in ("hub.log.1", "hub.log.2", "HUB.LOG.1", "inputs.jsonl.backup"):
+                with self.subTest(name=name):
+                    file = root / name
+                    file.write_bytes(b"private fixture")
+                    try:
+                        with self.assertRaisesRegex(RuntimeError, "Private"):
+                            validate_package(root)
+                    finally:
+                        file.unlink()
+
     def test_rotation_bounds_existing_and_new_logs_and_preserves_tail(self):
         with tempfile.TemporaryDirectory() as temp, patch.object(launcher, "LOG_BYTES", 128):
             path = Path(temp) / "hub.log"

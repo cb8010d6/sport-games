@@ -17,7 +17,7 @@ def validate_package(root: Path) -> list[Path]:
             raise RuntimeError("Incomplete package: " + required)
     files = sorted(p for p in root.rglob("*") if p.is_file())
     for file in files:
-        if file.is_symlink() or set(file.relative_to(root).parts) & FORBIDDEN or file.suffix.lower() in PRIVATE_SUFFIXES or ".pck-" in file.name.lower():
+        if file.is_symlink() or set(file.relative_to(root).parts) & FORBIDDEN or any(s.lower() in PRIVATE_SUFFIXES for s in file.suffixes) or ".pck-" in file.name.lower():
             raise RuntimeError("Private or unsupported file in release: " + file.relative_to(root).as_posix())
     return files
 
