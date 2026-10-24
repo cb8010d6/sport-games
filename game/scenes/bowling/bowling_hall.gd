@@ -38,6 +38,7 @@ func configure(length_m: float, half_m: float, gutter_m: float, spacing_m: float
 	_materials["seat"] = finish(Color(0.2, 0.31, 0.4), 0.48)
 	_materials["shell"] = finish(Color(0.73, 0.76, 0.79), 0.26, 0.12)
 	_materials["mark"] = finish(Color(0.035, 0.025, 0.02), 0.42)
+	_materials["sign_back"] = finish(RSUi.INK, 0.8)
 	_materials["white"] = _emission(Color(1.0, 0.86, 0.65), 2.1)
 	_materials["pink"] = _emission(PINK, 2.2)
 	_materials["cyan"] = _emission(CYAN, 2.2)
@@ -59,8 +60,15 @@ func configure(length_m: float, half_m: float, gutter_m: float, spacing_m: float
 	_materials["lightbox"] = lightbox
 	_lighting()
 	_shell()
+	# Keep the shared UI font and its fallback chain untouched; only ASCII world signs use MSDF.
+	var sign_font := label_font.duplicate() as FontVariation
+	var sign_base := sign_font.base_font.duplicate() as FontFile
+	sign_base.multichannel_signed_distance_field = true
+	sign_base.msdf_pixel_range = 16
+	sign_base.msdf_size = 128
+	sign_font.base_font = sign_base
 	for i in 4:
-		_lane((i - 1.5) * _spacing, i + 1, label_font)
+		_lane((i - 1.5) * _spacing, i + 1, sign_font)
 	_lounge()
 	_fixtures()
 
@@ -152,7 +160,7 @@ func _lighting(hdri_path: String = HDRI) -> void:
 	environment.ssao_enabled = true
 	environment.glow_enabled = true
 	environment.glow_intensity = 0.65
-	environment.glow_bloom = 0.04
+	environment.glow_bloom = 0.0
 	RSSettings.environment(environment)
 	var world := WorldEnvironment.new()
 	world.environment = environment
@@ -260,12 +268,16 @@ func _lane(x: float, player: int, label_font: Font) -> void:
 		_box(Vector3(_spacing - 0.08, 0.035, 0.045), Vector3(x, y, end - 0.31), "player%d" % player, 0.012)
 	for side: float in [-1.0, 1.0]:
 		_box(Vector3(0.035, 1.48, 0.045), Vector3(x + side * (_spacing - 0.08) * 0.5, 1.8, end - 0.31), "player%d" % player, 0.012)
+	var sign_back := _panel("SignBackground%d" % player, Vector2(0.78, 0.92), Vector3(x - 0.67, 1.8, end - 0.3), "sign_back")
+	sign_back.rotation.x = PI / 2.0
 	var label := Label3D.new()
 	label.text = "P%d" % player # no-i18n
 	label.font = label_font
 	label.font_size = 128
 	label.pixel_size = 0.0055
-	label.outline_size = 3
+	label.outline_size = 10
+	label.outline_modulate = RSUi.INK
+	label.alpha_cut = Label3D.ALPHA_CUT_OPAQUE_PREPASS
 	label.modulate = RSUi.TEXT
 	label.position = Vector3(x - 0.67, 1.8, end - 0.28)
 	add_child(label)

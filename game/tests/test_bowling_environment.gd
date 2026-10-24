@@ -80,6 +80,7 @@ func _resources(hall: RSBowlingHall) -> void:
 	var environment := world.environment
 	_check(environment.sky.sky_material is PanoramaSkyMaterial and (environment.sky.sky_material as PanoramaSkyMaterial).panorama != null, "registered HDRI reflection source resolves")
 	_check(environment.reflected_light_source == Environment.REFLECTION_SOURCE_SKY, "indoor PBR has sky reflections")
+	_check(is_zero_approx(environment.glow_bloom), "glow does not bloom ordinary non-emissive surfaces")
 	var quality := RSSettings.quality
 	RSSettings.quality = 0
 	RSSettings.environment(environment)
@@ -92,7 +93,13 @@ func _resources(hall: RSBowlingHall) -> void:
 	_check(hall.find_children("LanePool*", "SpotLight3D", true, false).size() == 6, "six actual spotlights align with visible lane luminaires")
 	_check(hall.find_children("PinDeckLight*", "SpotLight3D", true, false).size() == 4, "each masking unit has independent pin-deck lighting")
 	for label: Label3D in hall.find_children("*", "Label3D", true, false):
-		_check(label.font == RSUi.font_label(), "lane signage uses the shared label font")
+		var font := label.font as FontVariation
+		var shared_font := RSUi.font_label() as FontVariation
+		_check(font != null and font != shared_font and font.base_font != shared_font.base_font, "3D signage owns its font copy without changing shared UI resources")
+		_check(font.base_font is FontFile and (font.base_font as FontFile).multichannel_signed_distance_field, "world signage renders with MSDF")
+		_check(font.base_font.get_data() == shared_font.base_font.get_data() and font.spacing_glyph == shared_font.spacing_glyph, "signage preserves the bundled glyph source and label spacing")
+		_check(label.alpha_cut == Label3D.ALPHA_CUT_OPAQUE_PREPASS and label.outline_size >= 10 and label.outline_modulate == RSUi.INK, "world signs have opaque prepass and dark high-contrast outlines")
+	_check(hall.find_children("SignBackground*", "MeshInstance3D", true, false).size() == 4, "four signs have solid dark background plates")
 	var cushions := hall.get_node("SeatCushions") as MultiMeshInstance3D
 	_check(cushions.multimesh.mesh is ArrayMesh and cushions.multimesh.instance_count == 8, "eight seats share a procedural bevelled cushion mesh")
 	_check((hall.get_node("LampHousings") as MultiMeshInstance3D).multimesh.mesh is ArrayMesh, "luminaires have rounded three-dimensional housings")
