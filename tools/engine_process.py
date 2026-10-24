@@ -154,36 +154,51 @@ def run_engine(command: list[str], env: dict[str, str], timeout: float) -> subpr
         raise ValueError("Engine timeout must be finite and greater than zero")
     silence_native_crash_dialogs()
     with project_lock(command):
-        job = WindowsJob() if os.name == "nt" else None
-        process = None
+        return _run_owned(command, env, timeout)
+
+
+def run_engines(commands: list[list[str]], env: dict[str, str], timeout: float) -> list[subprocess.CompletedProcess]:
+    """Run instances of one project at the same time under a single project lock."""
+    if not commands or not math.isfinite(timeout) or timeout <= 0:
+        raise ValueError("Engine commands must be non-empty and the timeout finite and greater than zero")
+    from concurrent.futures import ThreadPoolExecutor
+    silence_native_crash_dialogs()
+    with project_lock(commands[0]), ThreadPoolExecutor(len(commands)) as pool:
+        futures = [pool.submit(_run_owned, command, env, timeout) for command in commands]
+        return [future.result() for future in futures]
+
+
+def _run_owned(command: list[str], env: dict[str, str], timeout: float) -> subprocess.CompletedProcess:
+    job = WindowsJob() if os.name == "nt" else None
+    process = None
+    try:
+        process = subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
+                                   text=True, encoding="utf-8", errors="replace",
+                                   start_new_session=os.name != "nt",
+                                   creationflags=0x0004 | 0x08000000 if job else 0)
+        if job:
+            # CREATE_SUSPENDED prevents the console wrapper spawning an unowned child.
+            job.attach_and_resume(process.pid)
         try:
-            process = subprocess.Popen(command, env=env, stdout=subprocess.PIPE, stderr=subprocess.PIPE,
-                                       text=True, encoding="utf-8", errors="replace",
-                                       start_new_session=os.name != "nt",
-                                       creationflags=0x0004 | 0x08000000 if job else 0)
+            stdout, stderr = process.communicate(timeout=timeout)
+        except subprocess.TimeoutExpired as exc:
             if job:
-                # CREATE_SUSPENDED prevents the console wrapper spawning an unowned child.
-                job.attach_and_resume(process.pid)
-            try:
-                stdout, stderr = process.communicate(timeout=timeout)
-            except subprocess.TimeoutExpired as exc:
-                if job:
-                    job.terminate()
-                else:
-                    _kill_group(process.pid)
-                stdout, stderr = process.communicate(timeout=5)
-                raise subprocess.TimeoutExpired(command, timeout, stdout, stderr) from exc
-            return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
-        finally:
-            if job:
-                job.close()
-            elif process:
+                job.terminate()
+            else:
                 _kill_group(process.pid)
-            if process:
-                if process.poll() is None:
-                    process.kill()
-                # Drain pipes even after an attachment failure or KeyboardInterrupt.
-                process.communicate(timeout=5)
+            stdout, stderr = process.communicate(timeout=5)
+            raise subprocess.TimeoutExpired(command, timeout, stdout, stderr) from exc
+        return subprocess.CompletedProcess(command, process.returncode, stdout, stderr)
+    finally:
+        if job:
+            job.close()
+        elif process:
+            _kill_group(process.pid)
+        if process:
+            if process.poll() is None:
+                process.kill()
+            # Drain pipes even after an attachment failure or KeyboardInterrupt.
+            process.communicate(timeout=5)
 
 
 def _kill_group(pid: int) -> None:

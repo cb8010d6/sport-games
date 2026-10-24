@@ -8,7 +8,7 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-from engine_process import project_lock, run_engine
+from engine_process import project_lock, run_engine, run_engines
 
 
 class EngineProcessTests(unittest.TestCase):
@@ -47,6 +47,20 @@ class EngineProcessTests(unittest.TestCase):
             released = run_engine([sys.executable, "-c", script], env=dict(os.environ), timeout=10)
             self.assertEqual(released.returncode, 0, released.stderr)
             self.assertIn("LOCKED", released.stdout)
+
+    def test_parallel_instances_share_one_project_lock(self):
+        # Each instance waits for the other's marker, so a serial runner would time out.
+        script = ("import pathlib,sys,time\nd=pathlib.Path(sys.argv[1]); (d/sys.argv[2]).touch(); end=time.monotonic()+8\n"
+                  "while not (d/sys.argv[3]).exists() and time.monotonic()<end: time.sleep(0.05)\n"
+                  "print('MET' if (d/sys.argv[3]).exists() else 'ALONE')")
+        with tempfile.TemporaryDirectory() as temp:
+            # The trailing --path names the project the lock guards; the script ignores it.
+            commands = [[sys.executable, "-c", script, temp, mine, other, "--path", temp]
+                        for mine, other in (("a", "b"), ("b", "a"))]
+            results = run_engines(commands, env=dict(os.environ), timeout=10)
+            self.assertEqual([r.stdout.strip() for r in results], ["MET", "MET"])
+            with project_lock(commands[0]):
+                pass  # released after the batch
 
     @unittest.skipUnless(os.name == "nt", "Win32 native exception and Job Object")
     def test_unhandled_native_access_violation_returns_without_debugger(self):

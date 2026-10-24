@@ -14,3 +14,8 @@ def test_godot_zero_exit_does_not_hide_errors(error):
 def test_shutdown_diagnostic_remains_visible(capsys):
     checked_run([sys.executable, "-c", "print('ERROR: 9 resources still in use at exit (run with --verbose for details).')"])
     assert "retained at shutdown" in capsys.readouterr().out
+
+
+def test_godot_runs_in_test_mode():
+    output = checked_run([sys.executable, "-c", "import os; print(os.environ.get('RS_TEST_MODE'))"])
+    assert output.strip() == "1"

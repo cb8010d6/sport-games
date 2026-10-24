@@ -151,25 +151,25 @@ var time_label_bounds := Rect2()
 func _hud_draw(h: PlayerHud) -> void:
 	text_bounds[h.get_instance_id()] = []
 	super._hud_draw(h)
-func draw_text(ci: CanvasItem, text: String, pos: Vector2, size: float, color: Color, center := false, right := false) -> void:
+func draw_text(ci: CanvasItem, text: String, pos: Vector2, size: float, color: Color, center := false, right := false, f: Font = null) -> void:
 	if ci is PlayerHud or ci is Overlay:
+		var used: Font = font if f == null else f
 		var bounds: Vector2 = ci.size
 		var width: float = 2.0 * minf(pos.x - 4.0, bounds.x - pos.x - 4.0) if center else (pos.x - 4.0 if right else bounds.x - pos.x - 4.0)
-		var fs := RSUi.fit_text_size(text, size, width, pos.y - 4.0, bounds.y - 8.0)
-		var w := font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
-		var at := pos - Vector2(w * (0.5 if center else (1.0 if right else 0.0)), font.get_ascent(fs))
-		var rect := Rect2(at, Vector2(w, font.get_height(fs)))
+		var fs := RSUi.fit_text_size(text, size, width, pos.y - 4.0, bounds.y - 8.0, used)
+		var w := used.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
+		var at := pos - Vector2(w * (0.5 if center else (1.0 if right else 0.0)), used.get_ascent(fs))
+		var rect := Rect2(at, Vector2(w, used.get_height(fs)))
 		if ci is PlayerHud:
 			text_bounds[ci.get_instance_id()].append([text, rect])
 		elif text == tr("剩余时间"):
 			time_label_bounds = rect
-	super.draw_text(ci, text, pos, size, color, center, right)
-func draw_pill(ci: CanvasItem, text: String, center: Vector2, size: float, color: Color = Color.WHITE) -> void:
-	if ci is Overlay and text.contains(":"):
-		var fs := RSUi.text_size(size)
-		var extent := Vector2(font.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x + fs, fs * 1.36)
-		clock_bounds = Rect2(center - extent * 0.5, extent)
-	super.draw_pill(ci, text, center, size, color)
+	super.draw_text(ci, text, pos, size, color, center, right, f)
+func _plate_rect(text: String, center: Vector2, fs: int, f: Font) -> Rect2:
+	var rect := super._plate_rect(text, center, fs, f)
+	if text.contains(":"):
+		clock_bounds = rect
+	return rect
 """ % (RSCatalog.find_game(id)["scene"] as String).replace(".tscn", ".gd")
 	_check(script.reload() == OK, "instrumented actual scene compiles")
 	_scene = script.new()

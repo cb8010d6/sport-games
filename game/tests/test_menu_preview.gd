@@ -59,15 +59,16 @@ func _selected(index: int, source: String) -> void:
 	var card: RSGamePreview = _menu._preview
 	_check(_menu._index == index, source + " selects index")
 	_check(card.visible and card.game_id == entry["id"], source + " selects preview")
-	_check(card._title.text == tr(entry["name"]), source + " translates title")
+	_check(_menu._info_title.text == tr(entry["name"]), source + " translates title")
 	_check(_menu._desc.text.begins_with(tr(entry["desc"])), source + " updates description")
-	_check(card._image.texture != null and card._image.texture.resource_path.ends_with("/%s.jpg" % entry["id"]), source + " matches texture")
-	_check(card._image.texture.get_size() == Vector2(1600, 900), source + " native image dimensions")
+	_check(card.texture != null and card.texture.resource_path.ends_with("/%s.jpg" % entry["id"]), source + " matches texture")
+	_check(card.texture.get_size() == Vector2(1600, 900), source + " native image dimensions")
 	var screen := Rect2(Vector2.ZERO, Vector2(1600, 900))
-	_check(screen.encloses(card.get_global_rect()), source + " preview stays on screen")
-	_check(not card.get_global_rect().intersects(_menu._menu_grid.get_global_rect()), source + " preview clears buttons")
-	_check(card.get_global_rect().encloses(card._image.get_global_rect()), source + " image stays inside card")
-	_check(card._title.get_theme_font("font").get_string_size(card._title.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 32).x <= card._title.size.x, source + " title fits")
+	_check(card.get_global_rect().is_equal_approx(screen), source + " preview fills the screen")
+	var info: Rect2 = _menu._info.get_global_rect()
+	_check(screen.encloses(info), source + " title plate stays on screen")
+	_check(not info.intersects(_menu._menu_grid.get_global_rect()), source + " title plate clears buttons")
+	_check(_menu._info_title.get_global_rect().end.x <= info.end.x + 1.0, source + " title fits")
 
 
 func _capture(id: String) -> void:
@@ -90,8 +91,8 @@ func _run() -> void:
 	get_tree().current_scene = _menu
 	await _frames(12)
 	_selected(0, "initial focus")
-	await _key(KEY_RIGHT)
-	_selected(1, "keyboard right")
+	await _key(KEY_DOWN)
+	_selected(1, "keyboard down")
 	var hover := InputEventMouseMotion.new()
 	hover.position = _menu._buttons[2].get_global_rect().get_center()
 	get_viewport().push_input(hover)
@@ -102,7 +103,7 @@ func _run() -> void:
 	hover.position = Vector2(1580, 880)
 	get_viewport().push_input(hover)
 	await _frames()
-	_udp.set_dest_address("127.0.0.1", ControllerHub.LISTEN_PORT)
+	_udp.set_dest_address("127.0.0.1", ControllerHub.listen_port())
 	await _button(RSController.BTN_B)
 	_selected(3, "UDP next")
 	await _button(RSController.BTN_C)
