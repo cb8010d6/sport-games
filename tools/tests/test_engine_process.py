@@ -6,13 +6,18 @@ import sys
 import tempfile
 import time
 import unittest
+from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent / "fixtures"))
 import engine_process
 from engine_process import project_lock, run_engine, run_engines
-from process_tree import cleanup_tree, tree_command
+from process_tree import cleanup_tree, tree_command, tree_ready, tree_survivors
+
+STARTUP_TIMEOUT = 12
+ORPHAN_TIMEOUT = 2
+TREE_TIMEOUT = STARTUP_TIMEOUT + ORPHAN_TIMEOUT
 
 
 class EngineProcessTests(unittest.TestCase):
@@ -24,25 +29,48 @@ class EngineProcessTests(unittest.TestCase):
         self.assertEqual(result.stderr.strip(), "err")
 
     def test_timeout_kills_child_after_wrapper_already_exited(self):
-        # Native Windows descendants inherit Job ownership; Store Python's AppX activation
-        # does not model Godot. Both descendants keep the exited wrapper's pipes open.
+        self._assert_timeout_kills_tree(startup_delay=0)
+
+    def test_timeout_kills_child_after_slow_startup(self):
+        # The old fixed 3s timeout raced real native child initialization on cold CI.
+        self._assert_timeout_kills_tree(startup_delay=4)
+
+    def _assert_timeout_kills_tree(self, startup_delay: float) -> None:
         with tempfile.TemporaryDirectory() as temp:
             directory = Path(temp)
-            try:
+            with ThreadPoolExecutor(max_workers=1) as pool:
                 start = time.monotonic()
-                with self.assertRaises(subprocess.TimeoutExpired) as caught:
-                    run_engine(tree_command(directory), env=dict(os.environ), timeout=3)
-                self.assertIn("WRAPPER", caught.exception.stdout)
-                # Native hidden-console descendants retain the pipes, while Console.WriteLine
-                # need not reach them. Their own PID records prove all three stages executed.
-                for role in ("wrapper", "child", "grandchild"):
-                    self.assertTrue((directory / f"{role}.pid").is_file(), f"Fixture did not start {role}")
-                self.assertLess(time.monotonic() - start, 8)
-                time.sleep(4)
-                survivors = [role for role in ("child", "grandchild") if (directory / f"{role}.survived").exists()]
-                self.assertEqual(survivors, [], "Orphaned engine descendants survived the timeout")
-            finally:
-                cleanup_tree(directory)
+                future = pool.submit(run_engine, tree_command(directory, startup_delay=startup_delay),
+                                     env=dict(os.environ), timeout=TREE_TIMEOUT)
+                try:
+                    # Readiness must precede the overall deadline by at least ORPHAN_TIMEOUT.
+                    # Descendants keep their pipes open until released (30s watchdog).
+                    while not tree_ready(directory) and time.monotonic() < start + STARTUP_TIMEOUT:
+                        if future.done():
+                            future.result()  # Preserve a real launch failure instead of hiding it as readiness.
+                            self.fail("Fixture exited before all descendants were ready")
+                        time.sleep(0.02)
+                    self.assertTrue(tree_ready(directory), "Fixture startup deadline exceeded before wrapper exit")
+                    self.assertLess(time.monotonic() - start, STARTUP_TIMEOUT, "Fixture startup deadline exceeded")
+                    self.assertEqual(tree_survivors(directory), ["child", "grandchild"], "Ready descendants exited early")
+                    # Observe real exit by the original timeout plus a 2s Job termination grace.
+                    # A mutant retains both descendants; release its pipes before the runner's
+                    # secondary 5s drain expires, then assert the recorded ownership failure.
+                    exit_deadline = start + TREE_TIMEOUT + 2
+                    while time.monotonic() < exit_deadline:
+                        if future.done() and not tree_survivors(directory):
+                            break
+                        time.sleep(0.02)
+                    survivors = tree_survivors(directory)
+                    (directory / "release").touch()
+                    with self.assertRaises(subprocess.TimeoutExpired) as caught:
+                        future.result(timeout=5)
+                    self.assertEqual(caught.exception.timeout, TREE_TIMEOUT)
+                    self.assertIn("WRAPPER", caught.exception.stdout)
+                    self.assertLess(time.monotonic() - start, TREE_TIMEOUT + 5)
+                    self.assertEqual(survivors, [], "Orphaned engine descendants survived the timeout")
+                finally:
+                    cleanup_tree(directory)
 
     def test_timeout_assertions_reject_unowned_descendants(self):
         # Run the same real assertion against a private mutant. Nothing in the checkout's
@@ -61,12 +89,14 @@ class EngineProcessTests(unittest.TestCase):
             shutil.copyfile(__file__, target)
             for name in ("process_tree.py", "process_tree.ps1"):
                 shutil.copyfile(Path(__file__).parent / "fixtures" / name, fixtures / name)
-            result = run_engine([sys.executable, str(target),
-                                 "EngineProcessTests.test_timeout_kills_child_after_wrapper_already_exited"],
-                                env=dict(os.environ), timeout=30)
-            self.assertNotEqual(result.returncode, 0, "missing ownership must fail the actual timeout assertion")
-            self.assertIn("Orphaned engine descendants survived the timeout", result.stderr)
-            self.assertIn("['child', 'grandchild']", result.stderr)
+            for method in ("test_timeout_kills_child_after_wrapper_already_exited",
+                           "test_timeout_kills_child_after_slow_startup"):
+                with self.subTest(method=method):
+                    result = run_engine([sys.executable, str(target), f"EngineProcessTests.{method}"],
+                                        env=dict(os.environ), timeout=40)
+                    self.assertNotEqual(result.returncode, 0, "missing ownership must fail the actual timeout assertion")
+                    self.assertIn("Orphaned engine descendants survived the timeout", result.stderr)
+                    self.assertIn("['child', 'grandchild']", result.stderr)
 
     def test_lock_rejects_second_process_then_releases(self):
         with tempfile.TemporaryDirectory() as temp:
