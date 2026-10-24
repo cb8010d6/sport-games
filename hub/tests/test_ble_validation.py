@@ -120,7 +120,11 @@ async def test_modern_callbacks_reject_short_packets_then_forward_valid_data(fak
 
 
 @pytest.mark.parametrize("bad", [math.nan, math.inf, -math.inf, 1e30, -1e30])
-async def test_legacy_callbacks_drop_invalid_vectors_and_recover(fake_bleak, bad):
+async def test_legacy_callbacks_drop_invalid_vectors_and_recover(fake_bleak, bad, monkeypatch):
+    # Legacy arrival timestamps need to advance at the real 20 Hz cadence,
+    # independently of platform clock resolution and callback execution speed.
+    ticks = iter(range(1000))
+    monkeypatch.setattr(ble, "time", SimpleNamespace(monotonic=lambda: 1000.0 + next(ticks) * 0.05))
     source, hub, sent = make_source()
     await source._connect(fixture_device(), "Regina-Fixture", legacy=True)
     client = fake_bleak[0][0]
