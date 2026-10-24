@@ -1,5 +1,6 @@
 """Exercise real process ownership, native failure and contention without Godot."""
 import os
+import shutil
 import subprocess
 import sys
 import tempfile
@@ -8,7 +9,10 @@ import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+sys.path.insert(0, str(Path(__file__).resolve().parent / "fixtures"))
+import engine_process
 from engine_process import project_lock, run_engine, run_engines
+from process_tree import cleanup_tree, tree_command
 
 
 class EngineProcessTests(unittest.TestCase):
@@ -20,20 +24,49 @@ class EngineProcessTests(unittest.TestCase):
         self.assertEqual(result.stderr.strip(), "err")
 
     def test_timeout_kills_child_after_wrapper_already_exited(self):
-        # The child keeps inherited pipes open after its parent exits. Killing the parent's
-        # PID with taskkill /T no longer reaches it. A delayed marker detects survivors.
+        # Native Windows descendants inherit Job ownership; Store Python's AppX activation
+        # does not model Godot. Both descendants keep the exited wrapper's pipes open.
         with tempfile.TemporaryDirectory() as temp:
-            marker = Path(temp) / "survived"
-            child = "import pathlib,time; print('CHILD', flush=True); time.sleep(4); pathlib.Path(" + repr(str(marker)) + ").touch()"
-            parent = "import subprocess,sys; subprocess.Popen([sys.executable, '-c', " + repr(child) + "]); print('WRAPPER', flush=True)"
-            start = time.monotonic()
-            with self.assertRaises(subprocess.TimeoutExpired) as caught:
-                run_engine([sys.executable, "-c", parent], env=dict(os.environ), timeout=2)
-            self.assertIn("CHILD", caught.exception.stdout)
-            self.assertIn("WRAPPER", caught.exception.stdout)
-            self.assertLess(time.monotonic() - start, 7)
-            time.sleep(4)
-            self.assertFalse(marker.exists(), "Orphaned engine child survived the timeout")
+            directory = Path(temp)
+            try:
+                start = time.monotonic()
+                with self.assertRaises(subprocess.TimeoutExpired) as caught:
+                    run_engine(tree_command(directory), env=dict(os.environ), timeout=3)
+                self.assertIn("WRAPPER", caught.exception.stdout)
+                # Native hidden-console descendants retain the pipes, while Console.WriteLine
+                # need not reach them. Their own PID records prove all three stages executed.
+                for role in ("wrapper", "child", "grandchild"):
+                    self.assertTrue((directory / f"{role}.pid").is_file(), f"Fixture did not start {role}")
+                self.assertLess(time.monotonic() - start, 8)
+                time.sleep(4)
+                survivors = [role for role in ("child", "grandchild") if (directory / f"{role}.survived").exists()]
+                self.assertEqual(survivors, [], "Orphaned engine descendants survived the timeout")
+            finally:
+                cleanup_tree(directory)
+
+    def test_timeout_assertions_reject_unowned_descendants(self):
+        # Run the same real assertion against a private mutant. Nothing in the checkout's
+        # production module is changed, and no fake runner/result substitutes for execution.
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            source = Path(engine_process.__file__).read_text(encoding="utf-8")
+            before, after = (("k.AssignProcessToJobObject(self.handle, handle)", "True") if os.name == "nt"
+                             else ("os.killpg(pid, signal.SIGKILL)", "None"))
+            self.assertEqual(source.count(before), 1, "ownership mutation must hit exactly one real syscall")
+            (directory / "engine_process.py").write_text(source.replace(before, after), encoding="utf-8")
+            tests = directory / "tests"
+            fixtures = tests / "fixtures"
+            fixtures.mkdir(parents=True)
+            target = tests / Path(__file__).name
+            shutil.copyfile(__file__, target)
+            for name in ("process_tree.py", "process_tree.ps1"):
+                shutil.copyfile(Path(__file__).parent / "fixtures" / name, fixtures / name)
+            result = run_engine([sys.executable, str(target),
+                                 "EngineProcessTests.test_timeout_kills_child_after_wrapper_already_exited"],
+                                env=dict(os.environ), timeout=30)
+            self.assertNotEqual(result.returncode, 0, "missing ownership must fail the actual timeout assertion")
+            self.assertIn("Orphaned engine descendants survived the timeout", result.stderr)
+            self.assertIn("['child', 'grandchild']", result.stderr)
 
     def test_lock_rejects_second_process_then_releases(self):
         with tempfile.TemporaryDirectory() as temp:
