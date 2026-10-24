@@ -36,6 +36,9 @@ def load_config(path: Path) -> dict[str, Any]:
     }
     if path.exists():
         cfg.update(json.loads(path.read_text(encoding="utf-8")))
+    local = path.with_name("config.local.json")
+    if local != path and local.exists():
+        cfg.update(json.loads(local.read_text(encoding="utf-8")))
     for key in ("regina_axis_map", "phone_axis_map"):
         if handedness(cfg[key]) < 0:
             raise SystemExit(f"{key} {cfg[key]} is a mirror image (left-handed); flip the sign of one axis")
