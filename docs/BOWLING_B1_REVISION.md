@@ -10,7 +10,7 @@
 
 ## 标牌返工范围（评论 6380640451）
 
-后续修改仅涉及 bowling 场馆、bowling 专用遮板 shader、对应场馆测试和本说明：从公共标签字体复制独立的 3D MSDF 字体资源，不修改共享字体或导入设置；标牌使用不透明预通过、深色底板与描边。图案用屏幕导数过滤细线并降低 emission，环境 bloom 设为零，glow 继续服从公共画质设置。验收要补同机位四人 2560×1440 原生 / FSR 原生抗锯齿 / FSR 质量截图与 200% 标牌裁剪，以及 2560×1080 的 1/2/4 人实际画面；实现与截图未验收前继续保持 draft。
+该轮原方案仅涉及 bowling 场馆、bowling 专用遮板 shader、对应场馆测试和本说明：从公共标签字体复制独立的 3D MSDF 字体资源，不修改共享字体或导入设置；标牌使用不透明预通过与描边，原方案的深色底板已按后续样式要求移除。图案用屏幕导数过滤细线并降低 emission，环境 bloom 设为零，glow 继续服从公共画质设置。验收包含同机位四人 2560×1440 原生 / FSR 原生抗锯齿 / FSR 质量截图与 200% 标牌裁剪，以及 2560×1080 的 1/2/4 人实际画面；当前静态证据见文末，运动与性能尚待验收，继续保持 draft。
 
 实现后的官方 4.7.2 headless 场馆矩阵已跑 2/4 人 × 中英文 × 100%/125%，八例共 4768 项检查、0 失败；覆盖独立 MSDF 字体源、间距、不透明预通过、描边和四块深底板，以及原有规则 / 碰撞 / HUD 回归。规范 0 错误、文案 0 缺失 / 0 多余。该结果尚不验证 GPU shader、标牌可读性或运动闪烁；截图和正式测量仍待完成。
 
@@ -55,6 +55,39 @@ headless 不验证灯光观感、shader 实际渲染、字体视觉可读性或 
 
 ## 待画面审查与性能验收
 
-1. 相同机位的四人旧场景对照、双人 / 四人中英文画面、125% 字号和开场镜头，由主任务在隔离隐藏桌面串行运行。专用工具新增 `--quality`（默认 2）和 `--text-size 100 125`；截图文件名包含玩家数、语言索引、字号与 `intro` / `play` / `hall` 后缀。同机位对照须使用旧图的高画质和同一相机姿态，不能拿扫场视角替代。
+1. 同机位四人 QHD 对照与最新宽屏双人 / 四人静态证据已补入文末；完整中英文 1/2/4 人宽屏原图另留私有验收索引。125% 字号、开场镜头最终目视及运动闪烁 / 拖影仍待验收。专用工具提供 `--quality`（默认 2）和 `--text-size 100 125`；截图文件名包含玩家数、语言索引、字号与 `intro` / `play` / `hall` 后缀。同机位对照使用旧图的高画质和同一相机姿态，不能拿扫场视角替代。
 2. 已合入的 `tools/bench.py --games bowling --players 2 4 --quality 2 --repeat 3` 正式测量，由主任务安排。
-3. 新截图的来源 / 许可登记由主任务统一处理。运行时只复用既有锁定资产，无新依赖或外部素材。本轮仍是 B1，不能以此关闭整个 #25。
+3. 文末新增截图已登记来源 / 许可。运行时只复用既有锁定资产，无新依赖或外部素材。本轮仍是 B1，不能以此关闭整个 #25。
+
+## 2026-10-24 最终样式的静态画面证据
+
+最新画面对应 `fb3af56008647e82a7b34598a687358e0ead8f5a`：P1–P4 标牌移除独立黑色底板，保留专用 MSDF 字体（pixel range 24、size 128）、10 像素深色描边和 opaque prepass；遮板细线使用 `fwidth` 过滤，环境 bloom 为 0，glow 仍服从公共画质设置。保龄球计分格采用取色值 `#E3E5EF`、alpha 0.76（76% 不透明度），格内数字使用深色 `RSUi.INK`。
+
+以下六张为未经缩放、重编码或合成的原始 PNG；文件哈希、源码与 fixture/pose 标识、官方引擎、实际 GPU、输出和玩家视口、AA/scale 及对象比较记录见 [visuals.json](benchmarks/bowling-b1-revision/visuals.json)。旧场馆原生参考来自 `cf889669aa515790d2d8ab6b77a354c55afa3fb6`。截图内容使用合成 P1–P4。
+
+| 画面 | 配置与用途 | 原始 PNG |
+|---|---|---|
+| 旧场馆四人参考 | 2560×1440，quality=2，原生，Radeon 780M | [旧场馆原生](screenshots/bowling-b1-r2-before-qhd-native.png) |
+| 最终样式四人 | 2560×1440，quality=2，原生，Radeon 780M | [最新原生](screenshots/bowling-b1-r2-after-qhd-native.png) |
+| 最终样式四人 | 2560×1440，quality=2，FSR 原生抗锯齿，scale=1.00，Radeon 780M | [FSR 原生抗锯齿](screenshots/bowling-b1-r2-after-qhd-fsr-native-aa.png) |
+| 最终样式四人 | 2560×1440，quality=2，FSR 质量，scale≈0.67，Radeon 780M | [FSR 质量](screenshots/bowling-b1-r2-after-qhd-fsr-quality.png) |
+| 最终样式中文双人 | 2560×1080，quality=2，原生，GeForce RTX 4060 Laptop GPU | [宽屏双人 PLAY](screenshots/bowling-b1-r2-after-wide-2p-zh-play.png) |
+| 最终样式英文四人 | 2560×1080，quality=2，原生，GeForce RTX 4060 Laptop GPU | [宽屏四人 PLAY](screenshots/bowling-b1-r2-after-wide-4p-en-play.png) |
+
+四份 QHD 使用同一冻结首个 PLAY 夹具：P1 为 AIM，P2–P4 为布置在瓶区前方的跟球观察机位，FOV 均为 50；保留真实 HUD、隐藏共享 GO，44 个刚体冻结。旧/新原生的 fixture 与 pose 哈希、实际相机、root viewport 及全部 44 个冻结对象相同，相机与物体变换的最大数值差均为 0。最新三档也保持相机姿态、投影、分屏布局与冻结对象相同，AA 和渲染 scale 按档位变化。这是固定静态观察画面，不是自然玩法重放。
+
+宽屏图来自独立的普通 demo PLAY 夹具，用于检查双人/四人布局。实际 PNG readback 为 2560×1080；内容基准为 1600×900，展开后的 root 逻辑可见区域为 2133×900，玩家实际视口分别为 1062×896（双人）和 1062×446（四人）。Godot 的 root ViewportTexture advertised size 单独保留在元数据，不替代实际 PNG readback。宽屏与 QHD 的 GPU、夹具和布局不同，不能用于同条件性能作差。
+
+### P1 远望 P4 的 200% 裁剪
+
+以下均为上表原图中同一源像素框 `[858,252,928,318]`（左/上包含，右/下不包含），70×66 像素以最近邻放大 2 倍为 140×132。它们是已披露的裁剪放大图，不是原始尺寸截图；源图与裁剪 SHA256、框坐标和缩放 provenance 均记入 `visuals.json`。
+
+| 旧场馆原生参考 | 最新原生 | 最新 FSR 原生抗锯齿 | 最新 FSR 质量 |
+|---|---|---|---|
+| ![旧场馆 P1 远望 P4，200% 裁剪放大](screenshots/bowling-b1-r2-before-qhd-native-p1-distant-p4-200pct.png) | ![最新原生 P1 远望 P4，200% 裁剪放大](screenshots/bowling-b1-r2-after-qhd-native-p1-distant-p4-200pct.png) | ![最新 FSR 原生抗锯齿 P1 远望 P4，200% 裁剪放大](screenshots/bowling-b1-r2-after-qhd-fsr-native-aa-p1-distant-p4-200pct.png) | ![最新 FSR 质量 P1 远望 P4，200% 裁剪放大](screenshots/bowling-b1-r2-after-qhd-fsr-quality-p1-distant-p4-200pct.png) |
+
+### 静态观察与边界
+
+主任务已逐张查看最新三档 QHD、宽屏双人/四人原图及以上四份 200% 远 P4 裁剪：标牌在这些静止画面中可辨，没有观察到新增布局越界；浅色半透明计分格下仍可见场景。这个结论仅覆盖这些画面和机位。运动闪烁、拖影、真实手柄手感、正式性能、HDR/VRR 与跨平台行为未由此图包验证；没有以截图或冻结夹具声称帧率门槛通过。
+
+新增截图沿用项目 MIT 代码/程序几何及既有已登记 CC0 素材的来源，联合画面登记为 **MIT AND CC0-1.0**；字体及其他既有资源记录见 [THIRD_PARTY.md](THIRD_PARTY.md)。本段补充当前静态证据，历史测试和短采样数字仍保留其原始版本含义，B1 之外的 #25 工作也不因此完成。

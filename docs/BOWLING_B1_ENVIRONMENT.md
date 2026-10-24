@@ -74,3 +74,6 @@
 ![场馆验收视角，中画质](screenshots/bowling-b1-4p-hall.png)
 
 截图来自项目 MIT 代码 / 程序几何 / 现有 HUD，以及已登记的 Poly Haven CC0 素材；使用隔离的合成玩家，不含真实手柄、设备或玩家数据。联合画面登记为 MIT AND CC0-1.0，来源沿用 [THIRD_PARTY.md](THIRD_PARTY.md) 与素材目录的作者记录，没有引入新的外部素材。
+
+新增 `bowling-b1-r2-*` 画面及其裁剪的版本、方法、哈希与静态审查范围见 [B1 返工画面记录](BOWLING_B1_REVISION.md#2026-10-24-最终样式的静态画面证据)，本页历史截图和短采样仍保持原版本含义。
+这些新增画面仅含合成 P1–P4，来源沿用项目 MIT 代码/程序几何及已登记 CC0 素材，联合画面登记为 MIT AND CC0-1.0；许可与既有资源记录沿用 [THIRD_PARTY.md](THIRD_PARTY.md)。
