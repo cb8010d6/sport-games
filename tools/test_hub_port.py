@@ -83,7 +83,7 @@ def main() -> int:
             commands[2] += ["--", f"--hub-port={hub_port}"]
             results = run_engines(commands, env=env, timeout=60)
             ports = [instance_port(name, result.stdout + result.stderr, result.returncode)
-                     for name, result in zip(names, results)]
+                     for name, result in zip(names, results, strict=True)]
             if ports[0] == ports[1] or GAME_PORT in ports[:2]:
                 raise AssertionError(f"Concurrent test instances share or use a fixed port: {ports[:2]}")
             if ports[2] != hub_port - 1:
