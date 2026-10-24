@@ -80,10 +80,14 @@ async def _run_optional_source(name: str, run: Callable[[], Awaitable[None]], *,
 
 
 async def _run_ble(hub: Hub, cfg: dict[str, Any]) -> None:
-    from .sources.ble import ReginaBleSource
+    try:
+        from .sources.ble import ReginaBleSource
 
-    ble = ReginaBleSource(hub, cfg["regina_axis_map"], cfg["regina_name_prefix"], cfg["regina_allow"], cfg["regina_screen_rotation"])
-    await ble.run()
+        ble = ReginaBleSource(hub, cfg["regina_axis_map"], cfg["regina_name_prefix"], cfg["regina_allow"], cfg["regina_screen_rotation"])
+        await ble.run()
+    except Exception:
+        hub.set_ble_state("unavailable")
+        raise
 
 
 async def _run_replay(hub: Hub, path: Path) -> None:

@@ -81,6 +81,23 @@ func _capture(id: String) -> void:
 	_check(picture.save_png(output.path_join(id + ".png")) == OK, "screenshot save")
 
 
+func _ble_diagnostics() -> void:
+	for state: String in ["no_adverts", "unavailable"]:
+		_udp.put_packet(JSON.stringify({"type": "roster", "controllers": [], "ble_state": state}).to_utf8_buffer())
+		await _frames()
+		var warning := ControllerHub.ble_warning()
+		_check(not warning.is_empty() and _menu._status.text == warning, state + " main-menu diagnostic")
+		await _capture("ble_" + state + "_menu")
+		_menu._pages.open("players")
+		await _frames()
+		await _capture("ble_" + state + "_players")
+		_menu._pages.close()
+		await _frames()
+	_udp.put_packet(JSON.stringify({"type": "roster", "controllers": [], "ble_state": "scanning"}).to_utf8_buffer())
+	await _frames()
+	_check(ControllerHub.ble_warning().is_empty(), "BLE recovery removes the diagnostic")
+
+
 func _run() -> void:
 	# Headless windows do not apply the display-server --resolution flag.
 	get_tree().root.size = Vector2i(1600, 900)
@@ -137,6 +154,7 @@ func _run() -> void:
 	_selected(0, "UDP wrap forward")
 	await _button(RSController.BTN_C)
 	_check(_menu._index == _menu.GAMES.size() - 1 and not _menu._preview.visible, "UDP wrap backward")
+	await _ble_diagnostics()
 	_udp.close()
 	for audio: AudioStreamPlayer in _menu.find_children("*", "AudioStreamPlayer", true, false):
 		audio.stop()

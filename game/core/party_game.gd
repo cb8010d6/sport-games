@@ -937,6 +937,10 @@ func _overlay_draw(o: Overlay) -> void:
 		o.draw_string(go_font, Vector2(center.x - w * 0.5 - fs * 0.04, center.y + fs * 0.36), "GO!", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(RSUi.INK, a))
 	if phase != Phase.LOBBY and not demo and not ControllerHub.is_hub_connected():
 		draw_pill(o, tr("● 未连接 hub —— 请运行 hub/run_hub.bat"), Vector2(sz.x * 0.5, sz.y - 30 * k), 18 * k, RSUi.BAD)
+	elif phase != Phase.LOBBY and not demo:
+		var ble_warning := ControllerHub.ble_warning()
+		if not ble_warning.is_empty():
+			draw_pill(o, ble_warning, Vector2(sz.x * 0.5, sz.y - 30 * k), 18 * k, RSUi.HIGHLIGHT)
 
 
 func _take_shots() -> void:

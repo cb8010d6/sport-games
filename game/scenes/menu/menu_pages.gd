@@ -212,7 +212,8 @@ func _process(_delta: float) -> void:
 
 func _refresh_devices() -> void:
 	var live := ControllerHub.connected_controllers()
-	var signature := str(ControllerHub.is_hub_connected())
+	var ble_warning := ControllerHub.ble_warning()
+	var signature := str(ControllerHub.is_hub_connected()) + ble_warning
 	for c: RSController in live:
 		signature += "%d:%d:%d:%s:%s" % [c.id, c.player, c.battery, c.display_name, c.calibrating]
 	if signature == _device_signature:
@@ -228,6 +229,10 @@ func _refresh_devices() -> void:
 		_device_rows.add_child(RSUi.label(tr("● 未连接 hub —— 请先运行 hub/run_hub.bat"), 18))
 	elif live.is_empty():
 		_device_rows.add_child(RSUi.label(tr("等待手柄连接…"), 18))
+	if not ble_warning.is_empty():
+		var warning := RSUi.label(ble_warning, 16, RSUi.HIGHLIGHT)
+		warning.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+		_device_rows.add_child(warning)
 	for c: RSController in live:
 		if c.kind == "phone":
 			RSProfiles.import_phone_name(c.player, str(c.info.get("profile_name", "")))

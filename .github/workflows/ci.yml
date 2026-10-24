@@ -111,7 +111,12 @@ jobs:
       - name: Test parallel instances and ControllerHub ports
         run: python tools/test_hub_port.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
       - name: Test bilingual menu previews and input navigation
-        run: python tools/test_menu_preview.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
+        run: xvfb-run -a python tools/test_menu_preview.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --screenshots
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: menu-and-ble-diagnostics
+          path: audit-output/menu-previews
       - name: Test camera accessibility settings and reload
         run: python tools/test_camera_comfort.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --ui-only
       - name: Test shared podium ranks, geometry and results framing

@@ -282,6 +282,51 @@ def encode_ui_tlv(ui: dict[str, Any]) -> bytes:
     return bytes(out)
 
 
+def encode_ui_packets(ui: dict[str, Any], mtu: int, rotation: int = 3) -> list[bytes]:
+    """OLED commands fitting one ATT write each; every TLV stays in one command.
+
+    The firmware applies each command as a partial update. Only the first command
+    may contain clear; splitting an encoded byte stream at arbitrary offsets would
+    lose fields because there is no firmware-side fragment reassembly.
+    """
+    if type(mtu) is not int or not 23 <= mtu <= 517:
+        raise ValueError("ATT MTU must be an integer in 23..517")
+    if type(rotation) is not int or not 0 <= rotation <= 3:
+        raise ValueError("screen rotation must be an integer in 0..3")
+    # The firmware's command receive buffer is 256 bytes, even with a larger MTU.
+    capacity = min(mtu - 3, 256)
+    portrait = bool(rotation & 1)
+    text_limits = {
+        UI_TITLE: 10 if portrait else 14,
+        UI_MAIN: 10 if portrait else 20,
+        UI_SUB: 10 if portrait else 20,
+        UI_BAR: 10 if portrait else 20,
+        **{UI_LEGEND_A + i: 8 if portrait else 9 for i in range(4)},
+        UI_TOAST: 20,
+    }
+    encoded = encode_ui_tlv(normalize_ui(ui))
+    packets: list[bytes] = []
+    packet = bytearray([OP_UI])
+    offset = 1
+    while offset < len(encoded):
+        tag, size = encoded[offset], encoded[offset + 1]
+        payload = encoded[offset + 2:offset + 2 + size]
+        offset += 2 + size
+        if tag in text_limits:
+            prefix = 1 if tag == UI_BAR else 2 if tag == UI_TOAST else 0
+            # An individual field must fit a fresh packet too (e.g. MTU-23 toast).
+            limit = min(text_limits[tag], capacity - 3 - prefix)
+            payload = payload[:prefix] + payload[prefix:prefix + limit]
+        tlv = bytes([tag, len(payload)]) + payload
+        if len(packet) + len(tlv) > capacity:
+            packets.append(bytes(packet))
+            packet = bytearray([OP_UI])
+        packet.extend(tlv)
+    if len(packet) > 1:
+        packets.append(bytes(packet))
+    return packets
+
+
 def decode_ui_tlv(data: bytes) -> dict[str, Any]:
     """Reference decoder (mirrors the firmware parser); used by tests."""
     if not data or data[0] != OP_UI:
