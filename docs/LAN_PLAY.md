@@ -1,170 +1,149 @@
-# 局域网联机设计提案（#23）
+# 局域网联机设计记录（#23）
 
-**状态：供维护者审阅，尚未实现。** 本文不表示游戏已经支持 LAN；现有手机 Wi-Fi 接入仍是单机手柄。此次仅新增本文及离线报告校验器，不修改架构、协议或游戏运行时。下文的类、参数、消息、字节布局与验收都是后续实施约定的候选方案；维护者同意后，先更新 `ARCHITECTURE.md`、`protocol.md`，再分片实现。
+**状态：设计已获主线采纳，运行时尚未实现。** 本 PR 只新增本文；手机 Wi-Fi 接入仍是单机手柄，#23 的 LAN MVP 尚未完成。四项产品决定及跨区授权见 [PR #29 的主线审查](https://github.com/cb8010d6/sport-games/pull/29#issuecomment-6377606809)。下文新增类、钩子、参数与协议均为后续实现约定；字节布局和报告草案放在附录，不是已发布协议。
 
-## 1. 范围与待决策
+## 1. 已采纳的范围与决定
 
-MVP 为两台及以上电脑各运行游戏和自己的 hub，各自分屏；仅开放滑板、滑雪，远端为无碰撞幽灵。每台电脑只模拟本地玩家与机器人；不转发 200 Hz 手柄数据。其他运动、派对大赛、共享球体预测与超过四人均不在 MVP。
+MVP 支持多台电脑各运行游戏和自己的 hub，各自分屏；总计 2–4 人，每机至少一人。先接滑板、滑雪，远端为无碰撞幽灵；每台只模拟本地玩家与机器人，不转发 200 Hz 手柄数据。其他运动、派对大赛、共享球体和超过四人留到后续。
 
-| 维护者决定 | 推荐方案与理由 |
+| 已采纳决定 | 实施约定 |
 |---|---|
-| 生命周期、人数与加入 | 不加 autoload；常驻节点；合计 2–4 人，每机至少一人；仅大厅接纳加入，比赛加入明确拒绝，下一局自行重试。保留四档配色与名次奖励。 |
-| 暂停、离开与排名 | LAN 暂停为不冻结比赛的覆盖层，客户端无重开；无主机迁移、无局中重连。客户端离开移除活动名单与幽灵，本局结果不含离开者，审计名单保留。主机离开所有人回菜单；超时目标 5 秒，实际 ENet 检测行为须测试。 |
-| 构建、档案与成绩 | 协议版本、构建摘要、目录/地图内容摘要全部匹配才接纳；档案与视口沿用本地槽，LAN 结果暂不写个人纪录/挑战星数，避免把新规则写进旧成绩。派对积分第二阶段单独确认。 |
-| 高频事件验收 | 所有网络档位均要求事件产生后至发送入队不超过一个物理 tick。无丢包时接收处理不超过注入单程延迟与抖动上界加一个 tick；有丢包时另报 p50/p95/p99、重传与超时。可靠重传无法保证 5% 丢包下每个事件仍只多一个 tick，不能以合成报告宣称原目标已满足。 |
+| 生命周期、人数与加入 | 不加 autoload，使用常驻节点；保留四档配色和名次奖励；仅大厅接纳加入，局中明确拒绝，下一局自行重试。 |
+| 暂停、离开与排名 | LAN 暂停只显示覆盖层，不冻结比赛；客户端不能重开。离开者移出活动名单、幽灵及本局最终排名，保留审计名单。主机离开则全员回菜单；断线检测目标 5 秒。无主机迁移、局中重连。 |
+| 构建、档案与成绩 | 协议、构建及目录/地图摘要全部匹配才加入；档案和视口仍用本地槽。LAN 暂不写个人纪录或挑战星数；派对积分第二阶段再定。 |
+| 高频事件验收 | 事件产生至发送入队不超过一个物理 tick；无丢包时接收处理不超过注入单程延迟＋抖动上界＋一个 tick。有丢包时另报 p50/p95/p99、重传及超时，不承诺可靠重传仍只增加一个 tick。 |
 
-以上均是建议，未获得维护者批准。下一实施 PR 须记录决定；选项改变须先同步本文及报告版本。
+## 2. 已有入口与后续实现授权
 
-## 2. 跨区改动与兼容边界
+最新 `dev` 已包含 [#27 主题](https://github.com/cb8010d6/sport-games/pull/27) 和 [#34 测试端口入口](https://github.com/cb8010d6/sport-games/pull/34)（关闭 #32）。源码核对结果：
 
-| 后续文件 | 需要的改动与归属 |
+- `RSUi` 位于 `game/core/ui_kit.gd`；页面根节点用 `RSUi.theme()`，面板用 `modal_style()` / `card_style()`，按钮沿用主题，主要操作设 `theme_type_variation = &"RSPrimary"`。颜色、字体及动效见 [UI_THEME.md](UI_THEME.md)。
+- `RS_TEST_MODE=1` 且未传 `--hub-port` 时，`ControllerHub` 绑定系统分配的回环 UDP 临时端口，不向 hub 发消息；并非完全关闭 UDP。测试从 `ControllerHub.listen_port()` 取得端口。
+- 已有 `ControllerHub.ports_for(args, test_mode)`；`--hub-port=N` 在任何模式下覆盖默认值：游戏发往 N、监听 N-1，对应 hub 用 `--hub-port N --game-port N-1`。无效 N（非 2–65535）报错且不绑定。普通游戏仍为 47800/47801。
+- 已有 `tools/test_hub_port.py` 和 `engine_process.run_engines()`；未来 runner 复用这些入口和进程归属管理，不另改 autoload 或忽略端口错误。#34 的已合入状态不等于 LAN 已验证。
+
+| 后续实现范围 | 授权与边界 |
 |---|---|
-| `game/core/net_session.gd`、`net_discovery.gd`、`net_remote.gd` 及 `.uid` | 框架：会话/收发/时钟/测试注入；发现；远端状态缓冲。不依赖项目类。 |
-| `game/core/party_game.gd`、`party_ui.gd` | 框架：LAN 生命周期分支、默认钩子、名单与成绩显示，避免挪动 HUD 或样式。 |
-| `game/core/tournament.gd`、`catalog.gd` | 第二阶段才改派对赛全局身份；MVP 只允许 skate/ski，不能直接把本地槽积分当全局座位积分。 |
-| `game/scenes/menu/main_menu.gd`、新增 `lan_page.gd` 及 `.uid`、`game/core/pause_menu.gd` | 框架：独立页面、参数入口、暂停条件；复用已有 RSUi，不重写样式。 |
-| `game/scenes/skate/skate_game.gd`、`game/scenes/ski/ski_game.gd` | 项目：幽灵、全局起跑位、完赛去重、计时与远端进度点；抽出已有回放姿态应用函数。 |
-| `docs/ARCHITECTURE.md`、`docs/protocol.md` | 维护者先记录公共模块、权威、版本与全部消息，本文不能代替正式协议。 |
-| `game/i18n/en.json` | 共享区只追加相关中文 key 的英文；网络名字转义富文本。 |
-| `game/tests/test_lan.gd`、`.tscn`、`.uid`、`tools/test_lan.py` | 后续真正的双/三实例驱动、报告生产者；当前不存在本提案对应的实现。 |
+| `game/core/net_session.gd`、`net_discovery.gd`、`net_remote.gd` 及 `.uid` | 主线已授权：会话/收发/时钟/注入、发现、远端缓冲；core 不依赖项目类。 |
+| `game/core/party_game.gd` | 已授权下表默认钩子及 LAN 接入；非 LAN 行为不变，不改旧签名。 |
+| `game/scenes/menu/main_menu.gd`、新增 `lan_page.gd` 及 `.uid` | 已授权独立 LAN 页面和参数入口，必须使用 RSUi；#27 的先决条件已满足。 |
+| `docs/ARCHITECTURE.md`、`docs/protocol.md` | 与对应实现放在同一个 PR 同步公共模块、权威和消息，无需另开前置文档 PR。本文不代替正式协议。 |
+| 滑板/滑雪、`game/i18n/en.json` 与相关测试 | 后续切片接幽灵、全局起跑位和完赛事件；只改相关项目、翻译及测试，逐片列明范围。 |
+| `party_ui.gd`、`pause_menu.gd`、`catalog.gd`、`tournament.gd`、autoload、`project.godot` | 不由本次授权自动覆盖；如需改动先列出具体需求。派对赛全局身份留到第二阶段。 |
 
-`ControllerHub` 继续是唯一 autoload；无需修改 `project.godot` 的 120 Hz 物理设置。`RSNetSession.ensure(tree)` 幂等创建 `tree.root` 的直属常驻节点，保留引用或用组查找，不使用绝对节点路径。节点不归 `current_scene`，`PROCESS_MODE_ALWAYS`；退出时关闭 ENet、信标、队列并解除信号，重入不得重复创建。默认保留 `SceneTree.multiplayer_poll=true`，不另加第二次 poll；暂停、切场景期间收发须用 Godot 4.7.2 实测后确认。
-
-现有 `players`、`ordered()`、`ranked_players()` 始终仅含本地 Player，分屏、OLED、相机、回放和领奖台继续使用它们。新增 `ranked_all()` 返回纯数据行，不暴露远端 `p.data`。建议新增钩子默认行为：
+下表列出待新增接口及已有接口的 LAN 扩展；这些 LAN 行为尚未实现：
 
 | 接口 | 非 LAN 默认 / LAN 约定 |
 |---|---|
 | `is_lan()`、`is_lan_host()`、`remote_players()` | `false`、`false`、空列表 |
-| `seat_of(p)`、`start_index(p)`、`start_count()` | 原本地槽、原排序索引、原本地人数；LAN 按冻结的全局名单 |
-| `name_of/color_of/avatar_of` | 非 LAN 原实现；LAN 从名单快照取显示属性，头像仍由各玩家自己的本地档案上报 |
-| `_net_tick_hz()`、`_net_sync_mode()` | `20`、`ghost`；未来项目声明 `60/120` 与 `predictive` |
-| `_net_snapshot(p)`、`_net_event(seat, kind, data)` | 默认仅 score / 空操作；项目对象由会话编码器适配，不在 core 引用滑板/滑雪类 |
-| `_remote_added/removed/step`、`send_event(kind, data)` | 非 LAN 空操作；LAN 立即入可靠发送路径，不能等下一快照 |
+| `seat_of(p)`、`start_index(p)`、`start_count()` | 原本地槽、原排序索引、原本地人数；LAN 使用冻结全局名单 |
+| `name_of/color_of/avatar_of` 的 LAN 分支 | 保留现有非 LAN 实现；LAN 读名单快照，本地档案上报显示属性 |
+| `ranked_all()` | 非 LAN 由本地排名生成纯数据行；LAN 合并全局成绩，不暴露远端 `p.data` |
+| `_net_tick_hz()`、`_net_sync_mode()` | `20`、`ghost`；未来项目可声明 `60/120`、`predictive` |
+| `_net_snapshot(p)`、`_net_event(seat, kind, data)` | 默认仅 score / 空操作；项目适配自己的数据 |
+| `_remote_added/removed/step`、`send_event(kind, data)` | 非 LAN 空操作；LAN 事件立即进入可靠发送路径 |
 
-不修改旧签名，不把远端设备伪装成 `RSController`。所有新增参数仅在 `party_game.gd`、`main_menu.gd` 解析并交给会话配置；项目不重复解析。
+`players`、`ordered()`、`ranked_players()` 始终只含本地 Player；相机、OLED、回放和分屏继续用本地槽，不把远端伪装成 `RSController`。`RSNetSession.ensure(tree)` 幂等创建根下常驻节点，用引用或组查找；不归 `current_scene`，采用 `PROCESS_MODE_ALWAYS`。保留 `SceneTree.multiplayer_poll=true`，不重复 poll；退出关闭连接、发现与队列并解除信号。暂停和切场景收发须在 Godot 4.7.2 实测。
 
-## 3. 身份、状态机与权威
+LAN 参数仍仅在 `party_game.gd`、`main_menu.gd` 解析；已有 `--hub-port` 的 autoload 例外沿用 [ARCHITECTURE.md](ARCHITECTURE.md)，不扩大例外。
 
-传输 peer 身份来自 ENet 回调，不能信任包内自称的 peer。主机分配全局 seat 1–4：主机本地槽升序优先，其余按加入顺序；`(peer_id, local_slot)` 唯一。本地槽仍为各机自己的 1–4，可同时有多个本地 P1；全球颜色与起跑序号按 seat，存档和视口图层按 local_slot。大厅名单有递增 `roster_revision`；进入倒数后冻结，不压缩离开者的座位。回大厅才可重分配，旧包以 round_id/revision 拒绝。
+## 3. 身份、状态与主机权威
 
-会话状态：`OFFLINE → CONNECTING → LOBBY → LOADING → COUNTDOWN → PLAY → RESULTS → LOBBY`；加入拒绝、主机离开、5 秒检测超时或协议致命错误进入 `CLOSING → OFFLINE`，菜单显示 `last_error`。游戏仍使用原有四个 Phase；CONNECTING/LOADING 不额外冒充游戏阶段。主机本地玩家也通过相同命令验证路径，避免两套计分规则。
+peer 身份来自 ENet 回调。主机分配 seat 1–4：主机本地槽升序优先，其余按加入顺序；`(peer_id, local_slot)` 唯一。本地槽仍为各机 1–4，配色和起跑序号用 seat，存档和视口用 local_slot。大厅名单带 `roster_revision`；倒数前冻结，本局不压缩离开者座位，旧局/旧 revision 数据无效。
+
+会话为 `OFFLINE → CONNECTING → LOBBY → LOADING → COUNTDOWN → PLAY → RESULTS → LOBBY`；拒绝、主机离开、超时或致命协议错误进入 `CLOSING → OFFLINE` 并显示原因。游戏保留现有四个 Phase。主机本地命令也走验证路径。
 
 | 内容 | 权威与顺序 |
 |---|---|
-| 名单、准备、地图与加载 | 主机广播 roster；全员 ready 后 load，所有 peer 回 ready（含内容摘要与加载确认）才下发 countdown。加载超过 10 秒取消回大厅。 |
-| 倒数与计时 | 主机给出未来的共享时钟起点与比赛截止时间；客户端只跟随，不因本地全员 ready 或时间归零自行开局/结束。 |
-| 本地运动、手势与基础得分 | 所属机器；主机检查 seat 所属、范围、时间及阶段后转发。MVP 是可信 LAN，并无反作弊保证。 |
-| finish/place/AFTER_FIRST | finish 带事件 ID 与比赛时间；主机按接收的有效 finish 顺序分配唯一 place，时间仅作有效性检查与展示，不声称公平校正网络延迟。首位将截止时间收紧到 `min(原截止, 主机当前比赛时间+25秒)`，可靠广播。 |
-| 奖励与结果 | 主机保存每 seat 唯一 finish 及奖励事实；广播 place，所有本地只应用一次，重复请求回同一确认。最终基础分+奖励由主机封存为唯一 results；断线者移出最终排名，已发 place 不重排。比分并列用竞赛排名 1,1,3，行顺序按 score 降序/seat 升序，finish place 与 score rank 是两个字段。 |
-| 结果返回与派对赛 | 只有主机发 lobby/下一项目；客户端 A 不推进。MVP 不调用 LAN 派对积分，第二阶段由主机唯一记账再广播。 |
+| 名单、准备与加载 | 主机广播名单/地图/种子/内容摘要；全员准备且加载确认后才倒数，加载超过 10 秒回大厅。 |
+| 起点与截止时刻 | 主机下发共享时钟中的未来起点与截止时间；客户端不能自行开局、结束或推进下一局。 |
+| 运动、手势与基础分 | 所属机器产生；主机检查 seat 所属、范围、时间和阶段再转发。MVP 不提供反作弊保证。 |
+| finish / place | finish 带唯一事件 ID；主机按收到的有效 finish 顺序分配唯一 place，比赛时间只供检查/展示，不宣称延迟公平。首位完赛将截止收紧为 `min(原截止, 主机当前比赛时间+25秒)` 并可靠广播。 |
+| 奖励、排名与结果 | 主机保存每 seat 唯一 finish 和奖励事实；重复请求回同一确认，奖励只应用一次。基础分＋奖励封存为 results，旧快照不能覆盖奖励。比分用竞赛排名 1,1,3，行按 score 降序/seat 升序；place 与 score rank 分开。 |
 
-主机断线不宣告正常结果；客户端回菜单清理幽灵与状态。客户端断线后主机继续，保留审计记录但不再等待它 ready/finish；断线后的旧事件和快照无效。无重连恢复令牌、无互联网穿透、无主机迁移。
+客户端断线后主机继续，不再等它 ready/finish；最终排名排除离开者，已发 place 不重排。主机断线不产生正常 results，客户端清幽灵并回菜单。只有主机能返回大厅；MVP 不记 LAN 派对积分。
 
 ## 4. 连接、消息与输入边界
 
-建议 ENet UDP 47810、发现 UDP 47811，避开 hub 的 47800/47801/47802/47843。后续参数：`--lan-host`、`--lan-join=<IP>`、`--lan-bind=<IP>`、`--lan-port=<端口>`、`--lan-discovery-port=<端口>`、`--lan-report=<相对输出文件>`。端口限 1024–65535 且两者不同；绑定地址由用户选。产品 IPv4 广播每秒一次，3 秒过期，手动 IP 为兜底；多网卡/IPv6 自动发现留待后续，不自动改防火墙。
+候选默认 ENet UDP 47810、发现 UDP 47811，避开现有 hub 端口。后续参数为 `--lan-host`、`--lan-join=<IP>`、`--lan-bind=<IP>`、`--lan-port=<端口>`、`--lan-discovery-port=<端口>`；报告参数随 runner 实现再定。端口限 1024–65535、两者不同，也不得与所选 hub 端口对冲。绑定地址由用户选；产品 IPv4 广播每秒一次、3 秒过期，手动加入兜底，不自动改防火墙。
 
-发现包候选为 `{"t":"rs_lan","v":1,"name":"测试主机","port":47810,"game":"ski","players":2,"open":true}`，UTF-8 JSON，最多 512 字节、名字最多 48 个 UTF-8 字节；只显示信息，加入后必须重新握手校验，发现源地址不作为身份认证。所有回环自动测试 bind `127.0.0.1`，发现也只向它单播；禁止测试默认绑定所有网卡。
+发现采用 UTF-8 JSON（≤512 字节，名字≤48 UTF-8 字节），字段为 `t=rs_lan,v,name,port,game,players,open`；只是展示信息，加入后重新握手，源地址不是身份凭证。自动测试的 LAN 和发现一律显式绑定回环，发现向回环单播。
 
-ENet 建连 → 客户 hello → 主机 welcome/reject → roster → ready → load → 加载 ready → map/countdown → 二进制 state 与即时 event/finish/place → results → lobby。低频字典统一 `v,t,session_id,round_id,seq`，每条限制字段与范围；`hello` 可尚无 session_id，welcome 下发主机随机的 128 位会话 ID。round_id 每局递增，seq 每发送者递增；重发同 event_id 幂等。主机转发时保留已核验的原始所属 seat，客户端只接纳来自主机的广播。
+连接顺序为 ENet → hello → welcome/reject → roster/ready → load/加载确认 → countdown → state/event → results → lobby。控制消息统一 `v,t,session_id,round_id,seq`；hello 可无 session_id，welcome 下发随机 128 位会话 ID。round_id 每局递增，seq 按发送者递增；主机验证后显式转发原所属 seat，客户端只接主机广播。
 
-| 消息 | 发起方 / 关键内容 | 传输 |
-|---|---|---|
-| hello / welcome / reject | 客户构建、协议、目录摘要、本地玩家；主机分配名单或拒绝原因 | channel 0，可靠 |
-| roster / ready | 主机完整名单 revision；客户本地准备与加载确认 | channel 0，可靠 |
-| load / map / countdown / lobby | 主机项目、地图索引/种子/关键点摘要、未来共享时刻、截止时刻 | channel 0，可靠 |
-| event / finish / place | seat、event_id、比赛时间、类型化负载；finish→主机；place→所有人 | channel 0，可靠，立即发送 |
-| results / leave | 主机完整成绩、结果 revision；主动离开及原因 | channel 0，可靠 |
-| clock_ping / clock_pong | 四时刻采样；丢失即可用下一样本 | channel 2，不可靠无序 |
-| state | 下节固定二进制帧 | channel 1，不可靠有序 |
-
-创建连接显式分配至少 3 个 channel，关闭 `SceneMultiplayer.server_relay`，客户只发主机，由主机验证后显式转发，不能让默认中继绕过权限检查。可靠消息建议 `var_to_bytes` 字典、不编码对象，接收 `bytes_to_var(packet)`；禁止 `bytes_to_var_with_objects`，保持 `SceneMultiplayer.allow_object_decoding=false`。先限制至 4096 字节，再检查仅允许的字段/标量/浅数组（最大深度 4、每数组最多 16 项），不容许对象、Resource、Node、Callable 或动态调用方法名。超大包在解码前拒绝；Godot Variant 解码器的畸形长度分配风险须在实施时专项审查，必要时改成有固定 framing 的有界 JSON。未知版本/必填字段缺失/NaN/Inf/非法枚举/越界 seat/越权/旧局包均拒绝并计数；同 peer 持续非法输入断开。可靠控制限 50 条/秒，state 限项目频率加 10%，排队上限 256 条/peer，超限断开并记录原因。
-
-API 依据：[SceneMultiplayer.send_bytes/peer_packet](https://docs.godotengine.org/en/stable/classes/class_scenemultiplayer.html)、[ENetMultiplayerPeer 绑定与频道](https://docs.godotengine.org/en/stable/classes/class_enetmultiplayerpeer.html)、[SceneTree.multiplayer_poll](https://docs.godotengine.org/en/stable/classes/class_scenetree.html)、[bytes_to_var](https://docs.godotengine.org/en/stable/classes/class_%40globalscope.html#class-globalscope-method-bytes-to-var)。stable 文档会变化；落地必须锁定仓库的 Godot 4.7.2 核验。传输只面向同版本 Godot；不承诺与其他 ENet 实现互通。
-
-## 5. 二进制快照候选 v1
-
-全部小端；不直接序列化 Transform/Variant。不携带系统墙钟。每包最多 4 条、负载最多 368 字节（不含 Godot/ENet/UDP 开销），禁止尾随字节和隐式 padding。每个项目使用注册的固定 profile，未知 profile 整包拒绝；未来实时项目必须分配新 profile，不把球拍塞入现有空字段。
-
-| 偏移 | 长度 | 字段 / 单位 |
-|---|---|---|
-| 0 | 2 | magic，ASCII `RS` |
-| 2 | 1 | version=1 |
-| 3 | 1 | profile：1=skate，2=ski |
-| 4 | 16 | session_id，welcome 的 16 原始字节 |
-| 20 | 4 | round_id，u32 |
-| 24 | 4 | packet_seq，u32，按发送者递增 |
-| 28 | 4 | race_ms，u32，自本局倒数起点累计毫秒 |
-| 32 | 1 | count，1–4 |
-| 33 | 1 | record_bytes，skate=79、ski=83 |
-| 34 | 2 | payload_bytes=count×record_bytes，u16 |
-
-记录偏移从每条起点计算，位置采用世界坐标米 → 毫米 int32，支持约 ±2147 km；不用会截断长雪道的 int16。
-
-| 记录偏移 | 长度 | 字段 |
-|---|---|---|
-| 0 | 1 | seat，1–4，同包唯一且属于该发送者 |
-| 1 | 1 | flags：bit0=finished，bit1=teleport，其余必须 0 |
-| 2 | 12 | x/y/z，3×i32 毫米 |
-| 14 | 1 | quaternion 最大绝对分量索引 0–3；先整体取反使该分量非负 |
-| 15 | 6 | 剩余三分量按分量索引顺序，各 i16，值=分量×√2×32767，四舍五入；解码除同一系数，缺失分量取正平方根 |
-| 21 | 8 | score，i64 非负 |
-| 29 | 2 | progress，u16，0–65535 表示 0–1 |
-| 31 | 2 | impact，u16，值/1024，范围 0–约64 |
-| 33 | 2 | pose_count，u16，skate=12、ski=14 |
-| 35 | 24 / 28 | 依现有 `_record()` 的 `in` 顺序，各 i16，值/1024，范围约 ±32；所有字段须有逐项范围检查，布尔姿势只取 0 或 1024 |
-| 59 / 63 | 12 | vx/vy/vz，3×i32 毫米/秒，供外推 |
-| 71 / 75 | 8 | 本地 score_revision，u32；已应用 place 事件序号，u32（0=尚无） |
-
-总长 `36+count×record_bytes`，ski 四人 368 字节；20/60/120 Hz 时单机应用负载约 7.36/22.08/44.16 KB/s，主机转发、协议开销及双向流量另计，必须实测。score_revision 只递增，不能用过期 state 覆盖已确认奖励；results 封存后不接受 score 更新。u32 seq 用半区间模比较，拒绝相差 ≥2³¹ 的歧义；单局最长 30 分钟，race_ms 不在一局内回绕。编码前非有限浮点和超量化范围直接拒绝，不能静默钳位；解码校验四元数剩余平方和 ≤1+量化容差（建议 0.0001），仅容差内归一化，零/无效旋转拒绝。
-
-姿势和 rig 显示沿用现有回放帧格式，经适配送入 `RSReplay.record/sample` 的独立网络窗口，不能复用成绩回放游标。滑板姿势 12 项、滑雪 14 项的实际范围及量化误差尚须用录制分布确认；上限不足即修订 profile，不能带着溢出发布。impact 是快照采样量，丢包可少一次视觉冲量；需要可靠的音效/击球使用 event ID，不能依赖重复快照重复触发。
-
-## 6. 时钟、频率与即时事件
-
-现有物理为 120 Hz；20/60/120 Hz 分别每 6/2/1 个物理 tick 采样，网络节奏与渲染分离。卡顿后最多发当前状态，不补发旧快照形成突发；记录实际频率、跳过 tick、发送/接收数。`ghost` 模式按共享比赛时钟减 100 ms 采样，最多外推 250 ms 后冻结并标记；teleport 或位移 >5 m 清窗口并跳转。实时 `predictive` 模式禁用固定 100 ms 延迟，使用测量抖动的最小缓冲、速度外推与短时修正，不能仅改频率便声称实时项目可玩。
-
-时钟服务可用单调微秒时钟（需维护者给网络同步明确时间来源例外，不替代玩法 delta）；t1 客户发送、t2 主机收到、t3 主机回发、t4 客户收到，RTT=`(t4-t1)-(t3-t2)`，主机减客户偏移=`((t2-t1)+(t3-t4))/2`。握手收集至少 8 个有效样本，取最低 RTT 样本初始化，之后每秒采样、滑动窗口最低 RTT 与限速平滑；负 RTT/超大跳变丢弃并重新同步。倒数 start 建议至少领先 300 ms，不足先重排，加载完成但未同步不得开局。比赛时间从倒数起点累计；阶段切换只改变阶段起点，不重置网络时间。
-
-目标无注入回环共享时钟误差 ≤2 ms、倒数起点差 ≤100 ms；误差要用同机共同单调参考独立测量，不能拿估算 offset 本身当误差。注入不对称链路时 RTT/2 无法证明真实误差 ≤2 ms，另报误差分布。调试叠加层与报告记录 RTT/抖动/丢包/偏移的 p50/p95/p99 与样本数；计时不受 Engine.time_scale、成绩慢放或菜单影响。
-
-`send_event` 立即加 `event_id,seat,race_ms,round_id` 入可靠 channel，不等采样 tick；收方去重并按时间处理。未来球体使用项目的固定步长确定性积分，击球方本地判断后立即发送位置/速度/旋转，接收端从事件时刻快进并平滑修正；共享球不使用 Jolt 确定性假设。冲突由主机按事件时刻仲裁，得分/出界主机定；回滚、冲突窗口与击球合法性属于实时项目后续设计，本次不实现。
-
-仅测试启用 `--net-latency=0|30|80`（毫秒，单程）、`--net-jitter=10`（对称有界 ±毫秒）、`--net-loss=0.05`、`--net-seed=<整数>`；发端统一注入一次，接收不再重复加延迟。快照与非可靠时钟包可在应用层按种子丢弃；可靠事件不可直接扔掉就声称 ENet 会重发，须用保留同 event_id 的测试重试模拟，或在测试 transport adapter 的重传层下方丢包。报告分别注明 `application` 与 `transport`，前者不能算真实 ENet 丢包验收。队列有界，退出清空；不修改系统网络或防火墙。
-
-## 7. 双实例报告 schema draft-1 与校验器
-
-`tools/lan_report.py` 是当前唯一新增的可运行功能：离线校验两个 JSON，不启动 Godot、不生成测量、不验证网络包解码，也不证明画面平滑。所有字段必填，不接受额外字段；数值不得是布尔值/NaN/Inf。文件 UTF-8、≤1 MiB、不得重复 key。机器用测试 peer 数字、玩家用合成名字，不写设备地址或真实资料。
-
-| 层级 | 字段与约束 |
+| 消息 | 传输与约定 |
 |---|---|
-| 根对象 | `schema_version="lan-report-draft-1", protocol_version=1, session_id`（32 位小写十六进制）、`round_id`（1..u32）、`scenario`（normal/client_left/host_left）、`peer_id,host_id`（正整数）、`game`（skate/ski）、`map_index`（零起；当前 skate 仅 0、ski 为 0–3，和现有目录一致）、`content_hash`（64 位小写十六进制）、`complete=true, errors=[], last_error`（字符串；正常场景为空，离开端非空） |
-| 根数组 | `roster, active_seats, phases, results, finishes, disconnects`；名单 2–4 人、恰有两台 peer，每机至少一人；两报告 peer 不同、唯一一份为 host_id |
-| `roster[]` | `seat,peer_id,local_slot,name,bot`；seat 全局唯一、1–4，(peer_id,local_slot) 唯一，local_slot 1–4、name 1–48 UTF-8 字节、bot 为 bool；两边初始冻结名单完全一致 |
-| `phases[]` | `phase,at_ms`；采用本会话主机单调时钟的共同锚点为 0（早于首次 LOBBY），有限非负毫秒且严格递增；不是各进程原始 ticks，也不是从 COUNTDOWN 开始的 race_ms。normal 为 LOBBY/COUNTDOWN/PLAY/RESULTS/LOBBY；client_left 主机同 normal、客户前三阶段后 MENU；host_left 主机前三阶段后 CLOSED、客户前三阶段后 MENU。比较 COUNTDOWN/PLAY 及正常完成时 RESULTS/再次 LOBBY，差 ≤100 ms；首次进入 LOBBY 可因晚加入相差数秒，不比较 |
-| `results[]` | `seat,score,rank,place`；score 非负 i64；rank 按分数竞赛排名，place=0 表示未完赛。结果严格按 score 降序/seat 升序覆盖 active_seats；normal 两边完全一致 |
-| `finishes[]` | `seat,event_id,place,bonus_count`；每 seat/event_id/place 唯一、bonus_count=1、place 从 1 连续。normal 两边完全一致；离开的客户只持有主机已确认列表的子集，不能虚构未收结果 |
-| `disconnects[]` | `peer_id,at_ms,reason`；normal 空；client_left 两边恰一条客户记录，主机 active_seats 不含客户、客户空结果/活动名单；host_left 两边恰一条主机记录、都无结果/活动名单。at_ms 是各端观察时刻，沿用主机会话锚点，不是同一个发起事件时间；须在该端 PLAY 与 RESULTS/MENU/CLOSED 之间。两观察差不超过 5000 ms 检测目标+单程注入延迟+抖动上界，原因非空；超时目标仍须后续 ENet 实测 |
-| `injection` | `latency_ms,jitter_ms,loss,seed,layer`，前两项 0..500，loss 0..1（小于 1）、seed 为 u32，layer 为 application/transport，两边相同 |
-| `metrics` | `snapshot_hz` 为 20/60/120；`sent_snapshots,received_snapshots,ghosts_seen,clock_samples` 正整数；`window_ms` ≥1000；`max_clock_error_ms,event_latency_p99_ms,max_remote_jump_m` 有限非负；`rtt_ms,jitter_ms,offset_ms` 各含 p50/p95/p99（有序，offset 可负）。实际发送率与目标偏差 ≤10%，ghosts_seen 等于对方初始人数；无注入误差 ≤2 ms |
+| hello/welcome/reject、roster/ready、load/map/countdown/lobby、results/leave | channel 0，可靠；承载构建/内容校验、名单、阶段及结果 |
+| event/finish/place | channel 0，可靠且立即发送，带 seat、event_id、race_ms 和类型化负载 |
+| state | channel 1，不可靠有序；固定二进制候选见附录 A |
+| clock_ping/clock_pong | channel 2，不可靠无序，四时刻样本 |
 
-校验器只对报告声明与一致性负责；指标本身的可信采集由后续驱动负责。normal 的双报告必须完整包含回大厅；受控断线场景允许双方在清理后分别写报告，异常杀进程只能留下不完整检查点，不得补 `complete=true`。硬杀场景须后续驱动单独验证幸存者和退出进程归属，不能拿残缺报告调用本校验器骗过验收。当前 schema 一次只描述一局；跨局重开、三实例、发现与视觉须另有测试，后续扩展须升 schema 版本。
+显式分配至少三个 channel，关闭 `SceneMultiplayer.server_relay`；客户只发主机。控制字典候选用 `var_to_bytes` / `bytes_to_var(packet)`，禁用对象解码，保持 `allow_object_decoding=false`。解码前限长 4096 字节；只允许白名单字段、标量和浅数组（深度≤4、每数组≤16），禁止对象、Resource、Node、Callable 及动态方法名。Variant 畸形长度的分配风险必须在 codec 切片审查，必要时采用有界 framing/JSON。
 
-```bash
-python -m unittest discover -s tools/tests -p test_lan_report.py
-python tools/lan_report.py out/host.json out/client.json
-```
+版本错误、缺字段、NaN/Inf、越界、越权、旧局和歧义序列均拒绝并计数；持续非法输入断开。控制限 50 条/秒，state 限目标频率＋10%，队列≤256 条/peer。名字显示前转义富文本。API 参考 [SceneMultiplayer](https://docs.godotengine.org/en/stable/classes/class_scenemultiplayer.html)、[ENetMultiplayerPeer](https://docs.godotengine.org/en/stable/classes/class_enetmultiplayerpeer.html)；实施仍须锁定 Godot 4.7.2，不承诺其他 ENet 实现互通。
 
-退出码 0 仅为“两份报告符合 schema 且声明一致”；退出码 1 为报告失败，2 为命令用法错误。单元测试全部使用合成报告，是验证器测试，不是 Godot/LAN 的通过证据。
+## 5. 时钟、快照与事件
 
-## 8. 后续实施验收与证据
+120 Hz 物理下，20/60/120 Hz 分别每 6/2/1 tick 采样，和渲染分离；卡顿后只发当前快照，不补发旧包。`ghost` 默认缓冲 100 ms、最多外推 250 ms 后冻结；teleport 或跳变>5 m 清窗口。网络姿态窗口独立于成绩回放。`predictive` 不用固定 100 ms 延迟，而用实测抖动缓冲、速度外推及短时修正。
 
-1. 维护者确认第 1 节及跨区接口，正式协议/架构先行；小片实现 codec、状态机与注入单测，再接滑板/滑雪。非法长度、未知 profile、边界量化、旧序列、重复事件、冒用 seat、NaN/Inf 都有拒绝测试。
-2. 真实双实例只在 `RS_TEST_MODE=1` 下用临时 APPDATA/XDG 目录，`--headless`、loopback 和临时空闲端口；分别 demo=2，以真实产生的报告验证地图、名单、阶段、结果与返回大厅。另测 demo=1+1、1+3 与三实例座位。runner 只结束自己创建的进程。
-3. 第二实例的 hub UDP 47800 冲突不得依赖环境偶然空闲：推荐维护者添加测试专用不绑定 hub 的入口，沿用现有参数解析层；未获批准前不以全局忽略 engine error 解决。允许日志例外也须逐条精确限定并保留其他错误检测。
-4. 同机测试发现单播、手动加入、错误版本/地图摘要拒绝、主机选图、客户端按键无权推进、重复 finish 奖励仅一次、客户端断线与主机继续、主机断线与客户端在超时内回菜单。轮换两端角色，再正常重开第二局验证 round_id 隔离。
-5. 测 20/60/120 Hz，以及 0/30/80 ms、5% 丢包、固定种子；保存真实发送率、有效样本数、丢包/RTT/时钟/事件分布、每轮差异报告。实际接收事件尾延迟、纠正跳变阈值需维护者确定，再由 runner 判定；本离线工具不把任意 p99 或位移数值自动当“可玩”通过。
-6. 滑板/滑雪各 demo=2/4 与非 LAN 回归、smoke、暂停/重开/回放/本地纪录隔离；双实例幽灵截图/录像检查须另做渲染验证。无注入跳变建议 ≤5 m（显式 teleport 除外），这是待测目标。
-7. 提交前规范/i18n/tools/hub/Node/隐私检查；两台真电脑的发现、多网卡、防火墙、Wi-Fi 尖峰和体感链路延迟由维护者实测，报告用摘要不含设备标识。
+网络同步用单调时间，不替代玩法 delta，例外随实现写入正式文档。四时刻 t1/t2/t3/t4 计算 RTT=`(t4-t1)-(t3-t2)`、主机减客户偏移=`((t2-t1)+(t3-t4))/2`。握手至少八个有效样本，以最低 RTT 初始化，再每秒采样并限速平滑；负 RTT/异常跳变重同步。倒数起点至少领先 300 ms，未同步不得开始；race_ms 从倒数起点累计，阶段切换不重置。
 
-**当前证据边界：仅设计审阅与离线校验器的合成单元测试。** 未实现上述运行时接口、未运行双 Godot、未测实际 LAN/手柄/画面；#23 的完整 MVP 验收仍待后续跨区实施。
+无注入回环目标：独立测得时钟误差≤2 ms、倒数起点差≤100 ms。共同单调参考必须独立于估计 offset；不对称链路不能靠 RTT/2 证明误差。报告 RTT/抖动/丢包/偏移分布、有效样本和实际发送率，计时不受 time_scale 或成绩慢放影响。
+
+`send_event` 不等快照 tick，立即带事件 ID、seat、race_ms、round_id 入可靠通道，接收去重。未来共享球采用击球方权威、固定步长确定性积分，远端从事件时刻快进并平滑修正；主机仲裁冲突/得分/出界，不假设 Jolt 确定性。回滚和击球合法性属于后续实时项目设计。
+
+测试候选 `--net-latency=0|30|80`（单程 ms）、`--net-jitter=10`（±ms）、`--net-loss=0.05`、`--net-seed=<整数>`。发端只注入一次，队列有界、退出清空。应用层可丢 state/时钟；可靠事件用保留 ID 的测试重试，或在 transport 重传层下方丢包。报告区分 application/transport，前者不能充当真实 ENet 丢包验收。
+
+## 6. 后续切片与验收
+
+1. **首个独立实现切片**：在已授权 core 范围内实现纯数据 codec、会话状态转换、种子化注入队列及单测；先覆盖非法长度/profile、量化边界、旧序列/旧局、冒用 seat、重复事件和有界清理。不接菜单、发现、幽灵或报告工具；架构/协议随实现同步。本 PR 不开始此切片。
+2. 再接 ENet、发现及主机权威，随后滑板/滑雪幽灵。双实例 runner 真正产出报告时，与校验器及测试放在同一个实现 PR；附录 B 只是待调整草案。
+3. 自动实例用临时用户目录、`RS_TEST_MODE=1`、headless、回环和临时端口，沿用 #34；不占真实 hub 固定端口、不忽略日志错误，只结束 runner 创建的进程。需要真实 hub 时显式为两端选择互不冲突的端口对。
+4. 真双实例覆盖各 demo=2、1+1、1+3、三实例座位、地图摘要拒绝、客户端无权推进、重复 finish、双方轮换主机、客户端离开与主机继续、主机离开及超时回菜单；再开第二局检查 round_id 隔离。
+5. 测 20/60/120 Hz、0/30/80 ms、5% 丢包和固定种子，报告实际频率、事件尾延迟、纠正跳变、时钟误差及样本数。时延按第 1 节验收；5 m 跳变为待测目标，实时项目的可玩阈值需另定。
+6. 滑板/滑雪 demo=2/4、非 LAN、暂停/重开/回放/本地纪录隔离和 smoke 回归；幽灵画面另做实际渲染验证。规范、i18n、tools/hub/Node 与隐私检查按仓库要求执行；两台真电脑的发现、防火墙、Wi-Fi 和体感延迟另测，证据只保留无设备标识的摘要。
+
+**当前证据边界：设计记录和已有入口的源码核对。** 本 PR 无 LAN 运行时、报告生产者或校验器；没有双 Godot、真实 LAN、手柄或画面验收结果。
+
+## 附录 A：二进制快照候选 v1
+
+全部小端，无 Transform/Variant、隐式 padding、墙钟或尾随字节；每包 1–4 条记录。profile 1=skate、2=ski，未知 profile 整包拒绝；新实时项目另分配 profile。
+
+| 头偏移 | 长度 | 字段 |
+|---|---|---|
+| 0 / 2 / 3 | 2 / 1 / 1 | ASCII `RS` / version=1 / profile |
+| 4 | 16 | session_id，welcome 的原始 16 字节 |
+| 20 / 24 / 28 | 4 / 4 / 4 | round_id / packet_seq / race_ms，均 u32 |
+| 32 / 33 / 34 | 1 / 1 / 2 | count / record_bytes / payload_bytes=count×record_bytes |
+
+记录内偏移从 0 起；skate/ski 分别 79/83 字节。
+
+| 记录偏移 | 长度 | 字段与单位 |
+|---|---|---|
+| 0 / 1 | 1 / 1 | seat 1–4，同包唯一且属于发送者；flags bit0=finished、bit1=teleport，其余为 0 |
+| 2 | 12 | x/y/z，3×i32 毫米，世界坐标约 ±2147 km |
+| 14 / 15 | 1 / 6 | 四元数最大绝对分量索引 0–3；整体取反使它非负，其余分量按索引顺序量化为 `round(分量×√2×32767)` 的三个 i16 |
+| 21 / 29 / 31 | 8 / 2 / 2 | 非负 i64 score / u16 progress（÷65535）/ u16 impact（÷1024） |
+| 33 / 35 | 2 / 24或28 | pose_count=12或14；现有 `_record()` 的 `in` 顺序，各 i16÷1024，布尔只取 0或1024 |
+| 59或63 | 12 | vx/vy/vz，3×i32 毫米/秒 |
+| 71或75 | 8 | u32 score_revision、u32 已应用 place 事件序号（0=尚无） |
+
+包长 `36+count×record_bytes`，最大 368 字节；20/60/120 Hz 每发送者最大应用负载约 7.36/22.08/44.16 KB/s，转发及协议开销另测。seq 用半区间模比较，拒绝跨度≥2³¹；单局≤30 分钟。score_revision 仅递增，results 后不再更新。
+
+非有限数、超量化范围直接拒绝，不静默钳位。四元数三分量解码除以 `√2×32767`，平方和≤1＋0.0001 才用 `sqrt(max(0,1-平方和))` 恢复缺失分量，并在容差内归一化；无效旋转拒绝。现有姿势确为滑板 12 项、滑雪 14 项；逐项范围及量化误差仍待真实分布确认，超界即修订 profile。impact 丢包可能少一次视觉冲量；可靠音效/击球使用去重事件。
+
+## 附录 B：双实例报告草案
+
+以下沿用 `lan-report-draft-1` 供 runner 设计参考，**没有冻结 schema，也没有实现校验器**。等真实报告生产者落地，再一起确定版本、字段、单位和验证规则；不先提交一个校验无生产者数据的工具。
+
+| 层级 | 候选字段与一致性 |
+|---|---|
+| 根对象 | schema_version/protocol_version、session_id、round_id、scenario（normal/client_left/host_left）、peer_id/host_id、game、零基 map_index、content_hash、complete/errors/last_error；测试 peer 数字与合成名字，不写设备地址 |
+| roster / active_seats | 2–4 个唯一 seat；记录 peer_id、local_slot、name、bot；双报告的冻结初始名单一致，各机至少一人 |
+| phases | phase、at_ms；使用早于首次 LOBBY 的共同主机单调锚点，不能直接比较两进程原始 ticks 或混用 race_ms。normal 为 LOBBY/COUNTDOWN/PLAY/RESULTS/LOBBY；客户离开后 MENU、主机受控离开后 CLOSED。首次 LOBBY 不比时刻，后续对应阶段差≤100 ms |
+| results / finishes | seat、score、rank、place；完赛另有 event_id、bonus_count=1。normal 两边一致，比分按 score 降序/seat 升序；离开客户只可记录已确认 finish 的子集，不补造最终结果 |
+| disconnects | peer_id、观察 at_ms、reason；采用共同锚点，但两端观察时刻可不同。观察差预算为 5 秒检测目标＋单程延迟＋抖动上界；离开者无活动名单/结果，主机离开时双方均无正常 results |
+| injection | latency_ms、jitter_ms、loss、seed、layer（application/transport）；双端配置一致 |
+| metrics | 目标/实际 snapshot_hz、发送/接收数、跳过 tick、ghosts_seen、有效 clock_samples、window_ms；独立时钟误差、事件 p50/p95/p99、最大跳变、RTT/抖动/偏移分布；无注入时钟误差目标≤2 ms |
+
+报告须 UTF-8、有大小/字段/容器限额，拒绝重复 key、布尔冒充数值及 NaN/Inf。正常完成包含回大厅；受控离开在清理后各自写报告。硬杀只能留下不完整检查点，不能补 complete=true；由 runner 单独核对幸存者及退出归属。单局双报告不能替代跨局、三实例、发现、视觉或真机验收，声明一致也不能证明测量可信。
