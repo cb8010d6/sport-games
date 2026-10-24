@@ -1,4 +1,4 @@
-"""Wire formats. Keep in sync with docs/protocol.md, firmware/main/protocol.h and game/core/hub_protocol.gd."""
+"""Wire formats. Keep in sync with docs/protocol.md, firmware/main/protocol.h and game/autoload/controller_hub.gd."""
 
 from __future__ import annotations
 
