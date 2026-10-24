@@ -22,6 +22,7 @@ const FULL_DRAW := 1.0             ## seconds to full draw
 const SPEED_MIN := 18.0
 const SPEED_MAX := 62.0
 const MIN_POWER := 0.2             ## releasing below this lowers the bow without shooting
+const SHOT_WAIT := 20.0            ## effective SHOOT seconds available for each waiting arrow
 const INTRO_TIME := 2.2            ## round banner, aim is captured when it ends
 const SUMMARY_TIME := 3.0
 const MAX_YAW := 0.70             ## rad (40 deg)
@@ -47,6 +48,7 @@ class Archer:
 	var aim := Vector3.FORWARD      ## smoothed world aim direction
 	var drawing := false
 	var draw_t := 0.0
+	var wait_t := 0.0
 	var arrows_left := ARROWS
 	var arrows: Array[Arrow] = []   ## this round's arrows (flying or stuck)
 	var hits: Array[Vector3] = []   ## this round: (x, y on the face, ring score)
@@ -435,6 +437,8 @@ func _begin_round(i: int) -> void:
 		_clear_arrows(s)
 		s.arrows_left = ARROWS
 		s.drawing = false
+		s.draw_t = 0.0
+		s.wait_t = 0.0
 		s.aim = Vector3.FORWARD
 		s.bot_aim = Vector3.FORWARD
 		s.target.position.z = -dist
@@ -477,6 +481,9 @@ func _play_process(delta: float) -> void:
 	_stage_time += delta
 	for p: Player in players.values():
 		var s := _archer(p)
+		if _stage == Stage.SHOOT and s.arrows_left > 0 and not _arrow_in_flight(s):
+			s.wait_t += delta
+			_expire_arrow(p)
 		if p.fake:
 			_bot(p, delta)
 		if s.drawing:
@@ -538,6 +545,9 @@ func _start_draw(p: Player) -> void:
 	var s := _archer(p)
 	if phase != Phase.PLAY or _stage != Stage.SHOOT or s.arrows_left <= 0 or _arrow_in_flight(s):
 		return
+	if s.wait_t >= SHOT_WAIT:
+		_expire_arrow(p)
+		return
 	s.drawing = true
 	s.draw_t = 0.0
 
@@ -545,6 +555,9 @@ func _start_draw(p: Player) -> void:
 func _release(p: Player) -> void:
 	var s := _archer(p)
 	if not s.drawing:
+		return
+	if s.wait_t >= SHOT_WAIT:
+		_expire_arrow(p)
 		return
 	var power := s.power()
 	s.drawing = false
@@ -559,8 +572,21 @@ func _release(p: Player) -> void:
 	a.node.look_at(a.node.position + a.vel)
 	s.arrows.append(a)
 	s.arrows_left -= 1
+	s.wait_t = 0.0
 	p.cam.fov += 4.0   # little kick
 	haptic(p, "tap")
+
+
+func _expire_arrow(p: Player) -> void:
+	var s := _archer(p)
+	if phase != Phase.PLAY or _stage != Stage.SHOOT or s.arrows_left <= 0 or _arrow_in_flight(s) or s.wait_t < SHOT_WAIT:
+		return
+	s.drawing = false
+	s.draw_t = 0.0
+	s.wait_t = 0.0
+	s.arrows_left -= 1
+	send_ui(p, {"bar": null})
+	_score_arrow(p, Vector2(INF, INF), true)
 
 
 func _update_power_ui(p: Player) -> void:
@@ -602,7 +628,7 @@ func _fly_arrows(p: Player, dt: float) -> void:
 			_score_arrow(p, Vector2(INF, INF))
 
 
-func _score_arrow(p: Player, off: Vector2) -> void:
+func _score_arrow(p: Player, off: Vector2, timed_out: bool = false) -> void:
 	var s := _archer(p)
 	var r := off.length()
 	var ring := 0 if r > FACE_RADIUS else clampi(10 - int(r / (FACE_RADIUS / 10.0)), 1, 10)
@@ -611,7 +637,10 @@ func _score_arrow(p: Player, off: Vector2) -> void:
 	else:
 		s.hits.append(Vector3(INF, INF, 0))
 	p.score += ring
-	if ring == 10:
+	if timed_out:
+		p.popup(tr("出手超时，按 0 环计"), RSUi.TEXT_MUTED)
+		toast(p, "TIME OUT", 600)
+	elif ring == 10:
 		s.tens += 1
 		p.popup(tr("10 环！正中靶心"), Color(1.0, 0.85, 0.3))
 		toast(p, "10!", 800)
@@ -715,6 +744,8 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 			draw_text(h, tr("按住 A 拉弓，松开放箭"), Vector2(c.x, sz.y * 0.61), 22 * k, Color.WHITE, true)
 
 	# This round's arrows on a small target face, bottom right.
+	if phase == Phase.PLAY and _stage == Stage.SHOOT and s.arrows_left > 0 and not _arrow_in_flight(s):
+		draw_text(h, tr("出手剩余 %d 秒") % maxi(0, ceili(SHOT_WAIT - s.wait_t)), Vector2(20 * k, sz.y - 32 * k), 18 * k, RSUi.TEXT_MUTED)
 	var fc := Vector2(sz.x - 80 * k, sz.y - 80 * k)
 	var fr := 58.0 * k
 	h.draw_circle(fc, fr * BOSS_RADIUS / FACE_RADIUS, Color(0.86, 0.76, 0.5, 0.85))

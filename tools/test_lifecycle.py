@@ -9,6 +9,7 @@ from __future__ import annotations
 import argparse
 import html
 import json
+import math
 import os
 import shutil
 import subprocess
@@ -21,13 +22,29 @@ from smoke_test import GAMES, decode, discover_cases, engine_errors, png_size
 from test_game import ROOT, find_godot, run_engine
 
 
-def validate_report(report: object, game: str, players: int, layout_only: bool) -> None:
+def validate_report(report: object, game: str, players: int, layout_only: bool, recovery_mode: str = "") -> None:
     if not isinstance(report, dict) or report.get("game") != game or type(report.get("players")) is not int or report["players"] != players:
         raise ValueError("Lifecycle report has the wrong game or player count")
     if report.get("layout_only") is not layout_only or report.get("errors") != []:
         raise ValueError("Lifecycle checks failed or the wrong mode ran")
     if type(report.get("checks")) is not int or report["checks"] < (6 if layout_only else 18):
         raise ValueError("Lifecycle checks did not complete")
+    if recovery_mode:
+        elapsed = report.get("recovery_elapsed_seconds")
+        if report.get("recovery_mode") != recovery_mode or type(elapsed) not in (int, float) or not math.isfinite(elapsed) or not 0 < elapsed <= 260:
+            raise ValueError("Round recovery did not complete the requested bounded real-scene journey")
+
+
+def isolated_env(root: Path) -> dict:
+    env = dict(os.environ, RS_TEST_MODE="1")
+    for key in ("APPDATA", "LOCALAPPDATA", "XDG_DATA_HOME", "XDG_CONFIG_HOME", "XDG_CACHE_HOME"):
+        directory = root / key.lower()
+        directory.mkdir(parents=True, exist_ok=True)
+        env[key] = str(directory)
+    temporary = root / "temp"
+    temporary.mkdir(parents=True, exist_ok=True)
+    env.update(TEMP=str(temporary), TMP=str(temporary))
+    return env
 
 
 def write_gallery(out: Path, rows: list[dict], status: str) -> None:
@@ -70,9 +87,15 @@ def main() -> int:
     parser.add_argument("--languages", nargs="+", choices=("zh", "en"), default=["zh"])
     parser.add_argument("--screenshots", action="store_true", help="capture play/tutorial layouts instead of the full control journey")
     parser.add_argument("--all-maps", action="store_true")
+    parser.add_argument("--round-recovery", choices=("idle", "disconnected"), default="",
+                        help="real archery/bowling deadline and bounded PLAY-to-RESULTS regression")
     parser.add_argument("--output", type=Path, default=ROOT / "audit-output/lifecycle")
     args = parser.parse_args()
+    if args.round_recovery and (args.screenshots or any(game not in ("archery", "bowling") for game in args.games)):
+        parser.error("--round-recovery requires --games archery/bowling without --screenshots")
     out = args.output.resolve()
+    if args.round_recovery and out.exists():
+        parser.error("--round-recovery requires a new output directory; preserve earlier results")
     out.mkdir(parents=True, exist_ok=True)
     godot = find_godot(args.godot)
     rows = []
@@ -81,13 +104,13 @@ def main() -> int:
     summary.write_text(json.dumps({"status": "RUNNING", "cases": []}), encoding="utf-8")
     write_gallery(out, [], "RUNNING")
     with tempfile.TemporaryDirectory(prefix="rs-lifecycle-catalog-") as temp:
-        env = dict(os.environ, APPDATA=temp, XDG_DATA_HOME=temp, XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp)
+        env = isolated_env(Path(temp))
         cases = discover_cases(godot, env, out, list(dict.fromkeys(args.games)))
     if not args.all_maps:
         cases = [case for case in cases if case["map"] == 0]
     expected = len(cases) * len(args.players) * len(args.languages)
     # All cases share only this suite's disposable user data, including the expensive GPU cache.
-    cache = tempfile.TemporaryDirectory(prefix="_run_data-", dir=out, ignore_cleanup_errors=True)
+    cache = Path(tempfile.mkdtemp(prefix="_run_data-", dir=out))
     for case in cases:
         for players in args.players:
             for language in args.languages:
@@ -98,10 +121,9 @@ def main() -> int:
                 for stale in (report, folder / "play.png", folder / "tutorial.png"):
                     stale.unlink(missing_ok=True)
                 errors = []
-                with nullcontext(cache.name) as temp:
-                    env = dict(os.environ, RS_TEST_MODE="1", APPDATA=temp, XDG_DATA_HOME=temp,
-                               XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp)
-                    user = Path(temp) / ("Godot" if os.name == "nt" else "godot") / "app_userdata/Regina Sports"
+                with nullcontext(cache) as temp:
+                    env = isolated_env(Path(temp))
+                    user = Path(env["APPDATA"] if os.name == "nt" else env["XDG_DATA_HOME"]) / ("Godot" if os.name == "nt" else "godot") / "app_userdata/Regina Sports"
                     user.mkdir(parents=True, exist_ok=True)
                     (user / "settings.cfg").write_text(f'[general]\nlanguage={int(language == "en")}\n[display]\nquality=0\n', encoding="utf-8")
                     command = [godot, "--path", str(ROOT / "game"), "res://tests/test_lifecycle.tscn", "--fixed-fps", "60",
@@ -111,6 +133,8 @@ def main() -> int:
                                 f"--lifecycle-report={report}", f'--map={case["map"]}', "--static-menu"]
                     if args.screenshots:
                         command += ["--layout-only", f"--capture-output={folder}"]
+                    if args.round_recovery:
+                        command.append(f"--round-recovery={args.round_recovery}")
                     print("Starting " + stem, flush=True)
                     try:
                         result = run_engine(command, env=env, timeout=240)
@@ -128,7 +152,9 @@ def main() -> int:
                     if f'RS_LIFECYCLE_DONE: {case["game"]}/{players}' not in log.splitlines():
                         errors.append("Missing completion marker")
                     try:
-                        validate_report(json.loads(report.read_text(encoding="utf-8")), case["game"], players, args.screenshots)
+                        validate_report(json.loads(report.read_text(encoding="utf-8")), case["game"], players, args.screenshots, args.round_recovery)
+                        if any(Path(temp).rglob("records.cfg*")):
+                            raise ValueError("Lifecycle wrote a records.cfg file or recovery copy")
                         if args.screenshots:
                             for name in (["play", "tutorial"] if players == 4 else ["play"]):
                                 if png_size((folder / (name + ".png")).read_bytes()) != (1600, 900):
@@ -143,8 +169,10 @@ def main() -> int:
                 print(f'{stem}: {"PASS" if not errors else "FAIL"}', flush=True)
                 if errors:
                     print("\n".join(errors), flush=True)
-    cleanup_data(Path(cache.name), out)
-    cache.cleanup()
+    if rows and all(row["passed"] for row in rows):
+        cleanup_data(cache, out)
+    else:
+        print("Failed lifecycle data retained in " + cache.name, flush=True)
     return 0 if rows and all(row["passed"] for row in rows) else 1
 
 
