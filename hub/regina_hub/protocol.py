@@ -86,6 +86,8 @@ class StatusPacket:
 
 
 def parse_imu(data: bytes) -> ImuPacket:
+    if len(data) < _IMU_HDR.size:
+        raise ValueError(f"IMU header too short: {len(data)} < {_IMU_HDR.size}")
     typ, seq, n, ranges, t0 = _IMU_HDR.unpack_from(data, 0)
     if typ != PKT_IMU:
         raise ValueError(f"not an IMU packet: type {typ:#x}")
@@ -121,6 +123,8 @@ def build_imu(seq: int, t0_us: int, samples: list[tuple[int, int, int, int, int,
 
 
 def parse_input(data: bytes) -> InputPacket:
+    if len(data) < _INPUT.size:
+        raise ValueError(f"input packet too short: {len(data)} < {_INPUT.size}")
     typ, buttons, small, big, t = _INPUT.unpack_from(data, 0)
     if typ != PKT_INPUT:
         raise ValueError(f"not an input packet: type {typ:#x}")
@@ -132,6 +136,8 @@ def build_input(buttons: int, small: int, big: int, t_us: int) -> bytes:
 
 
 def parse_status(data: bytes) -> StatusPacket:
+    if len(data) < _STATUS.size:
+        raise ValueError(f"status packet too short: {len(data)} < {_STATUS.size}")
     typ, batt, flags, major, minor, player = _STATUS.unpack_from(data, 0)
     if typ != PKT_STATUS:
         raise ValueError(f"not a status packet: type {typ:#x}")
@@ -201,8 +207,20 @@ def _ascii(s: Any) -> bytes:
     return text.encode("ascii", "replace")[:UI_MAX_STR]
 
 
+def _ui_int(value: Any, low: int, high: int) -> int:
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("UI numeric fields must be finite numbers") from exc
+    if not math.isfinite(number):
+        raise ValueError("UI numeric fields must be finite numbers")
+    return int(max(low, min(high, number)))
+
+
 def normalize_ui(ui: dict[str, Any]) -> dict[str, Any]:
     """Validate a game-supplied UI dict; returns only known keys with sane types."""
+    if not isinstance(ui, dict):
+        raise ValueError("UI must be an object")
     out: dict[str, Any] = {}
     if ui.get("clear"):
         out["clear"] = True
@@ -214,15 +232,23 @@ def normalize_ui(ui: dict[str, Any]) -> dict[str, Any]:
         if bar is None:
             out["bar"] = None
         else:
-            pct = int(max(0, min(100, float(bar.get("pct", 0)))))
+            if not isinstance(bar, dict):
+                raise ValueError("UI bar must be an object or null")
+            pct = _ui_int(bar.get("pct", 0), 0, 100)
             out["bar"] = {"pct": pct, "label": str(bar.get("label", ""))[:UI_MAX_STR]}
     if "legends" in ui:
-        leg = list(ui["legends"] or [])[:4]
+        raw = ui["legends"]
+        if raw is not None and not isinstance(raw, list):
+            raise ValueError("UI legends must be an array or null")
+        leg = list(raw or [])[:4]
         leg += [None] * (4 - len(leg))
         out["legends"] = [None if v is None else str(v)[:UI_MAX_STR] for v in leg]
-    if "toast" in ui and ui["toast"]:
+    if "toast" in ui and ui["toast"] is not None:
         t = ui["toast"]
-        out["toast"] = {"ms": int(max(100, min(10000, int(t.get("ms", 1000))))), "text": str(t.get("text", ""))[:UI_MAX_STR]}
+        if not isinstance(t, dict):
+            raise ValueError("UI toast must be an object or null")
+        if t:
+            out["toast"] = {"ms": _ui_int(t.get("ms", 1000), 100, 10000), "text": str(t.get("text", ""))[:UI_MAX_STR]}
     return out
 
 
@@ -357,10 +383,16 @@ class UiState:
 
 
 def parse_legacy_input(data: bytes) -> InputPacket:
+    need = struct.calcsize("<????BBhh")
+    if len(data) < need:
+        raise ValueError(f"legacy input packet too short: {len(data)} < {need}")
     a, b, c, d, _va, _vb, small, big = struct.unpack_from("<????BBhh", data, 0)
     buttons = (BTN_A if a else 0) | (BTN_B if b else 0) | (BTN_C if c else 0) | (BTN_D if d else 0)
     return InputPacket(buttons=buttons, dial_small=small, dial_big=big, t_us=0)
 
 
 def parse_legacy_vec3(data: bytes) -> tuple[float, float, float]:
+    need = struct.calcsize("<fff")
+    if len(data) < need:
+        raise ValueError(f"legacy vector packet too short: {len(data)} < {need}")
     return struct.unpack_from("<fff", data, 0)
