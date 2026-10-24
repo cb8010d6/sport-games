@@ -88,6 +88,7 @@ python tools/import_game.py --godot <Godot>
 python tools/test_golf.py --godot <Godot>
 python tools/test_golf_surface.py --godot <Godot>
 python tools/test_golf_textures.py --godot <Godot>
+python tools/test_golf_sweep.py --godot <Godot>
 python tools/smoke_game.py <Godot> --project game
 <Godot> --headless --fixed-fps 60 --path game res://scenes/golf/golf_game.tscn -- --map=0 --demo=4
 ```
@@ -95,6 +96,16 @@ python tools/smoke_game.py <Godot> --project game
 `<Godot>`为官方4.7.2；专用runner使用公共RS_TEST_MODE、隔离用户目录、受控自有子进程和超时日志。G1/G2/A早期记录中的固定47800占用检查仅是历史口径，当前已移除。规则与surface非法输入分别要求唯一指定拒绝错误、退出1，其他额外诊断仍失败；不停止别人的进程。
 
 surface验收含非共面ABC0/D10（归一化.25/.25→0、.75/.75→5、最大角→10）、解析斜面、一次采样/释放Callable、全16邻边mask、对角/重叠patch、独立edge计数/投影面积/全局法线、跨chunk48、每实际三角重心及mesh构建碰撞体射线≤1mm。A数值golden `game/tests/data/golf_surface_coarse.json`保持原值：78查询、96chunk计数、30mesh样本，跨平台用数值容差，不以同机hash作为跨平台门槛。B只保留未细化/过渡粗格内部原高度样本，不改旧法线/边缘期望伪称等价。
+
+## 独立几何准备（解析测试通过、未接入）
+
+B成本门槛仍未通过时，仅在独立分支准备`RSGolfSweep.cast_triangle(start,end,radius,a,b,c,out,front_only,feature_id)`：世界米、Y向上，端点代表一个120Hz直线子步；半径参数化，解析fixture用G0的0.02135m，不能采用0.12m可见占位球作为正式值。没有接入course、球积分、surface候选遍历、OB/drop、水/树或规则事件。
+
+`RSGolfContact`由调用者复用，含MISS/HIT/OVERLAP/INVALID、局部fraction、真实有限三角接触点、几何分离法线、面/边/顶点序号、feature_id、深度及t0接近/分离/切向/静止标记。初始穿透是诊断状态；零距离法线明确未定义，不伪造法线或罚杆。重复调用重置所有字段，`copy_from`保存值而不保留可变结果别名。
+
+面候选必须投影在有限面内；有限边圆柱区间加顶点球覆盖边/角，逐候选用有限三角最近点复核，不用采样间距。双侧通用查询与front-only可选，正面按`(C-A)×(B-A)`约定；初始背面重叠保留诊断。根/投影用标量double，仅入/出为Vector3；算术roundoff为64倍double机器精度乘坐标尺度，与float32存储误差分开，不以毫米slop放大物理形状。内部同TOI按拓扑部分/序号稳定选择；跨洞杯/水/OB/地面的优先级与同时固体接触集合留未来协调层，kernel不发计分事件。
+
+已写20个独立解析golden，含face/edge/vertex、有限面/边外假命中、精确切触/近失、起始重叠/零运动、双侧及front-only、0.5m细边界、斜坡及单步48m/s薄脊；另有真实场地尺度平移、重复调用及独立snapshot检查。`tools/test_golf_sweep.py`采用公共隔离测试模式。官方4.7.2受控导入通过并生成三个真实UID；正常104项、非法半径/NaN/退化三角各2项，共110项通过，无额外引擎/环境/泄漏/纪录诊断。首次正常集104项中5项平移断言失败，定点输出证实测试漏传offset、接触点恰好差完整平移量；只修调用、移除探针后全部重跑通过，未改kernel、golden或容差。原始失败及探针日志保留在`audit-output/golf-sweep-initial/`、`golf-sweep-first-run.log`、`golf-sweep-probe.log`，最终四组在`golf-sweep/`。**本片只验证有限三角的独立解析数学；没有物理接入、GPU运行或M1完成结论。** capsule/树冠exit和球支持放置不在本片展开。
 
 ## 截图与来源
 
@@ -111,7 +122,7 @@ surface验收含非共面ABC0/D10（归一化.25/.25→0、.75/.75→5、最大�
 
 ## 尚未验收与性能口径
 
-- 当前仍未实现RSGolfBall、精确62m OB、sphere sweep、水/树干碰撞、合法drop、洞杯/停球；终态协调已验证的是占位弧线，不推广到未来真实物理。M1不能因占位弧线能结束而合并为完整物理。
+- 当前仍未实现RSGolfBall、精确62m OB、球的sphere sweep接入、水/树干碰撞、合法drop、洞杯/停球；终态协调已验证的是占位弧线，不推广到未来真实物理。M1不能因占位弧线能结束而合并为完整物理。
 - 粗网格早期四人中档实渲染仅约2.114–2.873FPS且波动明显，属于诊断样本，不能作为达到体验目标的基线。旧半窗口实验未改变玩家viewport，不能作像素成本对照；静态相机材质/mip消融也不是试玩或配对验收。
 - 正式细化成本须用同配置A+mip与B+mip配对；旧无mip粗版与新有mip细版不能混比。保留原始设置、源码SHA、采样健康与载入时间；四人平均FPS下降>5%或载入增加>1s即暂停评审，不牺牲0.5m共享坡面精度。目前未宣布通过。
 - 维护者正协调2560×1440四人（每格约1280×720）及既有FSR质量档的独立隐藏桌面测量；本片不改生产FSR/core。实际画面、HDR/VRR、帧率、Regina/手机手感、正式单人/纪录/教学及最终2/4人录屏仍须按对应里程碑验证。
