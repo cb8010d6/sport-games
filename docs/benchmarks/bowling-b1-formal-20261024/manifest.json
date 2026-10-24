@@ -1,0 +1,185 @@
+{
+  "schema_version": 1,
+  "suite": "bowling6",
+  "valid_runs": 6,
+  "failed_runs": 0,
+  "retries": 0,
+  "scope": "Current-style absolute demo-bot baseline; no matched old-style measurement or style-benefit claim",
+  "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
+  "runtime_equivalent_visual_source": "fb3af56008647e82a7b34598a687358e0ead8f5a",
+  "engine": {
+    "version": "4.7.2.stable.official.ed1daf0bf",
+    "commit": "ed1daf0bf001b61586d9930840f2f1394092c079",
+    "console_executable_sha256": "c8f0a6bc45a19b33541501e57f6f7cd972ab18453743266339d495cbbe846643"
+  },
+  "tools": {
+    "measurement_bench_sha256": "6fb78b7c72f566359a596169fe1d7c37310365d2d937c4d892809c2830cebe51",
+    "classifier_commit": "6242fecad082a8c047765be0b596e1a90547c2a0",
+    "classifier_bench_sha256": "ccecc62c460eff06bed98f7595c9e37bad56b402b520663bcffb8e17989b9791",
+    "classifier_bridge_sha256": "087723ad6bb2b21dfae16b2667509f339dea766bed34864c043e2ecb645b9f2c",
+    "classifier_scope": "Literal DIAGNOSTIC assignment substitution only; measurement functions unchanged",
+    "unchanged_functions": {
+      "build_parser": {
+        "ast_sha256": "caac12d0723cd712ef80ba1cd8afe1ef08eca192a8a676a3644c4b8c7f75d7f0",
+        "source_sha256": "ba662a2003a05b2b07952ff14396e8d6dcfbb90246e1f3396a1464ee1b031cc8"
+      },
+      "expand_matrix": {
+        "ast_sha256": "9c4899fe42809e9c4b9da82771f3fd0c934dad449fd36e0e11704c1eb5a8152c",
+        "source_sha256": "c78e377702c3be1aae04f9c7b2e1118df235481099834c1b88f13d3949d0409b"
+      },
+      "summarize_samples": {
+        "ast_sha256": "31713de86ea143bcfd2331eb3a21f28f26ec4ef454b48dd5edd99b1e195f9ac1",
+        "source_sha256": "126d8169fafd816f32dc675328d910eb3fc49d4faf6d83a170828ddf55ec2870"
+      },
+      "validate_report": {
+        "ast_sha256": "9b05e8d551ce95c7e7cdea51a0c9f89c50f1539ae9bff4764988448239e62fe2",
+        "source_sha256": "8f6cdee79f915ac9254dd6fb8446da8826b2e8613a66f7449cd5b09dc888d485"
+      },
+      "run_case": {
+        "ast_sha256": "28e395a3167ca537e49ad7b73c149906cac45667efa782454e2af4498189cbe3",
+        "source_sha256": "c9ea4a049167e63f3b4d3dd48f850b432bf3b3e4b18c4c02813cebf96079d68f"
+      },
+      "write_reports": {
+        "ast_sha256": "ba794a848143063f2ad6ef47858c055ec664ba228c3a176b059153d682c7f3bc",
+        "source_sha256": "318206d35e0c6b08aa9268f2eb461f91512d9eb56dc6aa8d83577a1a63f53fb3"
+      }
+    }
+  },
+  "environment": {
+    "gpu": "AMD Radeon 780M Graphics",
+    "driver": "AMD 32.0.31019.2002",
+    "resolution": [
+      1600,
+      900
+    ],
+    "requested_quality": 2,
+    "requested_upscale": "native",
+    "seed": 20261023,
+    "warmup_seconds": 10,
+    "duration_seconds": 30,
+    "power_mode": "Balanced",
+    "frequency_locked": false,
+    "ac_check": "Private helper polled every second; no AC-loss/unknown failure; endpoints online",
+    "desktop": "Isolated non-input rendering desktop; normal desktop remained available",
+    "order": "2P repeats 1-3, then 4P repeats 1-3; not randomized"
+  },
+  "integrity": {
+    "all_sources_clean_unchanged": true,
+    "all_real_save_hashes_unchanged": true,
+    "all_asset_import_cache_unchanged": true,
+    "no_records_files": true,
+    "all_power_endpoints_online": true
+  },
+  "raw_export_policy": "All sample keys, numeric types/values, nulls and ordering preserved after JSON parsing; whitelisted metadata rewritten. Original and public SHA256 recorded separately. Public files use repository LF line endings; public SHA256 names the committed file bytes.",
+  "limitations": [
+    "No old-style matched benchmark; these six runs cannot attribute a performance change to the style",
+    "Balanced, frequency unlocked, normal user desktop available; block order not randomized",
+    "No per-player viewport dimension/AA/scale snapshot in this sampler: null means uncollected",
+    "CPU TIME_PROCESS is engine process time, not OS utilization; per-viewport GPU times are not summed into whole-frame time",
+    "Separate motion, intro and 125% visual acceptance is required"
+  ],
+  "files": [
+    {
+      "case": {
+        "game": "bowling",
+        "map": 0,
+        "players": 2,
+        "quality": 2,
+        "repeat": 1,
+        "execution_order": 1,
+        "seed": 20261023
+      },
+      "file": "docs/benchmarks/bowling-b1-formal-20261024/raw/bowling-m0-p2-q2-r1.json",
+      "sha256": "e7723b970a34a786fde4dd749918d866fd5962869468844c61ee93fb114bcb32",
+      "original_raw_sha256": "cb691945605e7252a8d74f8e931ad90662be93e9943b182da504dfae48cb337e",
+      "frames": 2696,
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
+      "sample_values_types_nulls_keys_and_order_preserved": true
+    },
+    {
+      "case": {
+        "game": "bowling",
+        "map": 0,
+        "players": 2,
+        "quality": 2,
+        "repeat": 2,
+        "execution_order": 2,
+        "seed": 20261023
+      },
+      "file": "docs/benchmarks/bowling-b1-formal-20261024/raw/bowling-m0-p2-q2-r2.json",
+      "sha256": "3763d148b1e0892e04a7969644cd99a4f919ddefd63ead4831faf6f9307fcb9d",
+      "original_raw_sha256": "9a93e75f045eb5aa8f579373de7c7104dc4c48fb0b6c36683d42e6aca9dad82b",
+      "frames": 2662,
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
+      "sample_values_types_nulls_keys_and_order_preserved": true
+    },
+    {
+      "case": {
+        "game": "bowling",
+        "map": 0,
+        "players": 2,
+        "quality": 2,
+        "repeat": 3,
+        "execution_order": 3,
+        "seed": 20261023
+      },
+      "file": "docs/benchmarks/bowling-b1-formal-20261024/raw/bowling-m0-p2-q2-r3.json",
+      "sha256": "fdefabeca40a3c5a89b2a8068185d88b181c499cedd16088e19d8065ba743334",
+      "original_raw_sha256": "e7e3e97264c7c2683cf38e449f9cde0e71f9b24b752ce67205daef7f02a5f9fb",
+      "frames": 2652,
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
+      "sample_values_types_nulls_keys_and_order_preserved": true
+    },
+    {
+      "case": {
+        "game": "bowling",
+        "map": 0,
+        "players": 4,
+        "quality": 2,
+        "repeat": 1,
+        "execution_order": 4,
+        "seed": 20261023
+      },
+      "file": "docs/benchmarks/bowling-b1-formal-20261024/raw/bowling-m0-p4-q2-r1.json",
+      "sha256": "de15282c9918a9c1f671395e71c5e2d7b4aa5e22026fce9ea6b943ecc2b1bd74",
+      "original_raw_sha256": "aaa92b4d07989868a307bddc8108b42a06cb501035323d8eff3019fe7a3a2d20",
+      "frames": 2074,
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
+      "sample_values_types_nulls_keys_and_order_preserved": true
+    },
+    {
+      "case": {
+        "game": "bowling",
+        "map": 0,
+        "players": 4,
+        "quality": 2,
+        "repeat": 2,
+        "execution_order": 5,
+        "seed": 20261023
+      },
+      "file": "docs/benchmarks/bowling-b1-formal-20261024/raw/bowling-m0-p4-q2-r2.json",
+      "sha256": "8c1795922ed3e41a55a4cc5bfdc7bd24581b8665cb20ef396a55e82762bfa261",
+      "original_raw_sha256": "27e14845b4465b47f8dd2e7b1aee7792a1b9150f9d842cb48cb1142d81e204d9",
+      "frames": 2110,
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
+      "sample_values_types_nulls_keys_and_order_preserved": true
+    },
+    {
+      "case": {
+        "game": "bowling",
+        "map": 0,
+        "players": 4,
+        "quality": 2,
+        "repeat": 3,
+        "execution_order": 6,
+        "seed": 20261023
+      },
+      "file": "docs/benchmarks/bowling-b1-formal-20261024/raw/bowling-m0-p4-q2-r3.json",
+      "sha256": "5b6d8a2f19c8af0404f05ab7b49380e80a45c30e577384a969d22aff808f07bd",
+      "original_raw_sha256": "4c99780151932b498e295141aad48d92b63b596f096af14f879476a02615aed8",
+      "frames": 2084,
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
+      "sample_values_types_nulls_keys_and_order_preserved": true
+    }
+  ]
+}
