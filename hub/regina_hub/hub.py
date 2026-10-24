@@ -129,6 +129,7 @@ class Hub:
         self.recorder = recorder
         self.phone_url: str | None = None
         self.qr: dict[str, Any] | None = None
+        self.ble_state = "disabled"
         self._roster_dirty = True
         self._last_bad_command_warning: float | None = None
 
@@ -154,6 +155,14 @@ class Hub:
 
     def close(self) -> None:
         self.game.close()
+
+    def set_ble_state(self, state: str) -> None:
+        """Optional BLE diagnostic; older game clients can ignore the roster field."""
+        if state not in ("disabled", "scanning", "connected", "no_adverts", "unavailable"):
+            raise ValueError("unknown BLE state")
+        if state != self.ble_state:
+            self.ble_state = state
+            self._roster_dirty = True
 
     # ------------------------------------------------------------ registry ----
 
@@ -186,7 +195,7 @@ class Hub:
         return c
 
     def detach(self, c: Controller) -> None:
-        if self.controllers.get(c.id) is not c:
+        if self.controllers.get(c.id) is not c or not c.connected:
             return
         c.connected = False
         log.info("controller %d detached: %s", c.id, c.name)
@@ -316,4 +325,5 @@ class Hub:
             "type": "roster",
             "controllers": [c.roster_entry() for c in sorted(self.controllers.values(), key=lambda c: c.id)],
             "phone_url": self.phone_url,
+            "ble_state": self.ble_state,
         }

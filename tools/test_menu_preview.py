@@ -38,9 +38,12 @@ def main() -> int:
                        XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp,
                        RS_MENU_PREVIEW_OUTPUT=str(pictures) if args.screenshots else "")
             command = [find_godot(args.godot), "--path", str(ROOT / "game"),
-                       "res://tests/test_menu_preview.tscn", "--resolution", "1600x900"]
+                       "res://tests/test_menu_preview.tscn", "--resolution", "1600x900", "--audio-driver", "Dummy"]
             if not args.screenshots:
                 command.append("--headless")
+            else:
+                # A software OpenGL renderer is sufficient to inspect these 2D overlays in CI.
+                command += ["--rendering-method", "gl_compatibility"]
             command.append("--")
             if not args.backdrop:
                 command.append("--static-menu")
@@ -56,6 +59,10 @@ def main() -> int:
                 for game in ("plane", "archery", "bowling", "skate", "ski", "basketball"):
                     if png_size((pictures / (game + ".png")).read_bytes()) != (1600, 900):
                         raise ValueError("Unexpected screenshot dimensions")
+                for state in ("no_adverts", "unavailable"):
+                    for screen in ("menu", "players"):
+                        if png_size((pictures / f"ble_{state}_{screen}.png").read_bytes()) != (1600, 900):
+                            raise ValueError("Unexpected BLE diagnostic screenshot dimensions")
             print(f"{code}: {markers[0]} (environment notes: {len(environment)})", flush=True)
     return 0
 
