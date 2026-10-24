@@ -53,6 +53,45 @@ func _meshes() -> void:
 		_check(is_equal_approx(RSSkiTrees.mesh_bounds(low).end.y, RSSkiTrees.HEIGHTS[v] * 0.9), "low mesh retains the complete tier stack and height")
 
 
+func _coarse_materials() -> void:
+	var source := ShaderMaterial.new()
+	source.shader = preload("res://shaders/snow_fir.gdshader")
+	var tint := Color(0.63, 0.74, 0.89, 1.0)
+	var light := 0.37
+	source.set_shader_parameter("snow_tint", tint)
+	source.set_shader_parameter("needle_light", light)
+	var course := RSSkiCourse.new(1)
+	var layout_state := course._rng.state
+	var batches := RSSkiTrees.generate(course, source, course._lift_u())
+	var shared: ShaderMaterial
+	var low_count := 0
+	var far_count := 0
+	for batch: Dictionary in batches:
+		_check(batch["mesh"].surface_get_material(0) == source, "high and far meshes keep the original material identity")
+		if batch["low"] == null:
+			far_count += 1
+			continue
+		var coarse := batch["low"].surface_get_material(0) as ShaderMaterial
+		_check(coarse != null and coarse != source, "coarse mesh has an independent shader material")
+		if coarse == null:
+			continue
+		_check(coarse.shader.resource_path == "res://scenes/ski/ski_fir_coarse.gdshader", "only low meshes use the ski coarse shader")
+		_check(coarse.get_shader_parameter("snow_tint") == tint, "coarse material copies a non-default snow tint")
+		_check(is_equal_approx(float(coarse.get_shader_parameter("needle_light")), light), "coarse material copies non-default needle lighting")
+		if shared == null:
+			shared = coarse
+		_check(coarse == shared, "coarse variants share one material created at initialization")
+		low_count += 1
+	_check(low_count > 0 and far_count == 1, "fixture covers both LOD and unchanged far batches")
+	_check(course._rng.state == layout_state, "coarse material construction consumes no layout RNG")
+	_check(source.shader.resource_path == "res://shaders/snow_fir.gdshader", "original high shader remains unchanged")
+	if shared != null:
+		shared.set_shader_parameter("snow_tint", Color(0.2, 0.3, 0.4, 1.0))
+		shared.set_shader_parameter("needle_light", 0.9)
+	_check(source.get_shader_parameter("snow_tint") == tint and is_equal_approx(float(source.get_shader_parameter("needle_light")), light), "coarse uniforms do not mutate the original material")
+	course.free()
+
+
 func _forest(index: int) -> void:
 	# Do not add the course to the scene tree: terrain/props/assets are outside this test.
 	var course := RSSkiCourse.new(index)
@@ -129,6 +168,7 @@ func _run() -> void:
 		_check(false, "renderer upload check needs a hidden real-renderer run")
 	else:
 		_meshes()
+		_coarse_materials()
 		for index in RSSkiMaps.count():
 			_forest(index)
 	if OS.get_environment("RS_SKI_TREE_RENDERER_CHECK") == "1":
