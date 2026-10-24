@@ -25,6 +25,7 @@ var _tutorial_panel: Control
 var _tutorial_grid: GridContainer
 var _tutorial_cards: Dictionary = {}
 var _tutorial_roster := ""
+var _exit_notice: Control
 
 
 func _init(owner_game: RSPartyGame) -> void:
@@ -38,6 +39,7 @@ func _ready() -> void:
 	_build_lobby()
 	_build_results()
 	_build_tutorials()
+	_build_exit_confirmation()
 	pause = RSPauseMenu.new(game)
 	pause.restart_requested.connect(game.restart_round)
 	pause.menu_requested.connect(game.go_menu)
@@ -68,6 +70,10 @@ func update_lobby() -> void:
 		lines.append(tr("[color=#f87171]● 未连接 hub —— 请运行 hub/run_hub.bat[/color]"))
 	if RSTournament.active():
 		lines.append(tr("大赛总积分 · %d / %d") % [RSTournament.index + 1, RSTournament.games.size()])
+		lines.append(tr("在场参赛者全部准备即可继续；缺席者本项目加 0 大赛积分。"))
+		for slot: int in RSTournament.entrants:
+			if not _slot_present(slot):
+				lines.append(tr("P%d 本项目缺席：0 大赛积分，保留此前积分") % slot)
 	if game.solo_mode:
 		lines.append(tr("单人挑战 · %s · P%d 对战电脑") % [RSSolo.difficulty_name(), RSSolo.slot])
 	var text := "\n".join(lines)
@@ -91,6 +97,13 @@ func _build_tutorials() -> void:
 	_tutorial_grid.add_theme_constant_override("v_separation", 14)
 	col.add_child(_tutorial_grid)
 	col.add_child(RSUi.label(tr("C 返回菜单　　D / Esc 暂停　　断线后重连可重新练习"), 15, RSUi.TEXT_MUTED, true))
+
+
+func _slot_present(slot: int) -> bool:
+	for p: RSPartyGame.Player in game.players.values():
+		if p.c.player == slot and p.c.connected:
+			return true
+	return false
 
 
 func _update_tutorials() -> void:
@@ -177,7 +190,7 @@ func show_tournament_podium(rows: Array) -> void:
 	results_on_right(false)
 	_results_title.text = tr("大赛总领奖台")
 	_results_text.visible = false
-	_results_hint.text = tr("A / C 返回主菜单")
+	_results_hint.text = tr("A 返回主菜单　　C 二次确认退出")
 	var podium := HBoxContainer.new()
 	podium.alignment = BoxContainer.ALIGNMENT_CENTER
 	podium.add_theme_constant_override("separation", 14)
@@ -251,7 +264,7 @@ func _build_lobby() -> void:
 	_qr_box.add_child(RSUi.label(tr("手机扫码加入"), 14, RSUi.TEXT_MUTED))
 	_qr_url = RSUi.label("", 11, RSUi.TEXT_MUTED)
 	_qr_box.add_child(_qr_url)
-	col.add_child(RSUi.label(tr("A 准备 / 取消　　C 返回菜单　　D / Esc 暂停菜单　　所有人准备好后自动开始"), 15, RSUi.TEXT_MUTED, true))
+	col.add_child(RSUi.label(tr("A 准备 / 取消　　C 二次确认退出大赛　　D / Esc 暂停菜单") if RSTournament.active() else tr("A 准备 / 取消　　C 返回菜单　　D / Esc 暂停菜单　　所有人准备好后自动开始"), 15, RSUi.TEXT_MUTED, true))
 
 
 func _build_map_card(col: VBoxContainer) -> void:
@@ -288,8 +301,33 @@ func _build_results() -> void:
 	RSUi.set_text_size(_results_text, 18, &"normal_font_size")
 	_results_text.add_theme_constant_override("line_separation", 6)
 	col.add_child(_results_text)
-	_results_hint = RSUi.label(tr("A 继续　　C 返回菜单　　D / Esc 暂停菜单") if RSTournament.active() else tr("A 再来一局　　C 返回菜单　　D / Esc 暂停菜单"), 15, RSUi.TEXT_MUTED, true)
+	_results_hint = RSUi.label(tr("A 继续　　C 二次确认退出大赛　　D / Esc 暂停菜单") if RSTournament.active() else tr("A 再来一局　　C 返回菜单　　D / Esc 暂停菜单"), 15, RSUi.TEXT_MUTED, true)
 	col.add_child(_results_hint)
+
+
+func show_exit_confirmation(show_now: bool) -> void:
+	if is_instance_valid(_exit_notice):
+		_exit_notice.visible = show_now
+		if show_now:
+			move_child(_exit_notice, get_child_count() - 1)
+
+
+func _build_exit_confirmation() -> void:
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(PRESET_BOTTOM_WIDE)
+	panel.offset_left = 32.0
+	panel.offset_right = -32.0
+	panel.offset_top = -104.0
+	panel.offset_bottom = -24.0
+	panel.mouse_filter = MOUSE_FILTER_IGNORE
+	panel.add_theme_stylebox_override("panel", RSUi.modal_style())
+	var hint := RSUi.label(tr("退出将清空大赛积分。3 秒内同一手柄再按一次 C 确认，其他按键取消。"), 20, RSUi.HIGHLIGHT, true)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	panel.add_child(hint)
+	_exit_notice = panel
+	panel.visible = false
+	add_child(panel)
 
 
 func _centered_panel(width: float) -> Array:

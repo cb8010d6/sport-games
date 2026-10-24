@@ -91,6 +91,8 @@ def main() -> int:
                         help="real archery/bowling deadline and bounded PLAY-to-RESULTS regression")
     parser.add_argument("--output", type=Path, default=ROOT / "audit-output/lifecycle")
     args = parser.parse_args()
+    args.players = list(dict.fromkeys(args.players))
+    args.languages = list(dict.fromkeys(args.languages))
     if args.round_recovery and (args.screenshots or any(game not in ("archery", "bowling") for game in args.games)):
         parser.error("--round-recovery requires --games archery/bowling without --screenshots")
     out = args.output.resolve()
