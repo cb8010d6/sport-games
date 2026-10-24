@@ -28,7 +28,10 @@ func _frames(count := 6) -> void:
 
 
 func _wait_phase(phase: int) -> void:
-	for _i in 1200:
+	# Graphical tests use real delta: 1200 uncapped frames can finish before the
+	# 6.8-second introduction on a fast GPU. Bound the wait by wall time instead.
+	var deadline := Time.get_ticks_msec() + 20000
+	while Time.get_ticks_msec() < deadline:
 		await get_tree().process_frame
 		if _scene.phase == phase:
 			return
