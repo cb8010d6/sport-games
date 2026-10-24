@@ -8,6 +8,7 @@ import contextlib
 import json
 import logging
 import sys
+from collections.abc import Awaitable, Callable
 from pathlib import Path
 from typing import Any
 
@@ -22,6 +23,8 @@ from .sources.web import WebSource
 HUB_DIR = Path(sys.executable).resolve().parent if getattr(sys, "frozen", False) else Path(__file__).resolve().parent.parent
 DEFAULT_CONFIG = HUB_DIR / "config.json"
 log = logging.getLogger("main")
+SOURCE_RETRY_INITIAL_S = 1.0
+SOURCE_RETRY_MAX_S = 30.0
 
 
 def load_config(path: Path) -> dict[str, Any]:
@@ -57,6 +60,43 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     return ap.parse_args(argv)
 
 
+async def _run_optional_source(name: str, run: Callable[[], Awaitable[None]], *, retry: bool = False) -> None:
+    """Keep optional device/replay failures out of the core hub task."""
+    delay = SOURCE_RETRY_INITIAL_S
+    while True:
+        try:
+            await run()
+            return
+        except ImportError:
+            log.warning("%s source disabled: dependency unavailable; other sources remain available", name)
+            return
+        except Exception as exc:  # source boundary: core failures still propagate
+            # Do not log source payloads, device identifiers or recording contents.
+            if not retry:
+                log.warning("%s source stopped (%s); other sources remain available", name, type(exc).__name__)
+                return
+            log.warning("%s source failed (%s); retrying in %.1f s", name, type(exc).__name__, delay)
+        await asyncio.sleep(delay)
+        delay = min(delay * 2, SOURCE_RETRY_MAX_S)
+
+
+async def _run_ble(hub: Hub, cfg: dict[str, Any]) -> None:
+    from .sources.ble import ReginaBleSource
+
+    ble = ReginaBleSource(hub, cfg["regina_axis_map"], cfg["regina_name_prefix"], cfg["regina_allow"], cfg["regina_screen_rotation"])
+    await ble.run()
+
+
+async def _run_replay(hub: Hub, path: Path) -> None:
+    try:
+        await replay(hub, path)
+    finally:
+        # A failed/cancelled replay must release any player slots it already attached.
+        for c in list(hub.controllers.values()):
+            if c.kind == "replay" and c.connected:
+                hub.detach(c)
+
+
 async def amain(args: argparse.Namespace) -> None:
     cfg = load_config(args.config)
     recorder = Recorder(args.record) if args.record else None
@@ -76,15 +116,10 @@ async def amain(args: argparse.Namespace) -> None:
 
     tasks = [asyncio.create_task(hub.run_forever(), name="hub")]
     if not args.no_ble:
-        try:
-            from .sources.ble import ReginaBleSource
-        except ImportError as exc:
-            log.warning("BLE disabled (%s); pip install bleak", exc)
-        else:
-            ble = ReginaBleSource(hub, cfg["regina_axis_map"], cfg["regina_name_prefix"], cfg["regina_allow"], cfg["regina_screen_rotation"])
-            tasks.append(asyncio.create_task(ble.run(), name="ble"))
+        tasks.append(asyncio.create_task(_run_optional_source("BLE", lambda: _run_ble(hub, cfg), retry=True), name="ble"))
     if args.replay:
-        tasks.append(asyncio.create_task(replay(hub, args.replay), name="replay"))
+        # A corrupt replay is stopped, not retried from its beginning (which duplicates input).
+        tasks.append(asyncio.create_task(_run_optional_source("replay", lambda: _run_replay(hub, args.replay)), name="replay"))
 
     print()
     print("  Regina Sports hub is running")
@@ -103,6 +138,7 @@ async def amain(args: argparse.Namespace) -> None:
     finally:
         for t in tasks:
             t.cancel()
+        await asyncio.gather(*tasks, return_exceptions=True)
         await web.stop()
         hub.close()
         if recorder is not None:

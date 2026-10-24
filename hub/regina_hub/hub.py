@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import socket
+import struct
 import sys
 import threading
 import time
@@ -19,6 +20,7 @@ from .quat import Vec3, q_from_rotvec, q_mul, q_normalize, v_scale
 log = logging.getLogger("hub")
 
 MAX_PLAYERS = 4
+BAD_COMMAND_WARNING_S = 60.0
 
 EVENT_FEEDBACK = {
     # event -> (toast text, beep freq, beep ms)
@@ -128,6 +130,7 @@ class Hub:
         self.phone_url: str | None = None
         self.qr: dict[str, Any] | None = None
         self._roster_dirty = True
+        self._last_bad_command_warning: float | None = None
 
     # ------------------------------------------------------------- lifecycle ----
 
@@ -302,8 +305,11 @@ class Hub:
                     self.game.send_json(self.qr)
             else:
                 log.warning("unknown game command: %r", msg)
-        except (KeyError, TypeError, ValueError) as exc:
-            log.warning("bad game command %r: %s", msg, exc)
+        except (KeyError, TypeError, ValueError, OverflowError, struct.error) as exc:
+            now = _now()
+            if self._last_bad_command_warning is None or now - self._last_bad_command_warning >= BAD_COMMAND_WARNING_S:
+                self._last_bad_command_warning = now
+                log.warning("invalid game command ignored (%s)", type(exc).__name__)
 
     def roster(self) -> dict[str, Any]:
         return {
