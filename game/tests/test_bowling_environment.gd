@@ -97,6 +97,7 @@ func _resources(hall: RSBowlingHall) -> void:
 		var shared_font := RSUi.font_label() as FontVariation
 		_check(font != null and font != shared_font and font.base_font != shared_font.base_font, "3D signage owns its font copy without changing shared UI resources")
 		_check(font.base_font is FontFile and (font.base_font as FontFile).multichannel_signed_distance_field, "world signage renders with MSDF")
+		_check((font.base_font as FontFile).msdf_pixel_range >= label.outline_size * 2, "MSDF range contains the complete outline distance on both sides")
 		_check(font.base_font.get_data() == shared_font.base_font.get_data() and font.spacing_glyph == shared_font.spacing_glyph, "signage preserves the bundled glyph source and label spacing")
 		_check(label.alpha_cut == Label3D.ALPHA_CUT_OPAQUE_PREPASS and label.outline_size >= 10 and label.outline_modulate == RSUi.INK, "world signs have opaque prepass and dark high-contrast outlines")
 	_check(hall.find_children("SignBackground*", "MeshInstance3D", true, false).size() == 4, "four signs have solid dark background plates")

@@ -64,7 +64,7 @@ func configure(length_m: float, half_m: float, gutter_m: float, spacing_m: float
 	var sign_font := label_font.duplicate() as FontVariation
 	var sign_base := sign_font.base_font.duplicate() as FontFile
 	sign_base.multichannel_signed_distance_field = true
-	sign_base.msdf_pixel_range = 16
+	sign_base.msdf_pixel_range = 24
 	sign_base.msdf_size = 128
 	sign_font.base_font = sign_base
 	for i in 4:
