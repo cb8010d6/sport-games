@@ -226,6 +226,14 @@ static func apply(tree: SceneTree) -> void:
 	apply_viewport(root)
 	for vp: Viewport in root.find_children("*", "SubViewport", true, false):
 		apply_viewport(vp)
+	apply_world(root)
+
+
+static func apply_world(root: Node) -> void:
+	## Quality gates for every environment and sun under root, without the window /
+	## viewport parts of apply(). Worlds built after apply() ran (a lobby map switch
+	## builds a fresh environment and sun with scene values) need this re-applied.
+	load_once()
 	for we: WorldEnvironment in root.find_children("*", "WorldEnvironment", true, false):
 		environment(we.environment)
 	for sun: DirectionalLight3D in root.find_children("*", "DirectionalLight3D", true, false):
