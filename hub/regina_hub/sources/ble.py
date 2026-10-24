@@ -5,7 +5,9 @@ from __future__ import annotations
 import asyncio
 import logging
 import math
-from collections.abc import Sequence
+import struct
+import time
+from collections.abc import Callable, Sequence
 from typing import Any
 
 from .. import protocol as P
@@ -17,6 +19,17 @@ log = logging.getLogger("ble")
 
 DEG2RAD = math.pi / 180.0
 G = 9.80665
+MAX_GYRO_RAD_S = 35.0
+MAX_ACCEL_M_S2 = 160.0
+BAD_PACKET_LOG_INTERVAL_S = 60.0
+DISCONNECT_TIMEOUT_S = 5.0
+
+
+def _sensor_vector(values: tuple[float, float, float], scale: float, limit: float) -> tuple[float, float, float]:
+    scaled = (values[0] * scale, values[1] * scale, values[2] * scale)
+    if any(not math.isfinite(value) or abs(value) > limit for value in scaled):
+        raise ValueError("sensor value outside supported range")
+    return scaled
 
 
 class ReginaTransport:
@@ -73,7 +86,16 @@ class ReginaBleSource:
         self.name_prefix = name_prefix
         self.allow = {a.upper() for a in allow}
         self._active: dict[str, Any] = {}      # address -> BleakClient (connected or connecting)
+        self._close_connections: dict[str, Callable[[], None]] = {}
         self._candidates: dict[str, tuple[Any, str, bool]] = {}
+        self._bad_packet_log_at = float("-inf")
+
+    def _bad_packet(self, kind: str, controller: Controller) -> None:
+        # Do not let a corrupt notification stream flood logs or persist payloads / addresses.
+        now = time.monotonic()
+        if now - self._bad_packet_log_at >= BAD_PACKET_LOG_INTERVAL_S:
+            self._bad_packet_log_at = now
+            log.warning("discarded invalid %s packet from controller %d", kind, controller.id)
 
     def _matches(self, device: Any, adv: Any) -> tuple[str, bool] | None:
         """Returns (display name, is_legacy_firmware) for Regina devices."""
@@ -97,19 +119,31 @@ class ReginaBleSource:
                 self._candidates[device.address] = (device, match[0], match[1])
 
         log.info("scanning for Regina controllers (%s*)", self.name_prefix)
-        while True:
-            self._candidates.clear()
-            try:
-                async with BleakScanner(detection_callback=on_detect):
-                    await asyncio.sleep(3.0)
-            except Exception as exc:  # noqa: BLE001 - adapter off / busy
-                log.warning("scan failed: %s (is Bluetooth on?)", exc)
-                await asyncio.sleep(5.0)
-                continue
-            for addr, (device, name, legacy) in list(self._candidates.items()):
-                if addr not in self._active:
-                    await self._connect(device, name, legacy)
-            await asyncio.sleep(2.0 if not self._active else 8.0)
+        try:
+            while True:
+                self._candidates.clear()
+                try:
+                    async with BleakScanner(detection_callback=on_detect):
+                        await asyncio.sleep(3.0)
+                except Exception as exc:  # noqa: BLE001 - adapter off / busy
+                    log.warning("scan failed: %s (is Bluetooth on?)", exc)
+                    await asyncio.sleep(5.0)
+                    continue
+                for addr, (device, name, legacy) in list(self._candidates.items()):
+                    if addr not in self._active:
+                        await self._connect(device, name, legacy)
+                await asyncio.sleep(2.0 if not self._active else 8.0)
+        finally:
+            clients = list(self._active.values())
+            for close in list(self._close_connections.values()):
+                close()
+            await asyncio.gather(*(self._disconnect(client) for client in clients))
+
+    async def _disconnect(self, client: Any) -> None:
+        try:
+            await asyncio.wait_for(client.disconnect(), DISCONNECT_TIMEOUT_S)
+        except Exception:  # noqa: BLE001 - backend failure must not interrupt local cleanup
+            log.warning("BLE disconnect failed; local connection state was cleared")
 
     async def _connect(self, device: Any, name: str, legacy: bool = False) -> None:
         from bleak import BleakClient
@@ -117,22 +151,35 @@ class ReginaBleSource:
         addr = device.address
         controller: Controller | None = None
         transport: ReginaTransport | None = None
+        closed = False
 
-        def on_disconnect(_client: Any) -> None:
-            log.info("%s disconnected", name)
+        def close_connection() -> None:
+            nonlocal closed
+            if closed:
+                return
+            closed = True
             self._active.pop(addr, None)
+            self._close_connections.pop(addr, None)
             if transport is not None:
                 transport.close()
             if controller is not None:
                 self.hub.detach(controller)
 
+        def on_disconnect(_client: Any) -> None:
+            close_connection()
+
         client = BleakClient(device, disconnected_callback=on_disconnect, timeout=15.0)
         self._active[addr] = client
+        self._close_connections[addr] = close_connection
         try:
             log.info("connecting %s (%s)", name, addr)
             await client.connect()
+            if closed:
+                return
             if legacy:
                 controller = await self._setup_legacy(client, addr, name)
+                if closed:
+                    self.hub.detach(controller)
                 return
             transport = ReginaTransport(client)
             transport.set_rotation(self.screen_rotation)
@@ -143,32 +190,34 @@ class ReginaBleSource:
             def on_imu(_char: Any, data: bytearray) -> None:
                 try:
                     pkt = P.parse_imu(bytes(data))
-                except ValueError as exc:
-                    log.debug("bad imu packet: %s", exc)
+                    items = [
+                        (
+                            float(s.t_us),
+                            self.remap(_sensor_vector(s.gyro_dps, DEG2RAD, MAX_GYRO_RAD_S)),
+                            self.remap(_sensor_vector(s.accel_g, G, MAX_ACCEL_M_S2)),
+                        )
+                        for s in pkt.samples
+                    ]
+                    self.hub.on_imu(c, items, seq=pkt.seq)
+                except (ValueError, OverflowError, struct.error):
+                    self._bad_packet("IMU", c)
                     return
-                items = [
-                    (
-                        float(s.t_us),
-                        self.remap((s.gyro_dps[0] * DEG2RAD, s.gyro_dps[1] * DEG2RAD, s.gyro_dps[2] * DEG2RAD)),
-                        self.remap((s.accel_g[0] * G, s.accel_g[1] * G, s.accel_g[2] * G)),
-                    )
-                    for s in pkt.samples
-                ]
-                self.hub.on_imu(c, items, seq=pkt.seq)
 
             def on_input(_char: Any, data: bytearray) -> None:
                 try:
                     pkt = P.parse_input(bytes(data))
-                except (ValueError, Exception):  # noqa: BLE001
+                    self.hub.on_input(c, pkt.buttons, pkt.dial_small, pkt.dial_big)
+                except (ValueError, OverflowError, struct.error):
+                    self._bad_packet("input", c)
                     return
-                self.hub.on_input(c, pkt.buttons, pkt.dial_small, pkt.dial_big)
 
             def on_status(_char: Any, data: bytearray) -> None:
                 try:
                     st = P.parse_status(bytes(data))
-                except (ValueError, Exception):  # noqa: BLE001
+                    self.hub.on_status(c, st.battery, st.charging, imu_ok=st.imu_ok, imu_irq=st.imu_irq, fw=f"{st.fw[0]}.{st.fw[1]}")
+                except (ValueError, OverflowError, struct.error):
+                    self._bad_packet("status", c)
                     return
-                self.hub.on_status(c, st.battery, st.charging, imu_ok=st.imu_ok, imu_irq=st.imu_irq, fw=f"{st.fw[0]}.{st.fw[1]}")
 
             await client.start_notify(P.IMU_CHAR_UUID, on_imu)
             await client.start_notify(P.INPUT_CHAR_UUID, on_input)
@@ -176,22 +225,17 @@ class ReginaBleSource:
             on_status(None, await client.read_gatt_char(P.STATUS_CHAR_UUID))
             on_input(None, await client.read_gatt_char(P.INPUT_CHAR_UUID))
             log.info("%s ready (mtu %s)", name, client.mtu_size)
+        except asyncio.CancelledError:
+            close_connection()
+            await self._disconnect(client)
+            raise
         except Exception as exc:  # noqa: BLE001
             log.warning("connect %s failed: %s", name, exc)
-            self._active.pop(addr, None)
-            if transport is not None:
-                transport.close()
-            if controller is not None:
-                self.hub.detach(controller)
-            try:
-                await client.disconnect()
-            except Exception:  # noqa: BLE001
-                pass
+            close_connection()
+            await self._disconnect(client)
 
     async def _setup_legacy(self, client: Any, addr: str, name: str) -> Controller:
         """Original Regina firmware: ~20 Hz float accel (g) + gyro (dps), no timestamps or downlink."""
-        import time
-
         from ..controller import NullTransport
 
         controller = self.hub.attach("regina", f"regina:{addr}", name, NullTransport(), rate_hint_hz=20.0, wrap_bits=None)
@@ -200,26 +244,38 @@ class ReginaBleSource:
         last_accel: list[tuple[float, float, float] | None] = [None]
 
         def on_accel(_char: Any, data: bytearray) -> None:
-            ax, ay, az = P.parse_legacy_vec3(bytes(data))
-            last_accel[0] = (ax * G, ay * G, az * G)
+            try:
+                last_accel[0] = _sensor_vector(P.parse_legacy_vec3(bytes(data)), G, MAX_ACCEL_M_S2)
+            except (ValueError, OverflowError, struct.error):
+                last_accel[0] = None
+                self._bad_packet("legacy accel", c)
 
         def on_gyro(_char: Any, data: bytearray) -> None:
             if last_accel[0] is None:
                 return
-            gx, gy, gz = P.parse_legacy_vec3(bytes(data))
-            # No device clock: timestamp on arrival (BLE jitter goes straight into the integration).
-            t_us = time.monotonic() * 1e6
-            self.hub.on_imu(c, [(t_us, self.remap((gx * DEG2RAD, gy * DEG2RAD, gz * DEG2RAD)), self.remap(last_accel[0]))])
+            try:
+                gyro = _sensor_vector(P.parse_legacy_vec3(bytes(data)), DEG2RAD, MAX_GYRO_RAD_S)
+                # No device clock: timestamp on arrival (BLE jitter goes straight into the integration).
+                t_us = time.monotonic() * 1e6
+                self.hub.on_imu(c, [(t_us, self.remap(gyro), self.remap(last_accel[0]))])
+            except (ValueError, OverflowError, struct.error):
+                self._bad_packet("legacy gyro", c)
 
         def on_input(_char: Any, data: bytearray) -> None:
             try:
                 pkt = P.parse_legacy_input(bytes(data))
-            except Exception:  # noqa: BLE001
+                self.hub.on_input(c, pkt.buttons, pkt.dial_small, pkt.dial_big)
+            except (ValueError, OverflowError, struct.error):
+                self._bad_packet("legacy input", c)
                 return
-            self.hub.on_input(c, pkt.buttons, pkt.dial_small, pkt.dial_big)
 
-        await client.start_notify(P.LEGACY_ACCEL_UUID, on_accel)
-        await client.start_notify(P.LEGACY_GYRO_UUID, on_gyro)
-        await client.start_notify(P.LEGACY_INPUT_UUID, on_input)
+        try:
+            await client.start_notify(P.LEGACY_ACCEL_UUID, on_accel)
+            await client.start_notify(P.LEGACY_GYRO_UUID, on_gyro)
+            await client.start_notify(P.LEGACY_INPUT_UUID, on_input)
+        except BaseException:
+            # The caller only receives this controller after all subscriptions are ready.
+            self.hub.detach(controller)
+            raise
         log.info("%s ready (original firmware, ~20 Hz; flash firmware/ for 200 Hz)", name)
         return controller
