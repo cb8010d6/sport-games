@@ -158,6 +158,8 @@ func _ready() -> void:
 	_pages.closed.connect(_restore_focus)
 	_settings = RSPauseMenu.new(self, true)
 	add_child(_settings)
+	_settings.benchmark_requested.connect(func() -> void:
+		get_tree().change_scene_to_file("res://scenes/menu/benchmark_menu.tscn"))
 	_settings.visibility_changed.connect(func() -> void:
 		if not _settings.visible:
 			_restore_focus())
@@ -167,6 +169,14 @@ func _ready() -> void:
 	_buttons[0].grab_focus()
 	RSSettings.apply(get_tree())
 	RSMusic.attach(self).play_track("menu")
+	if RSBenchmarkMenu.return_to_settings:
+		RSBenchmarkMenu.return_to_settings = false
+		for i in GAMES.size():
+			if GAMES[i].get("page", "") == "settings":
+				_buttons[i].grab_focus()
+				_open(i)
+				_settings.focus_benchmark()
+				break
 
 
 func _build_backdrop() -> void:
