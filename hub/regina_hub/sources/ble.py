@@ -10,6 +10,7 @@ from typing import Any
 
 from .. import protocol as P
 from ..controller import Controller
+from ..diagnostics import WarningLimiter, redact_devices
 from ..frames import REGINA_DEFAULT_AXIS_MAP, make_remap
 from ..hub import Hub
 
@@ -25,6 +26,7 @@ class ReginaTransport:
     def __init__(self, client: Any):
         self._client = client
         self._queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=64)
+        self._full_warning = WarningLimiter()
         self._task = asyncio.create_task(self._writer())
 
     async def _writer(self) -> None:
@@ -33,13 +35,13 @@ class ReginaTransport:
             try:
                 await self._client.write_gatt_char(P.CMD_CHAR_UUID, data, response=False)
             except Exception as exc:  # noqa: BLE001 - device may have dropped
-                log.debug("write failed: %s", exc)
+                log.debug("write failed: %s", redact_devices(exc))
 
     def _put(self, data: bytes) -> None:
         try:
             self._queue.put_nowait(data)
         except asyncio.QueueFull:
-            log.warning("command queue full, dropping %d bytes", len(data))
+            self._full_warning.warning(log, "command queue full, dropping %d bytes", len(data))
 
     def close(self) -> None:
         self._task.cancel()
@@ -74,6 +76,7 @@ class ReginaBleSource:
         self.allow = {a.upper() for a in allow}
         self._active: dict[str, Any] = {}      # address -> BleakClient (connected or connecting)
         self._candidates: dict[str, tuple[Any, str, bool]] = {}
+        self._scan_warning = WarningLimiter()
 
     def _matches(self, device: Any, adv: Any) -> tuple[str, bool] | None:
         """Returns (display name, is_legacy_firmware) for Regina devices."""
@@ -96,14 +99,14 @@ class ReginaBleSource:
             if match and device.address not in self._active:
                 self._candidates[device.address] = (device, match[0], match[1])
 
-        log.info("scanning for Regina controllers (%s*)", self.name_prefix)
+        log.info("scanning for Regina controllers")
         while True:
             self._candidates.clear()
             try:
                 async with BleakScanner(detection_callback=on_detect):
                     await asyncio.sleep(3.0)
             except Exception as exc:  # noqa: BLE001 - adapter off / busy
-                log.warning("scan failed: %s (is Bluetooth on?)", exc)
+                self._scan_warning.warning(log, "scan failed: %s (is Bluetooth on?)", redact_devices(exc))
                 await asyncio.sleep(5.0)
                 continue
             for addr, (device, name, legacy) in list(self._candidates.items()):
@@ -119,7 +122,7 @@ class ReginaBleSource:
         transport: ReginaTransport | None = None
 
         def on_disconnect(_client: Any) -> None:
-            log.info("%s disconnected", name)
+            log.info("Regina controller disconnected")
             self._active.pop(addr, None)
             if transport is not None:
                 transport.close()
@@ -129,7 +132,7 @@ class ReginaBleSource:
         client = BleakClient(device, disconnected_callback=on_disconnect, timeout=15.0)
         self._active[addr] = client
         try:
-            log.info("connecting %s (%s)", name, addr)
+            log.info("connecting Regina controller")
             await client.connect()
             if legacy:
                 controller = await self._setup_legacy(client, addr, name)
@@ -175,9 +178,9 @@ class ReginaBleSource:
             await client.start_notify(P.STATUS_CHAR_UUID, on_status)
             on_status(None, await client.read_gatt_char(P.STATUS_CHAR_UUID))
             on_input(None, await client.read_gatt_char(P.INPUT_CHAR_UUID))
-            log.info("%s ready (mtu %s)", name, client.mtu_size)
+            log.info("controller %d ready (mtu %s)", c.id, client.mtu_size)
         except Exception as exc:  # noqa: BLE001
-            log.warning("connect %s failed: %s", name, exc)
+            log.warning("Regina connection failed: %s", redact_devices(str(exc).replace(addr, "<device>")))
             self._active.pop(addr, None)
             if transport is not None:
                 transport.close()
@@ -221,5 +224,5 @@ class ReginaBleSource:
         await client.start_notify(P.LEGACY_ACCEL_UUID, on_accel)
         await client.start_notify(P.LEGACY_GYRO_UUID, on_gyro)
         await client.start_notify(P.LEGACY_INPUT_UUID, on_input)
-        log.info("%s ready (original firmware, ~20 Hz; flash firmware/ for 200 Hz)", name)
+        log.info("controller %d ready (original firmware, ~20 Hz; flash firmware/ for 200 Hz)", c.id)
         return controller
