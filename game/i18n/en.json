@@ -469,5 +469,9 @@
  "Regina Sports 原创代码与维护者声明的 AI 原创素材：MIT。\n\nGodot Engine：MIT；Jolt Physics：MIT。\n背景音乐：本项目乐谱与合成，CC0。\nPoly Haven：CC0 天空、材质、模型及树木素材。\nMakeHuman / MPFB：使用官方 CC0 系统素材导出的角色。\n角色素材历史署名：Data Collection AB、Joel Palmius、Jonas Hauquier。\n\n当前音效、手柄模型与涂鸦的 AI 原创声明见 ASSET_PROVENANCE.md。\n逐项作者、素材 ID 与来源见 docs/THIRD_PARTY.md 和素材目录中的 CREDITS.md。\n打包发布时仍需汇总实际捆绑依赖的完整许可。": "Regina Sports original code and maintainer-declared AI originals: MIT.\n\nGodot Engine: MIT; Jolt Physics: MIT.\nBackground music: project score and synthesis, CC0.\nPoly Haven: CC0 skies, materials, models and trees.\nMakeHuman / MPFB: characters exported from official CC0 system assets.\nHistorical character asset credits: Data Collection AB, Joel Palmius, Jonas Hauquier.\n\nSee ASSET_PROVENANCE.md for the AI originality declarations covering sound effects, the controller model and decals.\nPer-asset authors, IDs and sources: docs/THIRD_PARTY.md and CREDITS.md files in the asset folders.\nBinary releases must also include the full notices for their bundled dependencies.",
   "标准（100%）": "Standard (100%)",
   "大（125%）": "Large (125%)",
-  "界面字号　◀ %s ▶": "Text size  ◀ %s ▶"
+  "界面字号　◀ %s ▶": "Text size  ◀ %s ▶",
+  "高尔夫": "Golf",
+  "G1占位输入：A切换60/120/220米，按住B再松开击球，C取消。三洞一局，每洞150秒，各自同时打球；不计正式纪录。": "G1 placeholder input: A selects 60/120/220 m; hold and release B to shoot; C cancels. Three holes per round, 150 seconds each; players shoot simultaneously. No official records.",
+  "3洞 · 标准杆12 · G1占位局": "3 holes · Par 12 · G1 placeholder round",
+  "G1占位局 · %d杆 · %d洞上限（不计纪录）": "G1 placeholder · %d strokes · %d capped holes (no records)"
 }
