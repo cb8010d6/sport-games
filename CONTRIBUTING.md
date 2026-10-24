@@ -12,6 +12,7 @@
    生成成品随普通 Git 克隆；不使用 Git LFS。详见 [素材说明](docs/ASSETS.md)。
 2. 使用 Godot 4.7.2 打开 `game/project.godot`。Python 中枢的安装和固件依赖见
    [开发说明](docs/DEVELOPMENT.md)。
+   Windows 推荐使用 python.org 安装包；Store 版 Python 的 AppX 激活可能让子进程脱离作业对象，进程清理测试因此使用系统原生替身，不跳过孤儿进程断言。
 3. 从 `dev` 建立功能分支，PR 目标选择 `dev`。`main` 用于通过验证的发布版本；维护者通过 PR 将 `dev` 合入 `main`。
 4. 每个 PR 聚焦一个问题；先描述现象、预期行为和修改原因。较大的玩法和协议改动请先开 Issue 讨论。
 
