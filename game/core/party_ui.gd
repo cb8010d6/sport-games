@@ -5,12 +5,15 @@ extends Control
 ## the rounds and says what to show; its hooks (_game_name, _how_to_play, _lobby_extra, _maps)
 ## fill the lobby.
 
+const EXIT_NOTICE_TOP := -104.0  ## Logical pixels relative to the window bottom.
+
 var game: RSPartyGame
 var pause: RSPauseMenu
 var lobby_panel: Control
 var results_panel: Control
 
 var _lobby_players: RichTextLabel
+var _lobby_hint: Label
 var _qr_box: Control
 var _qr_rect: TextureRect
 var _qr_url: Label
@@ -50,6 +53,7 @@ func _ready() -> void:
 # -------------------------------------------------------------------------- lobby ----
 
 func show_lobby() -> void:
+	show_exit_confirmation(false)
 	lobby_panel.visible = true
 	results_panel.visible = false
 	_tutorial_panel.visible = false
@@ -167,6 +171,7 @@ func set_map_card(title: String, line: String, desc: String) -> void:
 # ------------------------------------------------------------------------ results ----
 
 func set_results(lines: PackedStringArray, show_now: bool) -> void:
+	show_exit_confirmation(false)
 	RSUi.set_rich_text(_results_text, "\n".join(lines))
 	if show_now:
 		show_results()
@@ -187,6 +192,7 @@ func results_on_right(on: bool) -> void:
 
 
 func show_tournament_podium(rows: Array) -> void:
+	show_exit_confirmation(false)
 	results_on_right(false)
 	_results_title.text = tr("大赛总领奖台")
 	_results_text.visible = false
@@ -264,7 +270,8 @@ func _build_lobby() -> void:
 	_qr_box.add_child(RSUi.label(tr("手机扫码加入"), 14, RSUi.TEXT_MUTED))
 	_qr_url = RSUi.label("", 11, RSUi.TEXT_MUTED)
 	_qr_box.add_child(_qr_url)
-	col.add_child(RSUi.label(tr("A 准备 / 取消　　C 二次确认退出大赛　　D / Esc 暂停菜单") if RSTournament.active() else tr("A 准备 / 取消　　C 返回菜单　　D / Esc 暂停菜单　　所有人准备好后自动开始"), 15, RSUi.TEXT_MUTED, true))
+	_lobby_hint = RSUi.label(tr("A 准备 / 取消　　C 二次确认退出大赛　　D / Esc 暂停菜单") if RSTournament.active() else tr("A 准备 / 取消　　C 返回菜单　　D / Esc 暂停菜单　　所有人准备好后自动开始"), 15, RSUi.TEXT_MUTED, true)
+	col.add_child(_lobby_hint)
 
 
 func _build_map_card(col: VBoxContainer) -> void:
@@ -306,10 +313,16 @@ func _build_results() -> void:
 
 
 func show_exit_confirmation(show_now: bool) -> void:
-	if is_instance_valid(_exit_notice):
-		_exit_notice.visible = show_now
-		if show_now:
-			move_child(_exit_notice, get_child_count() - 1)
+	# RSPartyGame reports this every frame; only transitions should sort containers.
+	if not is_instance_valid(_exit_notice) or _exit_notice.visible == show_now:
+		return
+	_exit_notice.visible = show_now
+	_lobby_hint.visible = not show_now
+	_results_hint.visible = not show_now
+	for page: Control in [lobby_panel, results_panel]:
+		page.offset_bottom = _exit_notice.offset_top if show_now else 0.0
+	if show_now:
+		move_child(_exit_notice, get_child_count() - 1)
 
 
 func _build_exit_confirmation() -> void:
@@ -317,7 +330,7 @@ func _build_exit_confirmation() -> void:
 	panel.set_anchors_preset(PRESET_BOTTOM_WIDE)
 	panel.offset_left = 32.0
 	panel.offset_right = -32.0
-	panel.offset_top = -104.0
+	panel.offset_top = EXIT_NOTICE_TOP
 	panel.offset_bottom = -24.0
 	panel.mouse_filter = MOUSE_FILTER_IGNORE
 	panel.add_theme_stylebox_override("panel", RSUi.modal_style())

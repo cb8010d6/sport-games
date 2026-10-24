@@ -100,6 +100,27 @@ func _c(game: RSPartyGame, controller: RSController) -> void:
 	game._on_button(controller, RSController.BTN_C, false)
 
 
+func _settle_exit_layout() -> void:
+	# Containers queue their sort; inspect the rendered layout after it has settled.
+	for frame in 2:
+		await get_tree().process_frame
+
+
+func _check_exit_layout(game: RSPartyGame, page: Control, footer: Label, pending: bool) -> void:
+	var notice := game.ui._exit_notice
+	_check(notice.is_visible_in_tree() == pending, "real C state controls the visible exit notice")
+	_check(footer.visible == (not pending), "normal page footer is hidden only while confirming")
+	_check(is_equal_approx(page.offset_bottom, notice.offset_top if pending else 0.0), "confirmation reserves its actual top offset and restores the full page")
+	var content := (page.get_child(0) as Control).get_global_rect()
+	_check(game.get_viewport().get_visible_rect().grow(0.01).encloses(content), "actual page content remains entirely inside the logical window")
+	if pending:
+		var notice_rect := notice.get_global_rect()
+		_check(not footer.is_visible_in_tree() or not footer.get_global_rect().intersects(notice_rect), "normal footer and confirmation never visibly overlap")
+		_check(content.end.y <= notice_rect.position.y + 0.01, "actual page content ends above the confirmation notice")
+	else:
+		_check(footer.is_visible_in_tree(), "current page normal footer becomes visible again")
+
+
 func _exit_checks(game: RSPartyGame) -> void:
 	game.set_process(false)
 	game.demo = 0
@@ -113,6 +134,8 @@ func _exit_checks(game: RSPartyGame) -> void:
 	var before := RSTournament.entrants.duplicate(true)
 	_c(game, first)
 	_check(RSTournament.entrants == before and game._tournament_exit.pending(), "first lobby C preserves tournament points")
+	await _settle_exit_layout()
+	_check_exit_layout(game, game.ui.lobby_panel, game.ui._lobby_hint, true)
 	var stranger := RSController.new()
 	stranger.id = 250
 	stranger.player = 1
@@ -123,9 +146,13 @@ func _exit_checks(game: RSPartyGame) -> void:
 	_check(RSTournament.active() and game._tournament_exit.controller == second, "two controllers cannot combine their first C presses")
 	game._on_button(second, RSController.BTN_B, true)
 	_check(not game._tournament_exit.pending(), "another button cancels confirmation")
+	await _settle_exit_layout()
+	_check_exit_layout(game, game.ui.lobby_panel, game.ui._lobby_hint, false)
 	_c(game, first)
 	game._process(RSTournament.ExitGuard.SECONDS)
 	_check(not game._tournament_exit.pending() and RSTournament.active(), "confirmation expires exactly at its deadline")
+	await _settle_exit_layout()
+	_check_exit_layout(game, game.ui.lobby_panel, game.ui._lobby_hint, false)
 	_c(game, first)
 	_check(RSTournament.active(), "C after expiry starts a new confirmation")
 	first.connected = false
@@ -160,11 +187,22 @@ func _exit_checks(game: RSPartyGame) -> void:
 	game.set_process(false)
 	game.finish_round()
 	_check(not game._tournament_exit.pending(), "results transition clears confirmation")
+	game.ui.show_results()
+	await _settle_exit_layout()
+	_check_exit_layout(game, game.ui.results_panel, game.ui._results_hint, false)
 	before = RSTournament.entrants.duplicate(true)
 	_c(game, first)
 	_check(RSTournament.entrants == before, "first results C also preserves earned points")
+	await _settle_exit_layout()
+	_check_exit_layout(game, game.ui.results_panel, game.ui._results_hint, true)
+	game._on_button(first, RSController.BTN_B, true)
+	await _settle_exit_layout()
+	_check_exit_layout(game, game.ui.results_panel, game.ui._results_hint, false)
+	_c(game, first)
 	game._to_lobby()
 	_check(not game._tournament_exit.pending(), "return to lobby clears confirmation")
+	await _settle_exit_layout()
+	_check_exit_layout(game, game.ui.lobby_panel, game.ui._lobby_hint, false)
 	for controller: RSController in controllers:
 		controller.connected = false
 	game._sync_players()
