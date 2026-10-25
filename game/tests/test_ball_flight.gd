@@ -17,6 +17,11 @@ func _ready() -> void:
 	_plane_edges()
 	_rest_and_budget()
 	_presets()
+	_hits()
+	_predictions()
+	_net_predictions()
+	_time_queries()
+	_aiming()
 	print("RS_BALL_FLIGHT_TESTS: %d checks, %d failures" % [_checks, _failures]) # no-i18n
 	get_tree().quit(0 if _failures == 0 else 1)
 
@@ -37,9 +42,13 @@ func _vacuum() -> RSBallFlight.Ball:
 
 func _listen(f: RSBallFlight) -> void:
 	_events.clear()
+	var reference := weakref(f)
 	f.contacted.connect(func(kind: int, id: StringName, point: Vector3, speed: float) -> void:
+		var current := reference.get_ref() as RSBallFlight
+		if current == null:
+			return
 		_events.append({"kind": kind, "id": id, "point": point, "speed": speed,
-				"tick": f.tick, "v": f.velocity(), "w": f.spin()})) # no-i18n
+				"tick": current.tick, "v": current.velocity(), "w": current.spin()})) # no-i18n
 
 
 func _same(a: RSBallFlight, b: RSBallFlight) -> bool:
@@ -345,3 +354,205 @@ func _presets() -> void:
 	_listen(f)
 	f.step()
 	_check(not _events.is_empty() and _events[0]["id"] == &"net", "tennis preset supplies rotated net") # no-i18n
+
+
+func _hits() -> void:
+	var f := RSBallFlight.new(_vacuum())
+	var face := RSBallFlight.Surface.new(0.8, 0.0)
+	f.set_state(Vector3.ZERO, Vector3(-5, 0, 0))
+	f.advance(0.01)
+	var tick := f.tick
+	_listen(f)
+	_check(f.hit(Vector3(1, 2, 3), Vector3(2, 0, 0), Vector3.ZERO, face), "stationary face accepts approaching ball")
+	_check(absf(f.velocity().x - 4.0) < 1e-6, "fixed face returns incident speed times restitution")
+	_check(f.position().distance_to(Vector3(1 + f.ball.radius, 2, 3)) < 1e-6 and f.tick == tick, "hit moves centre by radius without advancing tick")
+	_check(not f.resting and _events.is_empty(), "hit wakes ball without a step contact event")
+	f.set_state(Vector3.ZERO, Vector3(-5, 0, 0))
+	_check(f.hit(Vector3.ZERO, Vector3.RIGHT, Vector3(3, 0, 0), face) and f.velocity().x > 4.0, "forward swing accelerates return")
+	face = RSBallFlight.racket_tennis()
+	face.dwell = 0.0
+	f.set_state(Vector3.ZERO, Vector3(-5, 0, 0))
+	f.hit(Vector3.ZERO, Vector3.RIGHT, Vector3.ZERO, face)
+	var ratio := f.ball.mass / face.mass
+	var expected := 5.0 * (face.restitution - 5.0 * face.restitution_drop - ratio) / (1.0 + ratio)
+	_check(absf(f.velocity().x - expected) < 1e-6, "finite effective racket mass follows two-body normal impulse")
+	f.set_state(Vector3.ZERO, Vector3(-5, 0, 0))
+	f.hit(Vector3.ZERO, Vector3.RIGHT, Vector3(3, 4, 0), RSBallFlight.racket_table_tennis())
+	_check(f.velocity().x > 0.0 and f.spin().z < -1.0, "upward brush gives right-hand topspin for +X return")
+	f.set_state(Vector3.ZERO, Vector3(-5, 0, 0))
+	f.hit(Vector3.ZERO, Vector3(1, 0.35, 0), Vector3.ZERO, RSBallFlight.racket_table_tennis())
+	_check(f.velocity().y > 0.0 and f.spin().z > 1.0, "laid-back face adds lift and backspin")
+	f.set_state(Vector3.ZERO, Vector3.RIGHT)
+	f.advance(0.01)
+	var saved := f.snapshot().to_byte_array()
+	_check(not f.hit(Vector3.ONE, Vector3.RIGHT, Vector3.ZERO, face), "departing ball rejects hit")
+	_check(f.snapshot().to_byte_array() == saved, "rejected hit leaves complete snapshot unchanged")
+	_check(not f.hit(Vector3.ONE, Vector3.ZERO, Vector3.ZERO, face) and f.snapshot().to_byte_array() == saved, "zero face normal is also a state-preserving rejection")
+	var volley := RSBallFlight.new(RSBallFlight.ball_volleyball())
+	for hands: RSBallFlight.Surface in [RSBallFlight.hands_bump(), RSBallFlight.hands_set(), RSBallFlight.hands_spike()]:
+		volley.set_state(Vector3.ZERO, Vector3(0, -3, 0))
+		_check(volley.hit(Vector3.ZERO, Vector3.UP, Vector3(0, 4, 1), hands) and volley.velocity().y > 0.0, "volleyball hand preset returns an approaching ball")
+	_check(RSBallFlight.hands_set().dwell > RSBallFlight.hands_spike().dwell, "setting pockets the ball more than spiking")
+	face = RSBallFlight.Surface.new(0.8, 0.4)
+	face.dwell = 0.0
+	f.set_state(Vector3.ZERO, Vector3(-5, 0, 0))
+	f.hit(Vector3.ZERO, Vector3.RIGHT, Vector3(3, 4, 0), face)
+	var without := f.velocity()
+	face.dwell = 0.6
+	f.set_state(Vector3.ZERO, Vector3(-5, 0, 0))
+	f.hit(Vector3.ZERO, Vector3.RIGHT, Vector3(3, 4, 0), face)
+	_check(absf(f.velocity().length() - without.length()) < 1e-5 and f.velocity().y > without.y, "dwell turns return toward hand motion while preserving speed")
+
+
+func _predictions() -> void:
+	var f := RSBallFlight.new(RSBallFlight.ball_tennis())
+	f.add_plane(&"ground", RSBallFlight.surface_hard_court(), Vector3.ZERO) # no-i18n
+	f.set_state(Vector3(0, 2, -2), Vector3(3, 1, 7), Vector3(20, 10, -40))
+	f.advance(0.023)
+	_listen(f)
+	var saved := f.snapshot().to_byte_array()
+	var start_tick := f.tick
+	var result := f.predict(3.0, 2)
+	_check(f.snapshot().to_byte_array() == saved and _events.is_empty(), "prediction neither mutates live state nor emits live contacts")
+	_check(result.bounces.size() == 2 and result.bounce_times.size() == 2 and result.bounce_ids.size() == 2 and result.bounce_velocities.size() == 2, "prediction records all four bounce arrays consistently")
+	for _i in 720:
+		f.step()
+		if not _events.is_empty():
+			break
+	_check(result.landed() and not _events.is_empty(), "prediction and real simulation both reach first bounce")
+	if result.landed() and not _events.is_empty():
+		var point: Vector3 = _events[0]["point"] # no-i18n
+		_check(result.land_point() == point and result.land_point().distance_to(point) == 0.0, "first predicted and real contact positions match with zero error")
+		_check(result.bounce_ids[0] == &"ground" and result.bounce_velocities[0].y < 0.0, "bounce ID and pre-impact velocity are recorded") # no-i18n
+		var end_tick_time := (f.tick - start_tick) * RSBallFlight.STEP
+		_check(result.land_time() > end_tick_time - RSBallFlight.STEP and result.land_time() <= end_tick_time, "bounce time includes fixed-step contact fraction, relative to call")
+	var empty := f.predict(0.0)
+	_check(not empty.landed() and empty.land_time() == -1.0 and empty.land_point() == f.position() and empty.end_time == 0.0, "zero-horizon prediction exposes safe end state")
+	var zero := RSBallFlight.new(_vacuum())
+	zero.add_plane(&"floor", RSBallFlight.Surface.new(0.0, 0.0), Vector3.ZERO) # no-i18n
+	zero.set_state(Vector3(0, 0.034, 0), Vector3(0, -0.01, 0))
+	var settled := zero.predict(3.0)
+	_check(settled.settled and settled.end_time < 3.0, "prediction stops when ball settles")
+	var corridor := RSBallFlight.new(_vacuum())
+	var elastic := RSBallFlight.Surface.new(1.0, 0.0)
+	corridor.add_plane(&"left", elastic, Vector3(-0.04, 0, 0), Vector3.RIGHT) # no-i18n
+	corridor.add_plane(&"right", elastic, Vector3(0.04, 0, 0), Vector3.LEFT) # no-i18n
+	corridor.set_state(Vector3(0, 1, 0), Vector3(100, 0, 0))
+	var four := corridor.predict(RSBallFlight.STEP, 4)
+	_check(four.bounces.size() == 4, "prediction records all four contacts inside one fixed step")
+	var chronological := four.bounces.size() == 4
+	for i in four.bounce_times.size():
+		chronological = chronological and four.bounce_times[i] > 0.0 and four.bounce_times[i] <= RSBallFlight.STEP
+		if i > 0:
+			chronological = chronological and four.bounce_times[i] > four.bounce_times[i - 1]
+	_check(chronological, "same-step contacts preserve fractional chronological order")
+	_check(corridor.predict(RSBallFlight.STEP, 1).bounces.size() == 1, "prediction records only the requested bounce prefix")
+	var reference := weakref(corridor)
+	_listen(corridor)
+	corridor = null
+	_check(reference.get_ref() == null, "contact recording fixture does not retain a flight through its signal")
+
+
+func _net_predictions() -> void:
+	var f := RSBallFlight.new(_vacuum())
+	f.add_net(&"net", RSBallFlight.surface_net(), Vector3.ZERO, Vector3.BACK, 2.0, 1.0, 0.0, RSBallFlight.surface_net_cord()) # no-i18n
+	f.set_state(Vector3(0, 1.5, -0.05), Vector3(0, 0, 30))
+	var over := f.predict(0.05)
+	_check(over.net_crossed and not over.net_hit and over.net_clearance > 0.4 and over.net_time > 0.0, "clear flight reports positive first-crossing clearance")
+	f.set_state(Vector3(0, 1.0 + f.ball.radius, -0.05), Vector3(0, 0, 30))
+	var grazing := f.predict(0.01)
+	_check(grazing.net_hit and absf(grazing.net_clearance) < 0.002, "grazing top cord reports nearly zero clearance")
+	f.set_state(Vector3(0, 0.5, -0.05), Vector3(0, 0, 30))
+	var below := f.predict(0.05)
+	_check(below.net_hit and not below.net_crossed and below.net_clearance < -0.5 and below.net_time > 0.0, "blocked low ball reports negative touch clearance despite never crossing plane")
+	f.set_state(Vector3(3, 0.5, -0.05), Vector3(0, 0, 30))
+	var outside := f.predict(0.05)
+	_check(not outside.net_hit and not outside.net_crossed and outside.net_clearance == INF, "crossing outside net width does not invent a net event")
+
+
+func _time_queries() -> void:
+	var f := RSBallFlight.new(_vacuum())
+	f.set_state(Vector3(0, 2, 0), Vector3(3, 2, 0))
+	f.advance(0.01)
+	var saved := f.snapshot().to_byte_array()
+	var crossing := f.time_to_plane(Vector3(1, 0, 0), Vector3.RIGHT)
+	var p := f.copy()
+	var before := p.position().x
+	var actual := -1.0
+	for i in 240:
+		p.step()
+		var after := p.position().x
+		if before < 1.0 and after >= 1.0:
+			actual = (i + (1.0 - before) / (after - before)) * RSBallFlight.STEP
+			break
+		before = after
+	_check(actual >= 0.0 and absf(crossing - actual) < RSBallFlight.STEP, "time_to_plane matches actual interpolated crossing within one step")
+	var rise := f.time_to_height(2.1, 3.0, false)
+	var fall := f.time_to_height(2.1, 3.0, true)
+	_check(rise > 0.0 and fall > rise, "height query distinguishes ascending and descending crossings")
+	_check(f.time_to_height(100.0) == -1.0 and f.time_to_plane(Vector3(-1, 0, 0), Vector3.RIGHT, 0.1) == -1.0, "unreached height/plane returns -1")
+	_check(f.time_to_plane(Vector3.ZERO, Vector3.ZERO) == -1.0, "zero query normal is rejected")
+	var future := f.probe(0.537)
+	p = f.copy()
+	p.advance_to_tick(p.tick + floori(0.537 * RSBallFlight.HZ))
+	_check(_same(future, p) and not future.emit_events, "probe uses whole fixed steps without the per-frame hitch cap")
+	_check(f.snapshot().to_byte_array() == saved, "all time queries and probes preserve original snapshot")
+
+
+func _aiming() -> void:
+	var tennis := RSBallFlight.new(RSBallFlight.ball_tennis())
+	tennis.add_plane(&"court", RSBallFlight.surface_hard_court(), Vector3.ZERO) # no-i18n
+	var court_targets: Array[Vector3] = [Vector3(-3, 0, -1), Vector3(3, 0, 1), Vector3(-2, 0, 3), Vector3(2, 0, -3), Vector3(0, 0, 5)]
+	_aim_targets(tennis, Vector3(0, 1.8, -8), court_targets, 16.0, Vector3(10, 25, -40))
+	var table := RSBallFlight.new(RSBallFlight.ball_table_tennis())
+	table.add_plane(&"table", RSBallFlight.surface_table(), Vector3(0, 0.76, 0), Vector3.UP, RSBallFlight.TABLE_SIZE * 0.5) # no-i18n
+	var table_targets: Array[Vector3] = [Vector3(-0.5, 0.76, -0.4), Vector3(0.5, 0.76, 0.4), Vector3(-0.3, 0.76, 0.8), Vector3(0.3, 0.76, -0.6), Vector3(0, 0.76, 1.0)]
+	_aim_targets(table, Vector3(0, 1.1, -1.1), table_targets, 7.0, Vector3(0, 30, -80))
+	var from := Vector3(0, 1.5, -4)
+	var target := Vector3(0, 0, 2)
+	var low := tennis.aim(from, target, 14.0)
+	var high := tennis.aim(from, target, 14.0, Vector3.ZERO, true)
+	_check(low != Vector3.ZERO and high != Vector3.ZERO and high.y > low.y + 1.0, "lob chooses a distinct higher arc")
+	_aim_landing(tennis, from, target, high, Vector3.ZERO)
+	_check(tennis.aim(from, Vector3(0, 0, 1000), 1.0) == Vector3.ZERO, "unreachable aim returns zero")
+	_check(tennis.aim(from, target, 0.0) == Vector3.ZERO and tennis.aim(from, target, 14.0, Vector3.ZERO, false, 0) == Vector3.ZERO, "invalid speed and zero solver budget return zero")
+	var saved := tennis.snapshot().to_byte_array()
+	_listen(tennis)
+	tennis.add_net(&"obstruction", RSBallFlight.surface_net(), Vector3.ZERO, Vector3.BACK, 10.0, 10.0, 0.0) # no-i18n
+	_check(tennis.aim(from, target, 14.0) == low, "aim ignores net without changing shared world")
+	_check(tennis.snapshot().to_byte_array() == saved and _events.is_empty(), "aim changes neither original state nor emits signals")
+	var shot := tennis.copy()
+	shot.set_state(from, low)
+	_check(shot.predict().net_hit, "original world still contains net for subsequent flight prediction")
+
+
+func _aim_targets(f: RSBallFlight, from: Vector3, targets: Array[Vector3], speed: float, spin: Vector3) -> void:
+	var max_error := 0.0
+	for target: Vector3 in targets:
+		var saved := f.snapshot().to_byte_array()
+		var launch := f.aim(from, target, speed, spin)
+		_check(launch != Vector3.ZERO and absf(launch.length() - speed) < 1e-5, "reachable aim returns requested launch speed")
+		_check(f.snapshot().to_byte_array() == saved, "aim preserves state for each target")
+		max_error = maxf(max_error, _aim_landing(f, from, target, launch, spin))
+	print("BALL_NUMERIC aim_radius_m=%.4f targets=%d max_error_m=%.6f" % [f.ball.radius, targets.size(), max_error]) # no-i18n
+
+
+func _aim_landing(f: RSBallFlight, from: Vector3, target: Vector3, launch: Vector3, spin: Vector3) -> float:
+	if launch == Vector3.ZERO:
+		_check(false, "aim must produce a velocity before verifying actual landing")
+		return INF
+	var actual := f.copy()
+	actual.emit_events = true
+	actual.set_state(from, launch, spin)
+	_listen(actual)
+	for _i in 2400:
+		actual.step()
+		if not _events.is_empty():
+			break
+	_check(not _events.is_empty(), "actual aimed flight must reach a first surface contact")
+	if _events.is_empty():
+		return INF
+	var point: Vector3 = _events[0]["point"] # no-i18n
+	var error := point.distance_to(target + Vector3.UP * f.ball.radius)
+	_check(error < 0.05, "actual first landing error stays below 5 cm (%.6f m)" % error)
+	return error
