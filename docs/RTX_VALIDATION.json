@@ -1,0 +1,11 @@
+{
+  "date": "2026-10-21",
+  "sourceCommit": "135dff3887a3d2ccf45cafbd9bdffa7b718e1e76",
+  "apiReview": "Environment path tracing, DLSS enum, ray tracing device feature and Windows-only Streamline checked against pinned upstream source",
+  "scriptParsing": "passed on official Godot 4.7.2",
+  "standardEngineProbe": {"exitCode": 2, "status": "blocked", "reason": "This engine has no NVIDIA path tracing API"},
+  "forkCompilation": "not run: Linux host; required Streamline path is Windows-only",
+  "gpuRendering": "not run: no GPU available",
+  "performance": "not measured",
+  "promotionToMain": false
+}
