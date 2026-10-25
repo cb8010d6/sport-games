@@ -81,6 +81,11 @@
       "evidence": "docs/PHASE_6_CAMERA_COMFORT.md"
     },
     {
+      "prefix": "game/assets/shared/",
+      "license": "CC0-1.0",
+      "evidence": "game/assets/shared/CREDITS.md"
+    },
+    {
       "prefix": "game/assets/polyhaven/",
       "license": "CC0-1.0",
       "evidence": "game/assets/polyhaven/CREDITS.md"

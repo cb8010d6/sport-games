@@ -950,7 +950,7 @@ func _build_seafront() -> void:
 		var sc := _rng.randf_range(1.6, 4.2)
 		var b := Basis(Vector3.UP, _rng.randf() * TAU) * Basis(Vector3.RIGHT, _rng.randf_range(-0.3, 0.3))
 		rocks.append(Transform3D(b.scaled(Vector3(sc, sc * _rng.randf_range(0.6, 1.0), sc)), p))
-	_props("boulder", rocks, 1, false)
+	_props("nature_boulder", rocks, 1, false)
 	# Seawall railing along the promenade and across the end.
 	var rail_mat := "white"
 	var bar := CylinderMesh.new()
@@ -1067,13 +1067,13 @@ func _build_props() -> void:
 	var pmi := MultiMeshInstance3D.new()
 	pmi.multimesh = palms
 	add_child(pmi)
-	_props("lamp", lamp_xf)
+	_props("urban_lamp", lamp_xf)
 	var hyd: Array = []
 	for h in hydrants:
 		hyd.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), world(h.x, h.y, CURB)))
-	_props("hydrant", hyd)
-	_props("aircon", _ac.slice(0, _ac.size() / 2))
-	_props("aircon_rust", _ac.slice(_ac.size() / 2))
+	_props("urban_hydrant", hyd)
+	_props("urban_aircon", _ac.slice(0, _ac.size() / 2))
+	_props("urban_aircon_rust", _ac.slice(_ac.size() / 2))
 	_build_furniture()
 
 	var pennant := ["#ef4444", "#f59e0b", "#22c55e", "#3b82f6", "#a855f7", "#ffffff"]
@@ -1151,23 +1151,23 @@ func _build_furniture() -> void:
 			var at := func(inset: float, ds: float) -> Vector3:
 				return Vector3(wall_x - side * inset, H(s + ds) + CURB, -(s + ds))
 			if r < 0.2:
-				add.call("bench", Transform3D(face, at.call(0.45, 1.25)))
+				add.call("urban_bench", Transform3D(face, at.call(0.45, 1.25)))
 			elif r < 0.34:
-				add.call("cafe", Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), at.call(1.0, 1.2)))
+				add.call("urban_cafe", Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), at.call(1.0, 1.2)))
 			elif r < 0.48:
-				add.call("plant", Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), at.call(0.4, 0.4)))
+				add.call("urban_plant", Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), at.call(0.4, 0.4)))
 				if _rng.randf() < 0.6:
-					add.call("plant", Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), at.call(0.4, 1.3)))
+					add.call("urban_plant", Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), at.call(0.4, 1.3)))
 			elif r < 0.58:
-				add.call("bin" if _rng.randf() < 0.7 else "bin_rust", Transform3D(face * Basis(Vector3.UP, _rng.randf_range(-0.3, 0.3)), at.call(0.35, 0.5)))
+				add.call("urban_bin" if _rng.randf() < 0.7 else "urban_bin_rust", Transform3D(face * Basis(Vector3.UP, _rng.randf_range(-0.3, 0.3)), at.call(0.35, 0.5)))
 			elif r < 0.66:
-				add.call("utility", Transform3D(face, at.call(0.25, 0.4)))
+				add.call("urban_utility", Transform3D(face, at.call(0.25, 0.4)))
 			elif r < 0.76:
-				add.call("planter", Transform3D(face * Basis(Vector3.UP, PI * 0.5), at.call(0.35, 0.8)))
+				add.call("urban_planter", Transform3D(face * Basis(Vector3.UP, PI * 0.5), at.call(0.35, 0.8)))
 			elif r < 0.82:
-				add.call("barrel" if _rng.randf() < 0.5 else "barrel_blue", Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), at.call(0.4, 0.4)))
-				add.call("crate", Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), at.call(0.9, 1.1)))
-				add.call("box", Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), at.call(0.35, 1.2)))
+				add.call("urban_barrel" if _rng.randf() < 0.5 else "urban_barrel_blue", Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), at.call(0.4, 0.4)))
+				add.call("urban_crate", Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), at.call(0.9, 1.1)))
+				add.call("urban_box", Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), at.call(0.35, 1.2)))
 			else:
 				span = 1.0
 			s += span + _rng.randf_range(1.0, 4.5)
@@ -1178,22 +1178,22 @@ func _build_furniture() -> void:
 		var ms: float = sec[0] + 8.0
 		while ms < float(sec[1]) - 4.0:
 			var mx := _rng.randf_range(-6.5, 6.5)
-			add.call("manhole", Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), world(mx, ms, -0.055)))
+			add.call("urban_manhole", Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), world(mx, ms, -0.055)))
 			ms += _rng.randf_range(22.0, 40.0)
 	# Lifebuoys on the sea railing, facing the street.
 	var ls := 318.0
 	while ls < END_S - 6.0:
-		add.call("lifebuoy", Transform3D(Basis(Vector3.UP, -PI * 0.5), world(BOUND - 0.22, ls, CURB + 0.2)))
+		add.call("beach_lifebuoy", Transform3D(Basis(Vector3.UP, -PI * 0.5), world(BOUND - 0.22, ls, CURB + 0.2)))
 		ls += 34.0
-	add.call("whale", Transform3D(Basis(Vector3.UP, PI * 0.3).scaled(Vector3.ONE * 1.6), world(-11.0, 562.0, CURB + 0.6)))
+	add.call("urban_whale", Transform3D(Basis(Vector3.UP, PI * 0.3).scaled(Vector3.ONE * 1.6), world(-11.0, 562.0, CURB + 0.6)))
 	_box_vc(world(-11.8, 561.2, CURB), world(-10.2, 562.8, CURB + 0.6), Color(0.8, 0.78, 0.74).srgb_to_linear(), "roof")
 	# Concrete barriers closing the street behind the start.
 	var bx := -HALF_W + 0.8
 	while bx < HALF_W:
-		add.call("barrier", Transform3D(Basis(Vector3.UP, _rng.randf_range(-0.08, 0.08)), world(bx, -6.0, 0.0)))
+		add.call("urban_barrier", Transform3D(Basis(Vector3.UP, _rng.randf_range(-0.08, 0.08)), world(bx, -6.0, 0.0)))
 		bx += 1.62
 	for key: String in xf:
-		_props(key, xf[key], 1, key != "manhole")
+		_props(key, xf[key], 1, key != "urban_manhole")
 
 
 func _palm_mesh() -> ArrayMesh:
