@@ -12,6 +12,7 @@ func _ready() -> void:
 	_paths_and_ads()
 	_empty_inputs()
 	_triangle_counter()
+	_test_lights()
 	print("RS_ARENA_TESTS: %d checks, %d failures" % [_checks, _failures]) # no-i18n
 	get_tree().quit(0 if _failures == 0 else 1)
 
@@ -96,6 +97,80 @@ func _bleachers() -> void:
 	_check((plastic as StandardMaterial3D).albedo_color == Color(0.25, 0.3, 0.38), "later colors cannot recolor earlier seats")
 	_check(absf(changed.roughness - 0.6) < 1e-6, "seat plastic roughness is 0.6")
 	holder.free()
+
+
+func _test_lights() -> void:
+	# Keep transformed parents off-tree so no global-transform fallback can hide bad accesses.
+	var grand := Node3D.new()
+	grand.transform = Transform3D(Basis(Vector3.UP, 0.4), Vector3(4, 1, -5))
+	var holder := Node3D.new()
+	holder.transform = Transform3D(Basis(Vector3.UP, -0.2).scaled(Vector3(2, 1, 1)), Vector3(2, 0, 3))
+	grand.add_child(holder)
+	var parent_world := grand.transform * holder.transform
+	var spec := RSArenaLights.LightSpec.new()
+	spec.real_lights = 2
+	spec.cast_shadows = true
+	var xform := Transform3D(Basis(Vector3.UP, 0.6), Vector3(-6, 0, -8))
+	var aim := Vector3(2, 1, 3)
+	var tower := RSArenaLights.flood_tower(holder, xform, 12.0, 6, aim, spec)
+	_check(_close(parent_world * tower.transform, xform), "lights: tower keeps world placement under off-tree transformed parents")
+	var heads := 0
+	var aimed := true
+	var glow: Material
+	for node: Node in tower.get_children():
+		if node is Node3D and str(node.name).begins_with("Head"):
+			heads += 1
+			var head := node as Node3D
+			var world := xform * head.transform
+			aimed = aimed and world.basis.z.normalized().distance_to((aim - world.origin).normalized()) < 1e-5
+			var lens := head.get_child(0) as MeshInstance3D
+			if glow == null:
+				glow = lens.material_override
+			else:
+				_check(lens.material_override == glow, "lights: identical heads share the same glowing material")
+			for child: Node in head.get_children():
+				if child is SpotLight3D:
+					var world_light := world * (child as SpotLight3D).transform
+					aimed = aimed and (-world_light.basis.z).normalized().distance_to((aim - world.origin).normalized()) < 1e-5
+	_check(heads == 6 and aimed, "lights: six lamp heads and actual -Z lights aim at the world target")
+	_check(RSArenaLights.real_light_count(tower) == spec.real_lights, "lights: a tower uses the requested real-light count")
+	var grid := RSArenaLights.ceiling_grid(holder, Rect2(-10, -6, 20, 12), 7.0, 4, 6, spec)
+	_check(grid.get_child_count() == 24 and RSArenaLights.real_light_count(grid) == 2, "lights: a four-by-six ceiling array shares two real lights across all panels")
+	var down := true
+	for node: Node in grid.get_children():
+		var head := node as Node3D
+		down = down and head.basis.z.is_equal_approx(Vector3.DOWN) and head.position.y == 7.0
+	_check(down, "lights: ceiling panels face straight down without an off-tree look_at")
+	var hanging := RSArenaLights.hanging_lamps(holder, Vector3(0, 1, 0), Vector2(6, 6), 5.0, 4, spec)
+	_check(RSArenaLights.real_light_count(hanging) == 2 and RSArenaLights.real_light_count(holder) == 6, "lights: recursive counting includes every local fixture")
+	for root: Node3D in [tower, grid, hanging]:
+		for light: Node in root.find_children("*", "Light3D", true, false):
+			_check(not (light as Light3D).shadow_enabled, "lights: absent 57-05 keeps local shadows off even when requested")
+	var second := RSArenaLights.flood_tower(holder, Transform3D.IDENTITY, 8.0, 2, aim, spec)
+	_check((second.get_child(0) as MultiMeshInstance3D).material_override == (tower.get_child(0) as MultiMeshInstance3D).material_override, "lights: separate fixtures share cached metal")
+	_check(((second.get_child(1).get_child(0)) as MeshInstance3D).material_override == glow, "lights: separate fixtures share cached emissive material")
+	holder.top_level = true
+	var detached := RSArenaLights.ceiling_grid(holder, Rect2(0, 0, 4, 4), 4.0, 1, 1, spec)
+	_check(_close(holder.transform * detached.transform, Transform3D.IDENTITY), "lights: world placement stops at a top-level ancestor")
+	var board := RSScoreboard.new(Vector2(4, 2), "TEST")
+	holder.add_child(board)
+	board.set_scores("11", "9")
+	_check(board._left.text == "11" and board._right.text == "9" and board._left.font == RSUi.font_numeric(), "scoreboard: scores use shared numeric font and requested text")
+	var writes := board._text_updates
+	board.set_scores("11", "9")
+	_check(board._text_updates == writes, "scoreboard: identical scores do not assign label text again")
+	board.set_line("ROUND 2")
+	writes = board._text_updates
+	board.set_line("ROUND 2")
+	_check(board._line.text == "ROUND 2" and board._text_updates == writes, "scoreboard: identical middle text is not reassigned")
+	board.set_scores("12", "9")
+	_check(board._text_updates == writes + 1, "scoreboard: only the changed side receives an assignment")
+	board.set_colors(Color(0.2, 0.4, 0.9), Color(0.9, 0.25, 0.2))
+	_check(board._left.modulate == Color(0.2, 0.4, 0.9) and board._right.modulate == Color(0.9, 0.25, 0.2), "scoreboard: callers choose side colors")
+	var another := RSScoreboard.new(Vector2(3, 1.5))
+	holder.add_child(another)
+	_check((board.get_child(0) as MeshInstance3D).material_override == (another.get_child(0) as MeshInstance3D).material_override, "scoreboard: bottom panels share their emissive material")
+	grand.free()
 
 
 func _parent_transforms() -> void:
