@@ -163,7 +163,8 @@ func _load_map(i: int) -> void:
 	var amount := float(_course.map["snowfall"])
 	for sn: GPUParticles3D in _snow_systems():
 		RSSkiSnow.apply(sn, amount, RSSettings.views)
-	_lobby_snow.emitting = amount > 0.0 and not views.visible
+	# The first map loads before the split-screen container exists: this is still the lobby.
+	_lobby_snow.emitting = amount > 0.0 and (views == null or not views.visible)
 	_board_lines = []
 	_course.set_board(str(_course.map["en"]))
 	_lobby_s = 0.0
@@ -205,7 +206,7 @@ func _follow_snow(sn: GPUParticles3D, cam: Camera3D) -> void:
 		for system: GPUParticles3D in _snow_systems():
 			RSSkiSnow.apply(system, amount, _snow_views)
 		# A view-count update must not re-enable the hidden lobby camera's snowfall.
-		_lobby_snow.emitting = amount > 0.0 and not views.visible
+		_lobby_snow.emitting = amount > 0.0 and (views == null or not views.visible)
 	sn.global_position = cam.global_position + (-cam.global_basis.z) * 8.0 + Vector3.UP * 4.0
 
 
