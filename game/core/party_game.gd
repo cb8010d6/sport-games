@@ -34,6 +34,7 @@ class Player:
 	var cam: Camera3D
 	var hud: PlayerHud
 	var oled_key := ""           ## last OLED update, to skip identical ones
+	var oled_sent := ""          ## JSON of the last ui send_ui() actually sent (framework dedup)
 
 	func popup(text: String, color: Color = Color.WHITE) -> void:
 		hud.popups.append([text, color, float(hud.game.get("_clock"))])
@@ -296,7 +297,7 @@ func _ready() -> void:
 		c.id = 200 + i
 		c.player = i + 1
 		c.kind = "replay"
-		c.display_name = "Bot-%d" % (i + 1)
+		c.display_name = tr("机器人 %d") % (i + 1)
 		c.connected = true
 		_add_player(c, true)
 	if solo_mode:
@@ -565,6 +566,7 @@ func _start_countdown() -> void:
 	for p: Player in players.values():
 		p.score = 0
 		p.oled_key = ""
+		p.oled_sent = ""
 		p.hud.popups.clear()
 	_apply_pending_map()
 	ui.lobby_panel.visible = false
@@ -575,6 +577,9 @@ func _start_countdown() -> void:
 
 
 func finish_round() -> void:
+	# Subclasses that prepare replay/podium state before calling super must
+	# return early when _result_committed is already set (see skate/ski/
+	# basketball): this guard alone runs too late for their preparation.
 	if _result_committed:
 		return
 	_result_committed = true
@@ -687,8 +692,20 @@ func _on_event(c: RSController, ev: String) -> void:
 # --------------------------------------------------------------------------- OLED ----
 
 func send_ui(p: Player, ui: Dictionary) -> void:
-	if not p.fake:
-		ControllerHub.send_ui(p.c.id, ui)
+	if p.fake:
+		return
+	if not ui.has("toast"):
+		# ARCHITECTURE promises send_ui dedups: identical state is not resent.
+		# Projects may keep their own cheap oled_key checks on top; this is the
+		# safety net for callers that don't. An emptied oled_key (pause menu,
+		# new round) means "whatever the screen shows now is stale": resend.
+		var key := JSON.stringify(ui)
+		if p.oled_key.is_empty():
+			p.oled_sent = ""
+		if key == p.oled_sent:
+			return
+		p.oled_sent = key
+	ControllerHub.send_ui(p.c.id, ui)
 
 
 func vibrate(p: Player, ms: int) -> void:
@@ -744,6 +761,8 @@ func _apply_pending_map() -> void:
 		map_index = m
 		_last_map[get_script().resource_path] = m
 		_load_map(m)
+		# The new map's environment and sun carry scene values; re-apply the quality gates (#54).
+		RSSettings.apply_world(self)
 	_update_map_card()
 
 
@@ -907,6 +926,18 @@ func _hud_draw(h: PlayerHud) -> void:
 		draw_pill(h, tr("手柄断线 —— 等待重连"), Vector2(sz.x * 0.5, sz.y * 0.62), 24 * k, RSUi.HIGHLIGHT)
 
 
+func _ble_match_warning() -> String:
+	## In-play diagnostics matter only when a participant's Regina is offline.
+	## Setup screens keep the source-wide warning for pairing and troubleshooting.
+	if phase == Phase.LOBBY or demo or benchmark_mode:
+		return ""
+	for id: int in players:
+		var p: Player = players[id]
+		if not p.fake and p.c.kind == "regina" and not p.c.connected:
+			return ControllerHub.ble_warning()
+	return ""
+
+
 func _overlay_draw(o: Overlay) -> void:
 	var sz := o.size
 	var k := clampf(sz.y / 900.0, 0.6, 2.0)
@@ -938,7 +969,7 @@ func _overlay_draw(o: Overlay) -> void:
 	if phase != Phase.LOBBY and not demo and not ControllerHub.is_hub_connected():
 		draw_pill(o, tr("● 未连接 hub —— 请运行 hub/run_hub.bat"), Vector2(sz.x * 0.5, sz.y - 30 * k), 18 * k, RSUi.BAD)
 	elif phase != Phase.LOBBY and not demo:
-		var ble_warning := ControllerHub.ble_warning()
+		var ble_warning := _ble_match_warning()
 		if not ble_warning.is_empty():
 			draw_pill(o, ble_warning, Vector2(sz.x * 0.5, sz.y - 30 * k), 18 * k, RSUi.HIGHLIGHT)
 

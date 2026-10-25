@@ -15,7 +15,7 @@ regina-sports/
 
 ## 快速开始
 
-首次克隆后，先安装 Node.js 20+ 并同步原站素材（生成成品已随普通 Git 分发）：
+首次克隆后，先安装 Node.js（版本要求见 docs/DEVELOPMENT.md）并同步原站素材（生成成品已随普通 Git 分发）：
 
 ```sh
 node tools/sync_assets.mjs
@@ -23,7 +23,7 @@ node tools/sync_assets.mjs
 
 同步后再启动游戏。无需 Git LFS；下载、离线校验和逐项来源见 [素材说明](docs/ASSETS.md)。
 
-**一键启动**：双击 `start.bat`。它会在后台启动 hub（最小化窗口，手机扫码和模拟手柄地址在里面），然后打开游戏。关掉游戏，hub 也会一起关掉；如果 hub 是你自己先开的，就不会关掉它。第一次运行会弹出一个窗口安装依赖。请安装 Godot 4.7.2，将它加入 PATH，或用环境变量 `REGINA_GODOT` 指定可执行文件。hub 参数可以直接跟在后面，比如 `start.bat --no-ble`。
+**一键启动**：双击 `start.bat`。它会在后台启动 hub（最小化窗口中显示模拟手柄地址），然后打开游戏；手机扫码连接使用游戏中的二维码。关掉游戏，hub 也会一起关掉；如果 hub 是你自己先开的，就不会关掉它。第一次运行、以及依赖锁文件更新后，会弹出一个窗口按 `hub/requirements-runtime.txt` 安装依赖（需要 Python 3.11 或更新版本）。请安装 Godot 4.7.2，将它加入 PATH，或用环境变量 `REGINA_GODOT` 指定可执行文件。hub 参数可以直接跟在后面，比如 `start.bat --no-ble`。
 
 下面是分开启动的方法。
 
@@ -36,7 +36,7 @@ hub/run_hub.bat
 第一次运行会自动创建虚拟环境并安装依赖（需要 Python 3.11+）。启动后终端里会显示：
 
 - **模拟手柄**：<http://127.0.0.1:47802/sim>，用鼠标拖动旋转，空格 / J / K / L / R 当 A / B / C / D，数字键 1–5 模拟挥拍
-- **手机手柄**：`https://<电脑局域网 IP>:47843/` 和二维码。手机和电脑要连同一个 Wi-Fi，第一次打开要点“继续访问”信任证书
+- **手机手柄**：终端显示 `https://<电脑局域网 IP>:47843/`，连接时请扫游戏内带本次配对信息的二维码。手机和电脑要连同一个 Wi-Fi，第一次打开要点“继续访问”信任证书；hub 重启后重新扫码，直接输入地址或删除链接中的配对信息不能加入。不要分享完整二维码或链接
 - **Regina**：自动扫描并连接。**原版固件也能用**（约 20 Hz，精度较低）；刷了 `firmware/` 之后是 200 Hz
 
 常用参数：
@@ -45,6 +45,7 @@ hub/run_hub.bat
 |---|---|
 | `--no-ble` | 不扫描 Regina |
 | `--lan-ip <电脑局域网IP>` | 自动识别的局域网地址不对时手动指定（装了 VPN、虚拟机网卡时容易认错） |
+| `--https-host <本机IP>` | 仅在指定网卡上开放手机连接（默认监听所有 IPv4 网卡）；模拟器与管理接口始终只在本机开放 |
 | `--record data.jsonl` | 录下所有手柄的原始数据 |
 | `--replay data.jsonl` | 把录好的数据当成一个虚拟手柄循环回放，用来调手势识别 |
 | `-v` | 输出详细日志 |
@@ -57,7 +58,7 @@ cd hub && .venv/Scripts/python -m pytest -q
 
 ### 2. 打开游戏
 
-用 Godot 4.7（或更新的 4.x；HDR 需要 4.7）打开 `game/project.godot`，按 F5 运行；不开编辑器也可以直接运行：
+用 Godot 4.7.2 打开 `game/project.godot`，按 F5 运行；不开编辑器也可以直接运行：
 
 ```bash
 godot --path game
@@ -88,7 +89,7 @@ godot --path game
 | HDR | 关 / 开 | 需要支持 HDR 的显示器并在 Windows 里打开 HDR。Windows 上 HDR 要用 Direct3D 12，所以开关后要**重启游戏**（`user://override.cfg` 会记下驱动）；关掉后回到 Vulkan |
 | 语言 | 中文 / English | 切换后当前场景会重新载入 |
 
-**手柄震动**：进球、撞击、倒数、开始、名次都会让手柄震一下。实体 Regina 用马达；手机手柄在 Android 上用浏览器的震动接口，强度在手机页面的设置里选（关 / 弱 / 中 / 强）。iPhone 的 Safari 不支持网页震动，只有按按钮时会有一下轻微的触感（iOS 18 起）；模拟手柄用画面抖动代替。
+**手柄震动**：进球、撞击、倒数、开始、名次都会让手柄震一下。实体 Regina 暂无震动（固件仅预留震动命令，尚无马达驱动）；手机手柄在 Android 上用浏览器的震动接口，强度在手机页面的设置里选（关 / 弱 / 中 / 强）。iPhone 的 Safari 不支持网页震动，只有按按钮时会有一下轻微的触感（iOS 18 起）；模拟手柄用画面抖动代替。
 
 **螺旋桨飞机**（1–4 人分屏）：
 
@@ -96,7 +97,7 @@ godot --path game
 - 左右倾斜 = 转弯，向前压 = 俯冲，向后拉 = 爬升，按住 **B** 加速
 - 穿过圆环得分，自己的下一个环会显示成自己的颜色；连续穿环有连击加分，从环中心穿过算“完美”，金环 300 分；撞山或落水会掉连击
 - 飞行中长按 **D 1 秒** 可以重新设定平飞姿势；手柄屏幕上显示剩余时间、分数和加速条
-- 调试用：`... --path game -- --demo=2 --round=30` 会加 2 架自动驾驶的飞机，不需要 hub（射箭同理：`... --path game res://scenes/archery/archery_game.tscn -- --demo=2`）
+- 调试用：`... --path game -- --demo=2 --round=30` 会加 2 架自动驾驶的飞机，不需要 hub（射箭同理：`... --path game -- --game=archery --demo=2`）
 
 **射箭**（1–4 人分屏，各射各的靶道）：
 
@@ -116,7 +117,7 @@ godot --path game
 - 手柄头部快速往上一甩 = 起跳（ollie），甩得越快跳得越高；往侧面快速一甩 = 翻板（kickflip / heelflip）；空中转动手柄 = 转体；空中按住 **B** = 抓板，地上按 **B** = 蹬地加速
 - 落到栏杆或台子边上自动磨杆，Manual 和磨杆都有平衡条，靠左右倾斜保持平衡。一次离地到落地的所有动作算一组连招：动作分之和 × 动作个数，干净落地才入账，摔倒就没了；落地直接接 Manual 能把连招续上
 - 路上收集 S-K-A-T-E 五个字母各 +250；先到终点有名次奖励。开场有镜头飞越，结束后慢动作回放每人最好的一组连招，最后上领奖台
-- 中途姿势偏了长按 **D 1 秒** 重新设定“平”。调试用：`... --path game res://scenes/skate/skate_game.tscn -- --demo=2`
+- 中途姿势偏了长按 **D 1 秒** 重新设定“平”。调试用：`... --path game -- --game=skate --demo=2`
 - 人物是 MakeHuman（MPFB2，CC0）生成的带骨骼模型，脚本在 `tools/blender/make_skaters.py`；音效按维护者确认的 AI 原创素材记录（MIT），切音脚本在 `tools/blender/audio_tool.py`
 
 **滑雪**（1–4 人分屏，同时从山顶滑到终点，4 张地图可选）：
@@ -125,7 +126,7 @@ godot --path game
 - 手柄就是雪板：左右倾斜 = 转弯，轻轻倾斜是刻滑（几乎不减速），倾斜到底是搓雪急转（更急、会减速、溅雪）；往前压 = 团身加速，往后仰 = 刹车；地上按 **B** = 撑杖（慢的时候有用）
 - 快速往上一抬 = 起跳，在跳台边起跳飞得更高；空中水平转动手柄 = 转体（360 / 540 / 720…），按住 **B** = 抓板（按下时的倾斜决定 Mute / Safety / Tail / Japan）。落地方向偏太多或砸得太重会摔
 - 每过一道旗门 +100（连续过门有加成），漏门 -50；动作分按转体度数、抓板时间和滞空时间算；先到终点有名次奖励。终点计时牌显示到达顺序，结束后慢动作回放每人最好的一跳，最后上领奖台
-- 调试用：`... --path game res://scenes/ski/ski_game.tscn -- --demo=2 --map=1`
+- 调试用：`... --path game -- --game=ski --demo=2 --map=1`
 - 地形、旗门、跳台、雪松、缆车、木屋都由代码生成（`scenes/ski/ski_course.gd`，地图参数在 `ski_maps.gd`）；天空和雪 / 岩石材质来自 Poly Haven（CC0）；滑雪的人用 `tools/blender/make_skiers.py` 从 MakeHuman 生成（分出夹克 / 裤子 / 手套），雪板、雪杖、头盔、雪镜是代码做的；刻滑、搓雪、落地、撑杖、风声音效按维护者确认的 AI 原创素材记录（MIT）
 
 **篮球 · 三分大赛**（1–4 人分屏，每人一块楼顶半场，2 张地图可选）：
@@ -134,7 +135,7 @@ godot --path game
 - 三分线外 5 个球架，每架 5 个球，最后一个是花球（Money Ball）。走位和拿球是自动的，你只管投
 - 按住 **B** = 把球举到头顶；像投篮那样往上甩手腕，同时松开 **B** = 出手。甩手腕最快那一下的角速度就是力度：太轻砸前沿，太重砸篮板。每次出手后右边的力度条会显示落在哪里（绿 = 完美，黄 = 擦框）；举球时手柄左右转会让球往左右偏
 - 进球 100，花球 200，空心 +30，连进三球“手感火热”（×1.5，球带火焰），一整架全进 +200。70 秒内投完 25 个球；结束后慢动作回放每人最好的一投，最后上领奖台
-- 调试用：`... --path game res://scenes/basketball/basketball_game.tscn -- --demo=4 --map=1`
+- 调试用：`... --path game -- --game=basketball --demo=4 --map=1`
 - 球场、篮架、篮网（Verlet 布料）、球架、水塔、楼梯间、灯光由代码生成（`scenes/basketball/court.gd`、`hoop_net.gd`）；篮球是程序化着色器（皮革颗粒 + 缝线，`shaders/basketball.gdshader`），用 Jolt 物理（篮筐是一圈胶囊碰撞体）；天空、混凝土地面和长椅 / 空调 / 音箱等道具来自 Poly Haven（CC0）；球员用 `tools/blender/make_ballers.py` 从 MakeHuman 生成（T 恤剪成无袖球衣、长裤剪成短裤），球衣在游戏里染成玩家颜色并印号码；拍球、砸框、砸板、脚步和城市环境声按维护者确认的 AI 原创素材记录（MIT）
 
 游戏共用 `game/core/party_game.gd`（回合流程：大厅、倒数、成绩，以及 HUD 绘制），新游戏继承它、填几个钩子就行。分屏视口在 `core/party_views.gd`，大厅 / 成绩 / 暂停面板在 `core/party_ui.gd`。体感输入（倾斜、甩动、转体）是公共的 `core/motion_controls.gd` 和 `core/motion_gestures.gd`。写新游戏时：
@@ -153,7 +154,7 @@ hub/.venv/Scripts/python tools/i18n_check.py
 ```sh
 python tools/import_game.py --godot /path/to/godot
 python tools/test_game.py --godot /path/to/godot --party
-python -m unittest discover -s tools/tests -p 'test_*.py'
+python -m pytest -q tools/tests
 python tools/smoke_test.py --godot /path/to/godot --players 2 --all-maps --output audit-output/smoke-2
 python tools/smoke_test.py --godot /path/to/godot --players 4 --all-maps --output audit-output/smoke-4
 python tools/smoke_test.py --godot /path/to/godot --games ski --map 3 --players 4
@@ -196,7 +197,7 @@ firmware/build.ps1 -Port COM5
 1. 屏幕朝上平放
 2. 竖起来，让平时握持时朝前的那一端朝上
 
-向导会根据两次测到的重力方向算出正确的 `regina_axis_map`，写进 `hub/config.json`，重启 hub 后生效。也可以手动改这个配置：三个值依次对应游戏坐标的 X（右）、Y（上）、Z（后），每个值写 `x`、`-x`、`y`、`-y`、`z`、`-z` 之一。如果配置会导致左右镜像，hub 启动时会直接报错。
+向导会根据两次测到的重力方向算出正确的 `regina_axis_map`，写进 `hub/config.local.json`（个人配置，不进版本库；hub 启动时自动叠加在 `hub/config.json` 之上），重启 hub 后生效。也可以手动改这个配置：三个值依次对应游戏坐标的 X（右）、Y（上）、Z（后），每个值写 `x`、`-x`、`y`、`-y`、`z`、`-z` 之一。如果配置会导致左右镜像，hub 启动时会直接报错。
 
 
 ## 开源与协作
@@ -219,5 +220,5 @@ node tools/sync_assets.mjs
 node tools/sync_assets.mjs --check
 ```
 
-安装 Node.js 20+ 后，在首次打开 Godot 项目前完成同步；无需 npm 安装。
+安装 Node.js（版本要求见 docs/DEVELOPMENT.md）后，在首次打开 Godot 项目前完成同步；无需 npm 安装。
 本机证书、录制、构建结果、工具下载和私人配置不进入版本库。

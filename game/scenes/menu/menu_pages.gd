@@ -262,7 +262,7 @@ func _build_records() -> void:
 	grid.add_theme_constant_override("h_separation", 14)
 	grid.add_theme_constant_override("v_separation", 14)
 	_col.add_child(grid)
-	for game: Dictionary in RSCatalog.GAMES:
+	for game: Dictionary in RSCatalog.games():
 		var card := PanelContainer.new()
 		card.add_theme_stylebox_override("panel", RSUi.card_style())
 		card.size_flags_horizontal = SIZE_EXPAND_FILL
@@ -273,8 +273,7 @@ func _build_records() -> void:
 		var name_label := RSUi.label(tr(game["name"]), 24)
 		name_label.add_theme_font_override("font", RSUi.font_bold())
 		box.add_child(name_label)
-		var maps := 4 if game["id"] == "ski" else (2 if game["id"] == "basketball" else 1)
-		for map_id in maps:
+		for map_id in maxi(RSCatalog.maps(game["id"]).size(), 1):
 			var rows := RSRecords.leaderboard(game["id"], map_id)
 			var lines := PackedStringArray([tr("地图 %d") % (map_id + 1)])
 			for row: Dictionary in rows:
@@ -293,7 +292,7 @@ func _build_party() -> void:
 	grid.add_theme_constant_override("h_separation", 14)
 	grid.add_theme_constant_override("v_separation", 10)
 	_col.add_child(grid)
-	for game: Dictionary in RSCatalog.GAMES:
+	for game: Dictionary in RSCatalog.games():
 		var check := CheckBox.new()
 		check.text = tr(game["name"])
 		check.button_pressed = _checks.size() < 3
@@ -327,14 +326,14 @@ func _build_solo() -> void:
 	row.add_child(RSUi.label(tr("电脑难度"), 20))
 	var difficulty := _option(row, [tr("简单"), tr("普通"), tr("困难")], _solo_difficulty)
 	difficulty.item_selected.connect(func(index: int) -> void: _solo_difficulty = index)
-	_col.add_child(RSUi.label(tr("P%d · %s · 星数 %d / 18") % [_solo_slot, RSProfiles.player_name(_solo_slot), RSSolo.total_stars(_solo_slot)], 24))
+	_col.add_child(RSUi.label(tr("P%d · %s · 星数 %d / %d") % [_solo_slot, RSProfiles.player_name(_solo_slot), RSSolo.total_stars(_solo_slot), 3 * RSCatalog.games().size()], 24))
 	_message = RSUi.label("", 18, RSUi.HIGHLIGHT)
 	_message.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 	_col.add_child(_message)
-	for game: Dictionary in RSCatalog.GAMES:
+	for game: Dictionary in RSCatalog.games():
 		var id: String = game["id"]
 		var goals := PackedStringArray()
-		for goal: int in RSSolo.GOALS[id]:
+		for goal: int in RSSolo.goals(id):
 			goals.append(str(goal))
 		var game_row := HBoxContainer.new()
 		game_row.add_theme_constant_override("separation", 16)
@@ -367,7 +366,7 @@ func _start_solo(id: String) -> void:
 
 
 func _random_party(count: int) -> void:
-	var indices := range(RSCatalog.GAMES.size())
+	var indices := range(_checks.size())
 	indices.shuffle()
 	for i in _checks.size():
 		_checks[i].button_pressed = i in indices.slice(0, count)
@@ -377,7 +376,7 @@ func _start_party() -> void:
 	var selected: Array = []
 	for i in _checks.size():
 		if _checks[i].button_pressed:
-			selected.append(RSCatalog.GAMES[i]["id"])
+			selected.append(RSCatalog.games()[i]["id"])
 	var slots: Array = []
 	for c: RSController in ControllerHub.connected_controllers():
 		if c.player >= 1 and c.player <= 4 and not c.player in slots:

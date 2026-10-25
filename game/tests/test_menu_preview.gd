@@ -55,7 +55,7 @@ func _button(button: int) -> void:
 
 
 func _selected(index: int, source: String) -> void:
-	var entry: Dictionary = _menu.GAMES[index]
+	var entry: Dictionary = _menu.entries[index]
 	var card: RSGamePreview = _menu._preview
 	_check(_menu._index == index, source + " selects index")
 	_check(card.visible and card.game_id == entry["id"], source + " selects preview")
@@ -125,26 +125,26 @@ func _run() -> void:
 	_selected(3, "UDP next")
 	await _button(RSController.BTN_C)
 	_selected(2, "UDP previous")
-	for index in RSCatalog.GAMES.size():
+	for index in RSCatalog.games().size():
 		_menu._buttons[index].grab_focus()
 		await _frames()
 		_selected(index, "catalog %d" % index)
-		await _capture(RSCatalog.GAMES[index]["id"])
-	_check(_menu._preview._textures.size() == 6, "one cached texture per sport")
+		await _capture(RSCatalog.games()[index]["id"])
+	_check(_menu._preview._textures.size() == RSCatalog.games().size(), "one cached texture per sport")
 	_check(_menu.find_children("*", "RSPartyGame", true, false).is_empty(), "menu does not instantiate sport games")
 	_menu._preview.show_game({"id": "missing-preview-test", "name": ""})
 	_check(not _menu._preview.visible, "missing art hides preview")
 	_menu._restore_focus()
 	_check(_menu._preview.visible, "focus restores after missing art")
-	for index in range(RSCatalog.GAMES.size(), _menu.GAMES.size()):
+	for index in range(RSCatalog.games().size(), _menu.entries.size()):
 		_menu._buttons[index].grab_focus()
 		await _frames()
 		_check(not _menu._preview.visible, "non-sport hides preview %d" % index)
-		if _menu.GAMES[index].has("page"):
+		if _menu.entries[index].has("page"):
 			_menu._open(index)
 			await _frames()
 			_check(not _menu._preview.visible and not _menu._menu_grid.visible, "modal hides menu")
-			if _menu.GAMES[index]["page"] == "settings":
+			if _menu.entries[index]["page"] == "settings":
 				_menu._settings.close()
 			else:
 				_menu._pages.close()
@@ -153,7 +153,7 @@ func _run() -> void:
 	await _button(RSController.BTN_B)
 	_selected(0, "UDP wrap forward")
 	await _button(RSController.BTN_C)
-	_check(_menu._index == _menu.GAMES.size() - 1 and not _menu._preview.visible, "UDP wrap backward")
+	_check(_menu._index == _menu.entries.size() - 1 and not _menu._preview.visible, "UDP wrap backward")
 	await _ble_diagnostics()
 	_udp.close()
 	for audio: AudioStreamPlayer in _menu.find_children("*", "AudioStreamPlayer", true, false):

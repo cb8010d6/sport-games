@@ -8,6 +8,13 @@ var _checks := 0
 var _peer := PacketPeerUDP.new()
 
 
+class BleOverlayGame extends RSPartyGame:
+	var pills: Array[String] = []
+
+	func draw_pill(_ci: CanvasItem, text: String, _center: Vector2, _size: float, _color: Color = Color.WHITE) -> void:
+		pills.append(text)
+
+
 func _ready() -> void:
 	if OS.get_environment("RS_TEST_MODE") != "1":
 		get_tree().quit(1)
@@ -75,6 +82,7 @@ func _check_ble_views(menu: Variant, pages: RSMenuPages, lobby: RSPartyUi, warni
 	pages._refresh_devices()
 	lobby.update_lobby()
 	_check(ControllerHub.ble_warning() == warning, context + " query")
+	_check_ble_match_overlay(warning, context)
 	if not warning.is_empty():
 		_check(menu._status.text == warning, context + " main-menu hint")
 		_check(_has_label(pages._device_rows, warning), context + " controller-page hint")
@@ -84,6 +92,60 @@ func _check_ble_views(menu: Variant, pages: RSMenuPages, lobby: RSPartyUi, warni
 			_check(menu._status.text != text, context + " clears main-menu hint")
 			_check(not _has_label(pages._device_rows, text), context + " clears controller-page hint")
 			_check(not lobby._lobby_players.text.contains(text), context + " clears lobby hint")
+
+
+func _check_match_pills(game: BleOverlayGame, overlay: RSPartyGame.Overlay, warning: String, context: String) -> void:
+	game.pills.clear()
+	game._overlay_draw(overlay)
+	for text: String in [tr("蓝牙未发现广播，请尝试关闭再打开电脑蓝牙。"), tr("蓝牙不可用，请检查适配器；手机手柄仍可使用。")]:
+		_check(game.pills.has(text) == (text == warning), context + " overlay matches participant impact")
+
+
+func _check_ble_match_overlay(warning: String, context: String) -> void:
+	# Capture the actual overlay drawing calls: source-wide errors must not cover a phone-only match.
+	var game := BleOverlayGame.new()
+	game.phase = RSPartyGame.Phase.PLAY
+	game.phase_time = 2.0
+	var overlay := RSPartyGame.Overlay.new()
+	overlay.size = Vector2(1600, 900)
+	var p := RSPartyGame.Player.new()
+	p.c = RSController.new()
+	p.c.id = 101
+	p.c.player = 1
+	game.players[p.c.id] = p
+	for kind: String in ["phone", "sim"]:
+		p.c.kind = kind
+		for connected: bool in [true, false]:
+			p.c.connected = connected
+			_check_match_pills(game, overlay, "", context + "/" + kind)
+	p.c.kind = "regina"
+	p.c.connected = true
+	_check_match_pills(game, overlay, "", context + "/connected Regina")
+	p.c.connected = false
+	_check_match_pills(game, overlay, warning, context + "/offline Regina")
+	# A mixed match warns for its affected Regina, regardless of participant insertion order.
+	var phone := RSPartyGame.Player.new()
+	phone.c = RSController.new()
+	phone.c.kind = "phone"
+	phone.c.connected = true
+	game.players = {102: phone, 101: p}
+	_check_match_pills(game, overlay, warning, context + "/mixed match")
+	p.c.connected = true
+	_check_match_pills(game, overlay, "", context + "/Regina reconnected")
+	p.c.connected = false
+	p.fake = true
+	_check_match_pills(game, overlay, "", context + "/fake participant")
+	p.fake = false
+	game.demo = 1
+	_check_match_pills(game, overlay, "", context + "/demo")
+	game.demo = 0
+	game.benchmark_mode = true
+	_check_match_pills(game, overlay, "", context + "/benchmark")
+	game.benchmark_mode = false
+	game.players.erase(101)
+	_check_match_pills(game, overlay, "", context + "/Regina is not a participant")
+	overlay.free()
+	game.free()
 
 
 func _test_ble_diagnostics() -> void:

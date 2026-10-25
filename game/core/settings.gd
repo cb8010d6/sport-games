@@ -32,6 +32,11 @@ const UPSCALE_NAMES := ["原生", "FSR 原生抗锯齿", "FSR 质量", "FSR 均�
 const UPSCALE_SCALES := [1.0, 1.0, 0.67, 0.59, 0.5, 0.33]
 const OLD_UPSCALE := [0, 2, 2, 3, 4]   ## the "upscale" key's scales 1.0 / 0.77 / 0.67 / 0.59 / 0.5
 const TEXT_SCALES := [1.0, 1.25]
+## Split-screen shadow tier: with this many views or more, every view renders the sun's
+## shadows with two cascades instead of four over a shorter distance (#53).
+const SPLIT_TIER_VIEWS := 3
+const SPLIT_SHADOW_DISTANCE := 0.6    ## share of the scene's shadow distance kept
+const SPLIT_SHADOW_SPLIT := 0.25      ## the near cascade's share of that distance
 
 static var fps := 0                          ## index into FPS
 static var quality := 2                      ## index into QUALITY_NAMES
@@ -43,6 +48,7 @@ static var color_safe := false
 static var camera_shake := true              ## cosmetic impact jitter; existing behavior by default
 static var text_size := 0                    ## standard / large; existing saves default to standard
 static var volumes := [10, 7, 10, 8]         ## 0..10 per RSAudio.BUSES (master, music, sfx, ambience)
+static var views := 1                        ## 3D views drawn now; not saved (set_views())
 static var _loaded := false
 
 
@@ -226,6 +232,14 @@ static func apply(tree: SceneTree) -> void:
 	apply_viewport(root)
 	for vp: Viewport in root.find_children("*", "SubViewport", true, false):
 		apply_viewport(vp)
+	apply_world(root)
+
+
+static func apply_world(root: Node) -> void:
+	## Quality gates for every environment and sun under root, without the window /
+	## viewport parts of apply(). Worlds built after apply() ran (a lobby map switch
+	## builds a fresh environment and sun with scene values) need this re-applied.
+	load_once()
 	for we: WorldEnvironment in root.find_children("*", "WorldEnvironment", true, false):
 		environment(we.environment)
 	for sun: DirectionalLight3D in root.find_children("*", "DirectionalLight3D", true, false):
@@ -248,13 +262,37 @@ static func apply_viewport(vp: Viewport) -> void:
 	vp.use_hdr_2d = hdr_active()
 
 
+static func set_views(n: int, root: Node) -> void:
+	## How many 3D views are drawn now (RSPartyViews keeps this current). Crossing the split
+	## tier re-applies the sun shadows under root.
+	var was := split_tier()
+	views = maxi(n, 1)
+	if split_tier() != was and root != null and root.is_inside_tree():
+		for sun: DirectionalLight3D in root.find_children("*", "DirectionalLight3D", true, false):
+			sun_shadows(sun)
+
+
+static func split_tier() -> bool:
+	return views >= SPLIT_TIER_VIEWS
+
+
 static func sun_shadows(sun: DirectionalLight3D) -> void:
 	## Shadows that soften with distance from the caster (PCSS, from the sun's angular size)
 	## can be expensive; below 极高 the sun keeps an ordinary filtered soft edge instead.
-	## The scene's value is kept as metadata.
+	## Three or four split-screen views each render the sun's cascades, so there the sun
+	## drops to two cascades over a shorter distance. The scene's values are kept as metadata.
 	if not sun.has_meta("angular_distance"):
 		sun.set_meta("angular_distance", sun.light_angular_distance)
 	sun.light_angular_distance = sun.get_meta("angular_distance") if quality >= 3 else 0.0
+	if not sun.has_meta("shadow_mode"):
+		sun.set_meta("shadow_mode", sun.directional_shadow_mode)
+		sun.set_meta("shadow_distance", sun.directional_shadow_max_distance)
+		sun.set_meta("shadow_split_1", sun.directional_shadow_split_1)
+	var mode: int = sun.get_meta("shadow_mode")
+	var split := split_tier() and mode == DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if split else mode as DirectionalLight3D.ShadowMode
+	sun.directional_shadow_max_distance = float(sun.get_meta("shadow_distance")) * (SPLIT_SHADOW_DISTANCE if split else 1.0)
+	sun.directional_shadow_split_1 = SPLIT_SHADOW_SPLIT if split else float(sun.get_meta("shadow_split_1"))
 
 
 static func environment(env: Environment) -> void:

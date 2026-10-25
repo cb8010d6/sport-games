@@ -1,5 +1,6 @@
 extends Node
 const TutorialCases := preload("res://tests/tutorial_cases.gd")
+const CatalogCases := preload("res://tests/catalog_cases.gd")
 ## Run this scene with an isolated APPDATA directory; it writes actual ConfigFile saves.
 
 var _failures := 0
@@ -76,6 +77,25 @@ func _run() -> void:
 	_check(RSTournament.standings()[0]["points"] == 30, "party totals")
 	RSTournament.clear()
 	_check(not RSTournament.active(), "party cancel")
+	var ui_game := RSPartyGame.new()
+	var party_ui := RSPartyUi.new(ui_game)
+	add_child(party_ui)
+	party_ui.show_tournament_podium([
+		{"slot": 1, "name": "P1", "points": 30},
+		{"slot": 2, "name": "P2", "points": 30},
+		{"slot": 3, "name": "P3", "points": 10},
+	])
+	var display_heights: Array = []
+	for col: Node in party_ui._results_col.get_children():
+		if col is HBoxContainer:
+			for cell: Node in col.get_children():
+				for part: Node in (cell as VBoxContainer).get_children():
+					if part is PanelContainer:
+						display_heights.append((part as PanelContainer).custom_minimum_size.y)
+	_check(display_heights == [180.0, 180.0, 95.0], "tied tournament ranks share the podium height (#57)")
+	party_ui.queue_free()
+	await get_tree().process_frame
+	ui_game.free()
 	RSAudio.set_volume(RSAudio.MUSIC, 0)
 	_check(AudioServer.is_bus_mute(AudioServer.get_bus_index(RSAudio.MUSIC)), "music mute")
 	RSSettings.volumes = [9, 0, 6, 5]
@@ -116,6 +136,7 @@ func _run() -> void:
 		pages.close()
 	pages.queue_free()
 	_check(load("res://scenes/menu/main_menu.gd") != null, "main menu compiles")
+	CatalogCases.run(_check)
 	TutorialCases.run(_check)
 	await TutorialCases.integration(self, _check)
 	await get_tree().process_frame

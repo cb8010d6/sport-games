@@ -36,7 +36,7 @@ func _capture(suffix: String) -> void:
 
 
 func _run() -> void:
-	get_tree().root.size = Vector2i(1600, 900)
+	get_tree().root.size = _resolution()
 	get_tree().current_scene = null
 	if OS.get_environment("RS_TEXT_VERIFY") == "1":
 		_check(RSSettings.text_size == 1, "large text survives a new process")
@@ -95,8 +95,8 @@ func _settings() -> void:
 	get_tree().current_scene = _scene
 	await _frames()
 	var settings_index := -1
-	for i in _scene.GAMES.size():
-		if _scene.GAMES[i].get("page", "") == "settings":
+	for i in _scene.entries.size():
+		if _scene.entries[i].get("page", "") == "settings":
 			settings_index = i
 	_scene._open(settings_index)
 	var menu: RSPauseMenu = _scene._settings
@@ -137,8 +137,15 @@ func _settings() -> void:
 	_check(RSSettings.save() == OK, "large text persisted for new process")
 
 
+## Window size from tools/test_text_size.py --resolution; CI also runs 16:10 and 21:9 windows.
+func _resolution() -> Vector2i:
+	var parts := OS.get_environment("RS_TEXT_RESOLUTION").split("x")
+	return Vector2i(int(parts[0]), int(parts[1])) if parts.size() == 2 else Vector2i(1600, 900)
+
+
+## canvas_items + expand: a non-16:9 window widens or heightens the visible canvas instead of stretching it.
 func _screen() -> Rect2:
-	return Rect2(Vector2.ZERO, Vector2(1600, 900))
+	return get_viewport().get_visible_rect()
 
 
 func _game(id: String) -> void:

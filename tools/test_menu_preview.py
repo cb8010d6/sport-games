@@ -9,6 +9,7 @@ import argparse
 import os
 from pathlib import Path
 
+import catalog
 from capture_previews import temporary_data
 from smoke_test import engine_errors, png_size
 from test_game import ROOT, find_godot, run_engine
@@ -56,7 +57,7 @@ def main() -> int:
                 print(log)
                 return 1
             if args.screenshots:
-                for game in ("plane", "archery", "bowling", "skate", "ski", "basketball"):
+                for game in catalog.game_ids():
                     if png_size((pictures / (game + ".png")).read_bytes()) != (1600, 900):
                         raise ValueError("Unexpected screenshot dimensions")
                 for state in ("no_adverts", "unavailable"):

@@ -29,9 +29,9 @@ async def _attach_name(name):
     await source.start("127.0.0.1", port, None, None)
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.ws_connect(f"http://127.0.0.1:{port}/ws") as ws:
+            async with session.ws_connect(f"http://127.0.0.1:{port}/ws", origin=f"http://127.0.0.1:{port}") as ws:
                 await ws.send_json({"t": "hello", "kind": "phone", "name": name,
-                                    "client_id": "device-name-test", "profile_name": "Player"})
+                                    "client_id": "device-name-test", "profile_name": "Player", "token": source.pairing_token})
                 welcome = await ws.receive_json(timeout=2)
                 assert welcome["t"] == "welcome"
                 return hub.roster()["controllers"][0]["name"]
