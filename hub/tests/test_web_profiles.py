@@ -29,8 +29,8 @@ async def test_phone_profile_roster_and_reconnect():
     try:
         async with aiohttp.ClientSession() as session:
             for nickname in ("Example One", "Example Two"):
-                async with session.ws_connect(f"http://127.0.0.1:{port}/ws") as ws:
-                    await ws.send_json({"t": "hello", "kind": "phone", "name": "Example Device",
+                async with session.ws_connect(f"http://127.0.0.1:{port}/ws", origin=f"http://127.0.0.1:{port}") as ws:
+                    await ws.send_json({"t": "hello", "kind": "phone", "name": "Example Device", "token": source.pairing_token,
                                         "client_id": "example-test-device", "profile_name": nickname})
                     welcome = await ws.receive_json(timeout=2)
                     assert welcome["t"] == "welcome"

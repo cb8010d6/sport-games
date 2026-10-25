@@ -103,13 +103,21 @@ Regina 手柄 ──BLE──┐
 
 ## 3. 手机网页 / 模拟手柄 ⇄ hub（WebSocket，JSON）
 
-- 手机：`wss://<电脑局域网 IP>:47843/ws`，页面地址是 `https://<电脑局域网 IP>:47843/`
+- 手机：`wss://<电脑局域网 IP>:47843/ws`，扫码页面地址是 `https://<电脑局域网 IP>:47843/#k=<本次启动令牌>`
 - 模拟手柄：`ws://127.0.0.1:47802/ws`，页面地址是 `http://127.0.0.1:47802/sim`
+
+每次启动 hub 都生成新的随机配对令牌（256 bit）。游戏中的二维码 URL 通过 fragment `#k` 携带它；fragment 不随 HTTP 请求发送，客户端只在 WebSocket 的 `hello.token` 中提交。不要分享二维码或完整 URL。手机删掉 `#k`、使用旧启动的令牌或仅伪造已配对的 `client_id` 均不能加入；有效令牌随同一页面的重连继续提交。令牌不存入 localStorage，也不打印到日志或终端二维码中。
+
+每个 WebSocket 握手必须带与实际监听地址、端口及协议相同的 `Origin`；缺失、`null`、跨源或重复 Origin 返回 403。Host 只接受实际监听 IP（回环监听也接受 `localhost`），不信任任意 DNS 名称或代理转发头。手机 HTTPS 监听只开放 `/`、`/static/*`、`/ws`，`/sim` 和 `/api/*` 不在该监听上提供。
+
+本机 HTTP 监听还要求客户端来自回环地址。模拟器从同源的 `GET /api/pairing` 获取 `{ "token": "..." }`；该接口不允许 CORS、禁止缓存，并校验请求的 Host 和可选 Origin。原有 `/api/status`、`/api/qr` 同样仅限本机。原生测试客户端也必须从本机取得令牌并显式设置正确 Origin，不能绕过配对。无效 `hello` 在分配控制器 ID 或玩家槽前以 WebSocket 1008 关闭。
+
+`--https-host`（或配置 `https_host`）可将手机监听绑定到指定网卡，默认 `0.0.0.0`。证书只要求覆盖选用的手机 IP 与本机回环名称；无关网卡变化不重签，新增选用 IP 时保留私钥并扩展 SAN。重签后浏览器仍可能要求重新信任。
 
 客户端 → hub：
 
 ```jsonc
-{"t":"hello","kind":"phone","name":"iPhone","client_id":"随机持久 ID","profile_name":"Example Player"}  // kind 取 phone 或 sim
+{"t":"hello","kind":"phone","name":"iPhone","client_id":"随机持久 ID","profile_name":"Example Player","token":"从本次二维码或本机接口取得的令牌"}  // kind 取 phone 或 sim；name 是设备名，hub 会去掉控制字符、截断到 32 字符
 {"t":"profile","name":"Example Player"} // 可选：修改玩家昵称，去控制字符、首尾空格，最多 20 字符
 {"t":"m","frame":"device","s":[[ts_ms, gx,gy,gz, ax,ay,az], ...]}
 //  frame 为 device：手机坐标系（x 向右，y 指向屏幕顶端，z 垂直屏幕向外）
@@ -117,12 +125,16 @@ Regina 手柄 ──BLE──┐
 //  陀螺仪单位 rad/s；加速度单位 m/s²，含重力，静止时测到的是向上的 +g
 {"t":"in","b":按键位,"d":[小旋钮,大旋钮],"an":[模拟量0,模拟量1]}
 {"t":"st","battery":87,"charging":false}  // battery 可以为 null
+{"t":"ping","c":123}                     // 保活/测延迟；c 任意，hub 在 pong 里原样带回
+{"t":"recenter"}                          // 归零当前手柄（hub 按本连接的手柄 id 执行）
+{"t":"calibrate"}                         // 重新校准当前手柄零偏
 ```
 
 hub → 客户端：
 
 ```jsonc
 {"t":"welcome","id":3,"player":2}
+{"t":"pong","c":123}                        // 对 ping 的回复
 {"t":"profile","name":"Example Player"} // 昵称修改确认；设备 name 与重连 ID 不变
 {"t":"player","player":2}
 {"t":"ui", ...与第 4 节 ui 对象相同...}
@@ -134,6 +146,8 @@ hub → 客户端：
 ## 4. hub ⇄ 游戏（本机 UDP）
 
 hub 发到 `127.0.0.1:47800`（游戏监听这个端口）；游戏发到 `127.0.0.1:47801`（hub 监听这个端口）。测试模式和 `--hub-port` 的端口规则见 [ARCHITECTURE.md](ARCHITECTURE.md) 第 4 节。
+
+手柄 id 是 u8（出现在下面的二进制包和 JSON 的 `controller` 字段中）。hub 按设备标识分配 id（Regina 按 MAC 地址、手机按 `client_id`、模拟手柄按连接标识）：从 1 起递增，同一设备在 hub 的一次运行内断线重连后沿用原 id，id 不回收给其他设备。
 
 ### 4.1 hub → 游戏，二进制高频数据
 
@@ -157,9 +171,10 @@ hub 发到 `127.0.0.1:47800`（游戏监听这个端口）；游戏发到 `127.0
 
 ```jsonc
 {"type":"roster","controllers":[{"id":1,"kind":"regina","name":"Regina-3F2A","player":1,
-  "connected":true,"battery":87,"charging":false,"calibrated":true,"stationary":true,
+  "connected":true,"battery":87,"charging":false,"calibrated":true,"calibrating":false,"stationary":true,
   "rate_hz":199.6,"loss":0.0}],
  "phone_url":"https://<电脑局域网IP>:47843/"}
+// 条目还可能带来源相关的可选键：Regina（BLE）有 "mtu"、"fw"、"imu_ok"、"imu_irq"，随状态包更新。
 // 手机 / 模拟手柄条目可带 profile_name（可选、纯文本、最多 20 字符），用于更新对应 P1–P4 档案。
 {"type":"qr","url":"https://...","rows":["1110...","..."]}   // 二维码矩阵，1 为黑块
 {"type":"event","controller":1,"name":"recentered"}
@@ -176,6 +191,7 @@ hub 发到 `127.0.0.1:47800`（游戏监听这个端口）；游戏发到 `127.0
 {"cmd":"beep","controller":1,"freq":2000,"ms":80}
 {"cmd":"vibrate","controller":1,"ms":60}             // 震一下
 {"cmd":"vibrate","controller":1,"pattern":[40,60,70]} // 开、停、开…（毫秒），最多 16 段、共 3 秒
+{"cmd":"qr"}                                     // 请 hub 把当前二维码（type:"qr" 消息）补发给游戏
 {"cmd":"ui","controller":1,"ui":{"clear":true,"title":"ARCHERY","main":"","sub":"",
   "bar":{"pct":75,"label":"POWER"},"legends":["DRAW","BACK","",""],
   "toast":{"ms":800,"text":"HIT!"}}}

@@ -12,6 +12,7 @@ import tempfile
 import time
 import urllib.request
 from pathlib import Path
+from urllib.parse import urlsplit
 
 import aiohttp
 from smoke_game import smoke_game
@@ -24,9 +25,14 @@ def free_port(kind: int = socket.SOCK_STREAM) -> int:
 
 
 async def check_websocket(url: str) -> None:
+    parts = urlsplit(url)
+    origin = f"{parts.scheme}://{parts.netloc}"
     async with aiohttp.ClientSession() as session:
-        async with session.ws_connect(url) as ws:
-            await ws.send_json({"t": "hello", "kind": "sim", "client_id": "release-check", "name": "Release Check"})
+        async with session.get(origin + "/api/pairing") as response:
+            response.raise_for_status()
+            token = (await response.json())["token"]
+        async with session.ws_connect(url, origin=origin) as ws:
+            await ws.send_json({"t": "hello", "kind": "sim", "client_id": "release-check", "name": "Release Check", "token": token})
             answer = await ws.receive_json(timeout=5)
             if answer.get("t") != "welcome":
                 raise RuntimeError("Frozen hub did not welcome a controller")

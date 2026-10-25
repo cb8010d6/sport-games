@@ -53,19 +53,33 @@ func show_lobby() -> void:
 	_tutorial_panel.visible = false
 
 
+static func _state_text(text: String, color: Color) -> String:
+	## Lobby state lines are BBCode; the colour is code, never part of the tr key,
+	## so it can follow the colour-safe palette.
+	return "[color=#%s]%s[/color]" % [color.to_html(false), text]
+
+
+static func _ready_color() -> Color:
+	return Color("009e73") if RSSettings.color_safe else Color("22c55e")
+
+
+static func _alert_color() -> Color:
+	return Color("e69f00") if RSSettings.color_safe else Color("f87171")
+
+
 func update_lobby() -> void:
 	## Who has joined and who is ready (called every lobby frame; only redraws on change).
 	var lines := PackedStringArray()
 	for p: RSPartyGame.Player in game.ordered():
-		var state := tr("[color=#22c55e]✓ 已准备[/color]") if p.ready else tr("[color=#9aa3b5]按 A 准备[/color]")
+		var state := _state_text(tr("✓ 已准备"), _ready_color()) if p.ready else _state_text(tr("按 A 准备"), RSUi.TEXT_MUTED)
 		var lesson := game.tutorial_for(p)
 		if lesson != null:
 			state = RSProfiles.bbcode(lesson.status())
 		lines.append("[color=#%s][b]P%d[/b][/color]   %s   %s" % [game.color_of(p).to_html(false), p.c.player, RSProfiles.bbcode(game.name_of(p)), state])
 	if lines.is_empty():
-		lines.append(tr("[color=#9aa3b5]还没有手柄。\n先运行 hub/run_hub.bat，然后打开 Regina，或用手机扫右边的二维码。[/color]"))
+		lines.append(_state_text(tr("还没有手柄。\n先运行 hub/run_hub.bat，然后打开 Regina，或用手机扫右边的二维码。"), RSUi.TEXT_MUTED))
 	if not game.demo and not ControllerHub.is_hub_connected():
-		lines.append(tr("[color=#f87171]● 未连接 hub —— 请运行 hub/run_hub.bat[/color]"))
+		lines.append(_state_text(tr("● 未连接 hub —— 请运行 hub/run_hub.bat"), _alert_color()))
 	if RSTournament.active():
 		lines.append(tr("大赛总积分 · %d / %d") % [RSTournament.index + 1, RSTournament.games.size()])
 	if game.solo_mode:
@@ -195,14 +209,14 @@ func show_tournament_podium(rows: Array) -> void:
 		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		col.add_child(name_label)
-		var block := PanelContainer.new()
-		block.custom_minimum_size.y = [180, 130, 95, 65][i]
-		block.add_theme_stylebox_override("panel", RSUi.panel_style(12, RSProfiles.player_color(row["slot"]).darkened(0.3)))
-		col.add_child(block)
 		var rank := 1
-		for j in i:
+		for j in rows.size():
 			if rows[j]["points"] > row["points"]:
 				rank += 1
+		var block := PanelContainer.new()
+		block.custom_minimum_size.y = [180, 130, 95, 65][mini(rank - 1, 3)]
+		block.add_theme_stylebox_override("panel", RSUi.panel_style(12, RSProfiles.player_color(row["slot"]).darkened(0.3)))
+		col.add_child(block)
 		var label := RSUi.label("#%d · P%d\n%d" % [rank, row["slot"], row["points"]], 30)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

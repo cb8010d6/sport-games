@@ -76,6 +76,25 @@ func _run() -> void:
 	_check(RSTournament.standings()[0]["points"] == 30, "party totals")
 	RSTournament.clear()
 	_check(not RSTournament.active(), "party cancel")
+	var ui_game := RSPartyGame.new()
+	var party_ui := RSPartyUi.new(ui_game)
+	add_child(party_ui)
+	party_ui.show_tournament_podium([
+		{"slot": 1, "name": "P1", "points": 30},
+		{"slot": 2, "name": "P2", "points": 30},
+		{"slot": 3, "name": "P3", "points": 10},
+	])
+	var display_heights: Array = []
+	for col: Node in party_ui._results_col.get_children():
+		if col is HBoxContainer:
+			for cell: Node in col.get_children():
+				for part: Node in (cell as VBoxContainer).get_children():
+					if part is PanelContainer:
+						display_heights.append((part as PanelContainer).custom_minimum_size.y)
+	_check(display_heights == [180.0, 180.0, 95.0], "tied tournament ranks share the podium height (#57)")
+	party_ui.queue_free()
+	await get_tree().process_frame
+	ui_game.free()
 	RSAudio.set_volume(RSAudio.MUSIC, 0)
 	_check(AudioServer.is_bus_mute(AudioServer.get_bus_index(RSAudio.MUSIC)), "music mute")
 	RSSettings.volumes = [9, 0, 6, 5]
@@ -84,10 +103,24 @@ func _run() -> void:
 	RSSettings._loaded = false
 	RSSettings.load_once()
 	_check(RSSettings.volumes == [9, 0, 6, 5] and RSSettings.color_safe, "settings round trip")
+	var hub_events := [0]
+	ControllerHub.controller_connected.connect(func(_c: RSController) -> void: hub_events[0] += 1)
+	var hub_event := func(ev: String) -> PackedByteArray:
+		return JSON.stringify({"type": "event", "controller": 9, "name": ev}).to_utf8_buffer()
+	ControllerHub._handle_json(hub_event.call("connected"))
+	_check(hub_events[0] == 1, "first connect emits controller_connected")
+	ControllerHub._handle_json(JSON.stringify({"type": "roster", "controllers": [{"id": 9, "kind": "phone", "name": "T", "player": 1, "connected": true}]}).to_utf8_buffer())
+	_check(hub_events[0] == 1, "roster after the connect event does not emit twice")
+	ControllerHub._handle_json(hub_event.call("disconnected"))
+	ControllerHub._handle_json(hub_event.call("connected"))
+	_check(hub_events[0] == 2, "reconnect emits controller_connected again (#50)")
+	ControllerHub.controllers.erase(9)
 	var pause := RSPauseMenu.new(self, true)
 	add_child(pause)
 	pause.open()
 	_check(get_tree().paused and pause.is_open(), "main menu settings open")
+	_check(ControllerHub.process_mode == Node.PROCESS_MODE_ALWAYS, "controller hub opts out of pausing itself")
+	_check(ControllerHub.can_process(), "controller hub keeps polling while settings pause the tree (#56)")
 	pause._choose(0) # display
 	pause.back()
 	_check(pause._page == "settings", "settings back navigation")
