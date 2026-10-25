@@ -161,7 +161,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot")
     parser.add_argument("--players", type=int, choices=(1, 2, 3, 4), default=2)
-    parser.add_argument("--games", nargs="+", choices=GAMES, default=list(GAMES))
+    parser.add_argument("--games", nargs="+", choices=catalog.game_ids(include_hidden=True), default=list(GAMES))
     maps = parser.add_mutually_exclusive_group()
     maps.add_argument("--all-maps", action="store_true")
     maps.add_argument("--map", type=int, default=0, dest="map_index")

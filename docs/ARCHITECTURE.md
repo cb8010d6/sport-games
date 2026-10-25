@@ -35,13 +35,39 @@ Regina 手柄 ──BLE──────┤→ hub（Python，hub/regina_hub）
 game/scenes/<id>/
   <id>_game.gd      extends RSPartyGame，只写本项目的规则和画面
   <id>_game.tscn    只有根节点和脚本，场景内容在代码里构建
+  <id>_module.tres  项目清单（RSGameModule），框架、菜单、测试和工具都从这里取项目信息
   <其他>.gd         本项目专用类，class_name RS<项目><名字>
 game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 ```
 
-项目注册在游戏目录里（PR #2 合并后是 `game/core/catalog.gd` 的 `RSCatalog.GAMES`；在那之前是 `main_menu.gd` 的 `GAMES`）。
+### 项目清单与自动发现
 
-菜单的 `RSGamePreview` 根据目录 ID 显示 `assets/previews/<id>.jpg`，只在焦点切换时加载并缓存。预览由 `tools/capture_previews.py` 从实际运动场景的玩家 3D 视口渲染，不含界面覆盖；运行时不会为选中项目再建一个世界。缺少预览的目录项正常进入，不显示空卡；设置等非运动入口隐藏预览。
+每个项目在自己的文件夹里放一个 `<id>_module.tres`（`class_name RSGameModule`，`game/core/game_module.gd`）。新增项目只加这个文件夹、预览图、`en.json` 和 README 条目，不改 `core`、菜单或 `tools` 里的列表。步骤见 [NEW_GAME.md](NEW_GAME.md)，`tools/new_game.py <id>` 生成骨架。
+
+| 字段 | 含义 |
+|---|---|
+| `id` | 等于文件夹名；存档、纪录、教学完成状态、派对赛都用它，定了不改 |
+| `name`、`desc` | 菜单名称和说明（中文 key，英文在 `en.json`） |
+| `oled` | 手柄 OLED 标题，ASCII 大写，最多 10 个字符 |
+| `scene` | `RSPartyGame` 场景 |
+| `maps_script` | 定义 `const MAPS` 的脚本（就是 `_maps()` 返回的数组）；单地图项目留空 |
+| `lessons` | 大厅教学步骤：`RSTutorial` 步骤常量的名字（`TILT_RIGHT`、`THROW`…） |
+| `solo_goals` | 单人挑战三档分数（地图 1，每档一星） |
+| `players` | 支持人数 `Vector2i(最少, 最多)`，1–4 |
+| `mode` | `individual` 各打各的 / `versus` 同场对战 / `teams` 组队（F5 之前都是 `individual`） |
+| `ambience` | 主环境音的 `RSSfx` id |
+| `preview` | 菜单预览图 `res://assets/previews/<id>.jpg` |
+| `ready` | 是否出现在菜单、单人和派对页；未完成的项目设 `false`，仍可用 `--game=<id>` 打开 |
+| `order` | 菜单顺序（小的在前，相同按 id） |
+| `benchmark` | 是否进入设置页的性能测试（`RSBenchmarkMenu.CASES`） |
+
+选 `.tres` 而不是 `<id>_module.gd` 常量：字段有类型，编辑器里能直接改；读取清单不会加载项目场景或贴图；工具不用启动 Godot 也能解析文本。
+
+`RSCatalog` 第一次被调用时用 `ResourceLoader.list_directory("res://scenes/")` 找所有 `<id>/<id>_module.tres`，检查字段（id 与文件夹一致、OLED、场景存在、人数、模式），不合格的报错并跳过。导出包里 `.tres` 会被转成二进制并重映射，`list_directory` 仍然列出原名，所以导出版本不需要构建时索引（已用导出的 pck 实测）。`RSCatalog.games()` 是菜单列表（`ready` 的项目，按 `order`），`find_game(id, include_hidden)`、`module(id)`、`maps(id)`、`lessons(id)`、`solo_goals(id)`、`benchmark_ids()` 供框架使用；`RSTutorial` 和 `RSSolo` 从清单取教学步骤和挑战分数。
+
+工具从 `tools/catalog.py` 取项目和地图列表（直接解析清单和 `MAPS`，不需要 Godot）。`python tools/catalog.py --check`（CI 里的 `tools/tests/test_catalog.py`）要求每个 `ready` 项目都有预览图、教学、三档挑战和英文翻译。`main_menu.gd` 的 `--dump-catalog=<文件>` 把游戏自己发现的目录写成 JSON 后退出；`tools/test_game.py` 用它核对 Godot 和 Python 两边一致，也可以拿导出的游戏跑同样的核对。
+
+菜单的 `RSGamePreview` 显示清单里的 `preview`，只在焦点切换时加载并缓存。预览由 `tools/capture_previews.py` 从实际运动场景的玩家 3D 视口渲染，不含界面覆盖；运行时不会为选中项目再建一个世界。缺少预览的目录项正常进入，不显示空卡；设置等非运动入口隐藏预览。
 
 ### 回合流程
 
@@ -61,7 +87,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 正式单人模式使用 `RSSolo.begin(game_id, slot, difficulty)`：一个已分配本地槽的真人和一个电脑对手，共用原有物理、名次和教学流程；只有真人可以写纪录。电脑独占另一个槽，`RSPartyGame` 保证真人缺席时不会自动开局，其他手柄不会加入。项目通过 `bot_error()` / `bot_ability()` 取得难度参数，演示默认参数保持原样。退出到菜单时清除会话。每项目三个分数挑战基于地图 1 的正式个人最佳导出（每档一星），复用 `records.cfg`，不另加进度文件；主菜单标明规则、个人星数与难度。
 
-调试参数（`--` 之后）只在 `party_game.gd` 和 `main_menu.gd` 里解析（ARCH-ARGS）：`--demo=N`、`--shots=<前缀>`、`--map=N`、`--game=<id>`；项目自己的参数通过 `_parse_arg(arg)` 拿到。唯一例外是 `--hub-port=N`：`ControllerHub` 必须在任何场景之前绑定端口，所以由它自己读取（`# allow: ARCH-ARGS`），见第 4 节。
+调试参数（`--` 之后）只在 `party_game.gd` 和 `main_menu.gd` 里解析（ARCH-ARGS）：`--demo=N`、`--shots=<前缀>`、`--map=N`、`--game=<id>`、`--dump-catalog=<文件>`；项目自己的参数通过 `_parse_arg(arg)` 拿到。唯一例外是 `--hub-port=N`：`ControllerHub` 必须在任何场景之前绑定端口，所以由它自己读取（`# allow: ARCH-ARGS`），见第 4 节。
 
 ## 3. 公共模块
 
@@ -69,6 +95,8 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 | 需求 | 用这个 | 不要 |
 |---|---|---|
+| 项目列表、地图、教学、挑战 | `RSCatalog`（读各项目的 `RSGameModule` 清单）；工具用 `tools/catalog.py` | 在框架、菜单、测试或工具里另写一份项目或地图列表 |
+| 大厅教学 | 清单的 `lessons` 引用 `RSTutorial` 的步骤常量；新动作先在 `RSTutorial` 加通用步骤 | 项目自己做教学流程 |
 | 手柄状态、按键 | `ControllerHub` 的信号，`RSController`（`orientation`、`forward()`、`pitch()`、`is_pressed()`） | 自己连 UDP 或解析协议 |
 | 体感手势 | `RSMotionGestures` → `RSMotionControls`（倾斜转向、甩动起跳、翻转、转体）；`RSSwingDetector`（挥动）；`RSTiltStick`（倾斜当摇杆） | 在项目里重写阈值和滤波 |
 | 震动 | `haptic(p, "hit")`、`haptic_all(name)`（名称表是 `ControllerHub.HAPTICS`，新名称加在那里） | 直接 `ControllerHub.vibrate`（ARCH-HAPTIC） |
