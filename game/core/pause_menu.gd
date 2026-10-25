@@ -27,8 +27,9 @@ const PAGES := {
 	"sound": ["vol_master", "vol_music", "vol_sfx", "vol_ambience", "back"],
 	"settings": ["display", "sound", "accessibility", "benchmark", "language", "resume"],
 	"accessibility": ["camera_shake", "color_safe", "text_size", "back"],
+	"nvidia": ["nvidia_preset", "nvidia_sharpness", "nvidia_lighting", "nvidia_fg", "back"],
 }
-const VALUES := ["fps", "quality", "upscale", "window", "hdr", "language", "color_safe", "camera_shake", "text_size", "vol_master", "vol_music", "vol_sfx", "vol_ambience"]
+const VALUES := ["fps", "quality", "upscale", "window", "hdr", "language", "color_safe", "camera_shake", "text_size", "vol_master", "vol_music", "vol_sfx", "vol_ambience", "nvidia_preset", "nvidia_sharpness", "nvidia_lighting", "nvidia_fg"]
 const VOLUMES := ["vol_master", "vol_music", "vol_sfx", "vol_ambience"]   ## in RSAudio.BUSES order
 
 var _page := "main"
@@ -41,6 +42,7 @@ var _title: Label
 var _hint: Label
 var _normal: StyleBoxFlat
 var _focus: StyleBoxFlat
+var _status_elapsed := 0.0
 
 
 func _init(g: Node, menu_settings: bool = false) -> void:
@@ -134,7 +136,10 @@ func back() -> void:
 	if _page == _home_page():
 		close()
 	else:
-		_show_page(_home_page(), (PAGES[_home_page()] as Array).find(_page))
+		if _page == "nvidia":
+			_show_page("display", 5)
+		else:
+			_show_page(_home_page(), (PAGES[_home_page()] as Array).find(_page))
 		RSSfx.play(self, "beep", -18.0, 1.2)
 
 
@@ -166,7 +171,17 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _items() -> Array:
+	if _page == "display" and Engine.has_singleton("Streamline"):
+		return ["fps", "quality", "upscale", "window", "hdr", "nvidia", "back"]
 	return PAGES[_page]
+
+
+func _process(delta: float) -> void:
+	if visible and _page == "nvidia":
+		_status_elapsed += delta
+		if _status_elapsed >= 0.5:
+			_status_elapsed = 0.0
+			_refresh()
 
 
 func _show_page(page: String, focus: int) -> void:
@@ -190,7 +205,7 @@ func _show_page(page: String, focus: int) -> void:
 		_col.add_child(b)
 		_rows.append(b)
 	_col.move_child(_hint, -1)
-	_title.text = {"main": tr("暂停"), "settings": tr("设置"), "display": tr("画面设置"), "sound": tr("声音"), "accessibility": tr("无障碍")}[page]
+	_title.text = {"main": tr("暂停"), "settings": tr("设置"), "display": tr("画面设置"), "sound": tr("声音"), "accessibility": tr("无障碍"), "nvidia": tr("NVIDIA 实验")}[page]
 	_index = clampi(focus, 0, _rows.size() - 1)
 	_refresh()
 	if visible:
@@ -228,7 +243,7 @@ func _choose(i: int) -> void:
 			if settings_only:
 				close()
 				benchmark_requested.emit()
-		"display", "sound", "accessibility":
+		"display", "sound", "accessibility", "nvidia":
 			_show_page(_items()[i], 0)
 			RSSfx.play(self, "beep", -18.0, 1.6)
 		"back":
@@ -251,7 +266,15 @@ func _change(i: int, step: int, wrap: bool) -> void:
 		"window":
 			RSSettings.window = posmod(RSSettings.window + step, RSSettings.WINDOW_NAMES.size())
 		"upscale":
-			RSSettings.upscale = posmod(RSSettings.upscale + step, RSSettings.UPSCALE_NAMES.size())
+			RSSettings.upscale = posmod(RSSettings.upscale + step, RSSettings.upscale_count())
+		"nvidia_preset":
+			RSSettings.nvidia_preset = posmod(RSSettings.nvidia_preset + step, RSNvidia.PRESETS.size())
+		"nvidia_sharpness":
+			RSSettings.nvidia_sharpness = posmod(RSSettings.nvidia_sharpness + step, 11) if wrap else clampi(RSSettings.nvidia_sharpness + step, 0, 10)
+		"nvidia_lighting":
+			RSSettings.nvidia_lighting = posmod(RSSettings.nvidia_lighting + step, RSNvidia.LIGHTING_NAMES.size())
+		"nvidia_fg":
+			RSSettings.nvidia_fg = not RSSettings.nvidia_fg
 		"hdr":
 			RSSettings.hdr = not RSSettings.hdr
 		"color_safe":
@@ -307,6 +330,16 @@ func _label(item: String) -> String:
 			return tr("画质　　◀ %s ▶") % RSSettings.quality_name()
 		"upscale":
 			return tr("超分　　◀ %s ▶") % RSSettings.upscale_name()
+		"nvidia":
+			return tr("NVIDIA 实验　▸")
+		"nvidia_preset":
+			return tr("DLSS 预设　◀ %s ▶") % RSNvidia.PRESETS[RSSettings.nvidia_preset]
+		"nvidia_sharpness":
+			return tr("DLSS 锐化　◀ %d%% ▶") % (RSSettings.nvidia_sharpness * 10)
+		"nvidia_lighting":
+			return tr("光照　◀ %s ▶") % RSSettings.nvidia_lighting_name()
+		"nvidia_fg":
+			return tr("帧生成　◀ %s ▶") % RSNvidia.fg_name()
 		"window":
 			return tr("显示　　◀ %s ▶") % RSSettings.window_name()
 		"hdr":
@@ -354,7 +387,17 @@ func _oled_label(item: String) -> Array:
 		"quality":
 			return ["QUALITY", ["LOW", "MID", "HIGH", "ULTRA"][RSSettings.quality]]
 		"upscale":
-			return ["UPSCALE", ["NATIVE", "FSR AA", "FSR Q", "FSR B", "FSR P", "FSR UP"][RSSettings.upscale]]
+			return ["UPSCALE", ["NATIVE", "FSR AA", "FSR Q", "FSR B", "FSR P", "FSR UP", "DLAA", "DLSS Q", "DLSS B", "DLSS P"][RSSettings.upscale]]
+		"nvidia":
+			return ["NVIDIA", ">"]
+		"nvidia_preset":
+			return ["DLSS MODEL", RSNvidia.PRESETS[RSSettings.nvidia_preset]]
+		"nvidia_sharpness":
+			return ["SHARPNESS", "%d%%" % (RSSettings.nvidia_sharpness * 10)]
+		"nvidia_lighting":
+			return ["LIGHTING", ["RASTER", "DDGI", "PT + RR"][RSSettings.nvidia_lighting]]
+		"nvidia_fg":
+			return ["FRAME GEN", "REQUESTED" if RSSettings.nvidia_fg else "OFF"]
 		"window":
 			return ["WINDOW", ["WINDOW", "FULL", "EXCL"][RSSettings.window]]
 		"hdr":

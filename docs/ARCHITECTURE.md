@@ -138,6 +138,8 @@ HUD 位图字体的动画字号由 `RSUi.snap_font_size(size, down=false)` 统�
 
 `RSSettings.apply_viewport` 为所有视口设置点光／聚光阴影图集：四档分别为 1024、2048、4096、4096。`RSHumanRig` 构建时按当前画质调整皮肤 SSS（仅高／极高）和头发、眉毛、睫毛的 alpha-to-coverage（仅原生分辨率且 MSAA 开启）。本批次不增加材质重应用接口；现有角色的材质不能保证随暂停页改画质即时更新，需重新创建角色后生效，不能将其描述为实时降级完成。
 
+NVIDIA 实验分支通过 `RSNvidia` 静态适配器探测可选引擎 API，不增加 autoload、依赖、存档文件或协议。`RSSettings` 仍独占所有视口的缩放设置；旧六档索引保留，新增 DLAA / DLSS 质量、均衡、性能，不支持时按对应 FSR 档回退并显示原因。K/L/M/Recommended、光照和普通 FG 请求保存在现有 `settings.cfg`。DDGI / PT + RR 仅在实际 Vulkan 光追管线和所需 API / SDK 能力可用时请求；PT + RR 还要求 DLAA / DLSS。D3D12 保留 HDR 与光栅路径。FG 只请求主 Window，玩家 SubViewport 和 XR 不请求；引擎再按本帧实际 3D 视口拓扑裁决。`get_frame_generation_status().sdk_enabled` 仅表示 SDK 接受选项，不证明生成帧已显示。内置性能测试临时关闭实验光照与 FG，恢复原请求。详见 [RTX_EXPERIMENT.md](RTX_EXPERIMENT.md)。
+
 - **中枢 ↔ 游戏**：只有 [protocol.md](protocol.md) 定义的 UDP 消息。新增字段要同时改协议文档、hub 和 `ControllerHub`，并保持旧字段兼容。
 - **蓝牙诊断**：roster 的可选 `ble_state` 描述 hub 的 BLE 来源，不影响手机、模拟手柄或名册逻辑。`ControllerHub.ble_warning()` 统一返回已翻译的异常提示；主菜单、玩家 / 手柄页与大厅显示 `no_adverts`、`unavailable`；比赛底部仅在本局有离线的真人 Regina 玩家时显示，纯手机 / 模拟手柄对局、已连接的 Regina、机器人与演示不会显示无关蓝牙告警。旧 hub 缺少字段时默认 `disabled`；状态恢复、hub 心跳过期或超过 3 秒未收到 roster 时隐藏提示，不沿用旧诊断。
 - **端口**：正常游戏监听 `127.0.0.1:47800`、发往 hub 的 47801，同一时间只能运行一个实例。`RS_TEST_MODE=1` 时 `ControllerHub` 绑定系统分配的临时端口、不向 hub 发任何消息，同一台电脑上可以并行跑任意多个测试实例，也不会打扰正在运行的真实 hub；测试用 `ControllerHub.listen_port()` 取得端口，向它发送合成的 hub 数据包。需要真实 hub 的双实例测试给每个实例传 `--hub-port=N`（任何模式都有效）：游戏发往 N、监听 N-1，对应 hub 用 `--hub-port N --game-port N-1` 启动。端口无效（不在 2–65535）时报错且不绑定。`tools/` 下启动游戏项目的测试脚本都设置 `RS_TEST_MODE=1`；`tools/test_hub_port.py` 在占住 47800 的情况下同时启动多个实例检查以上行为。发行包冒烟按正常模式运行、自带 hub；其中只有启动器冒烟（`release_launcher.py`）使用固定端口，`smoke_release.py` 给冻结 hub 分配随机端口，导出游戏的冒烟走测试模式。

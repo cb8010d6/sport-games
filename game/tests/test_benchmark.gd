@@ -71,6 +71,8 @@ func _unchanged(label: String) -> void:
 func _state() -> Dictionary:
 	return {"fps": RSSettings.fps, "quality": RSSettings.quality, "window": RSSettings.window,
 		"upscale": RSSettings.upscale, "hdr": RSSettings.hdr, "language": RSSettings.language,
+		"nvidia_lighting": RSSettings.nvidia_lighting, "nvidia_fg": RSSettings.nvidia_fg,
+		"nvidia_preset": RSSettings.nvidia_preset, "nvidia_sharpness": RSSettings.nvidia_sharpness,
 		"color_safe": RSSettings.color_safe, "camera_shake": RSSettings.camera_shake,
 		"volumes": RSSettings.volumes.duplicate(), "size": get_tree().root.size,
 		"position": DisplayServer.window_get_position(), "mode": DisplayServer.window_get_mode(),
@@ -149,6 +151,9 @@ func _statistics_tests() -> void:
 func _session_tests() -> void:
 	var session := RSBenchmarkSession.new()
 	var original_hdr := RSSettings.hdr
+	var original_nvidia := [RSSettings.nvidia_lighting, RSSettings.nvidia_fg]
+	RSSettings.nvidia_lighting = 2
+	RSSettings.nvidia_fg = true
 	if DisplayServer.get_name() != "headless":
 		RSSettings.hdr = true
 	var before := _state()
@@ -167,6 +172,7 @@ func _session_tests() -> void:
 	else:
 		_check(session.begin(get_tree(), 0, Vector2i(1920, 1080)) == OK, "real session begins")
 		_check(RSSettings.quality == 0 and RSSettings.upscale == 0 and Engine.max_fps == 0, "temporary benchmark settings applied")
+		_check(RSSettings.nvidia_lighting == 0 and not RSSettings.nvidia_fg, "rendered benchmark disables experimental lighting and FG")
 		_check(RSSettings.hdr == before["hdr"], "session preserves HDR without driver restart or override write")
 		_check(get_tree().root.size == Vector2i(1920, 1080), "temporary output resolution applied")
 		_check(session.begin(get_tree(), 1, Vector2i(1600, 900)) == ERR_INVALID_PARAMETER, "active session cannot be overwritten")
@@ -192,6 +198,9 @@ func _session_tests() -> void:
 		DisplayServer.window_set_mode(before["mode"])
 		await _frames()
 	RSSettings.hdr = original_hdr
+	RSSettings.nvidia_lighting = original_nvidia[0]
+	RSSettings.nvidia_fg = original_nvidia[1]
+	RSNvidia.apply_viewport(get_tree().root)
 	var empty: Array[Dictionary] = []
 	_check(session.write_results(empty, _output.path_join("empty-export")) == ERR_INVALID_PARAMETER, "empty export rejected")
 	var results: Array[Dictionary] = [_fixture()]

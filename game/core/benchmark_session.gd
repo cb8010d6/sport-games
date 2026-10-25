@@ -20,6 +20,7 @@ func begin(tree: SceneTree, quality: int, resolution: Vector2i) -> Error:
 	RSSettings.load_once()
 	_settings = {"fps": RSSettings.fps, "quality": RSSettings.quality, "window": RSSettings.window,
 		"upscale": RSSettings.upscale, "hdr": RSSettings.hdr, "language": RSSettings.language,
+		"nvidia_lighting": RSSettings.nvidia_lighting, "nvidia_fg": RSSettings.nvidia_fg,
 		"color_safe": RSSettings.color_safe, "camera_shake": RSSettings.camera_shake,
 		"volumes": RSSettings.volumes.duplicate()}
 	_window = {"size": tree.root.size, "position": DisplayServer.window_get_position(),
@@ -30,6 +31,8 @@ func begin(tree: SceneTree, quality: int, resolution: Vector2i) -> Error:
 	RSSettings.fps = RSSettings.FPS.find(RSSettings.UNCAPPED)
 	RSSettings.window = 0
 	RSSettings.upscale = 0
+	RSSettings.nvidia_lighting = 0
+	RSSettings.nvidia_fg = false
 	RSSettings.apply(tree)
 	# Maximized windows must leave that mode before Godot can resize their client area.
 	DisplayServer.window_set_mode(DisplayServer.WINDOW_MODE_WINDOWED)
@@ -45,6 +48,8 @@ func restore(tree: SceneTree) -> void:
 	RSSettings.quality = _settings["quality"]
 	RSSettings.window = _settings["window"]
 	RSSettings.upscale = _settings["upscale"]
+	RSSettings.nvidia_lighting = _settings["nvidia_lighting"]
+	RSSettings.nvidia_fg = _settings["nvidia_fg"]
 	RSSettings.hdr = _settings["hdr"]
 	RSSettings.language = _settings["language"]
 	RSSettings.color_safe = _settings["color_safe"]

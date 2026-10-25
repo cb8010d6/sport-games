@@ -1,51 +1,75 @@
-# NVIDIA RTX 篮球实验
+# NVIDIA RTX 实验
 
-仅位于 `experiment/nvidia-rtx`，与标准 Godot 4.7.2 发行隔离。
-固定 [NVIDIA-RTX/godot](https://github.com/NVIDIA-RTX/godot/tree/135dff3887a3d2ccf45cafbd9bdffa7b718e1e76)
-的 `135dff3887a3d2ccf45cafbd9bdffa7b718e1e76`（`nvidia-pt-dlss`，版本 4.8.dev）。
-不要用标准版导出模板打包 fork 工程；不要用 fork 编辑器覆盖唯一的标准开发副本。
+本分支将固定游戏基线 `209897f4573208e02df52c4c929731a27d3527b1` 与已有的
+`experiment/nvidia-rtx` 合并，保留 `e623451` 的篮球实验和 `e3f954c` 的验证记录。
+没有用旧实验分支覆盖新框架、项目、素材或体感协议。标准发行仍使用官方 Godot 4.7.2；
+实验目标是 `experiment/nvidia-rtx`，不向 `dev` / `main` 推送。
 
-实验场景继承现有篮球游戏，无玩法副本。通过反射设置 fork 的 `Environment.pathtracing_enabled`、
-`pathtracing_denoiser=PT_DENOISER_DLSS_RAY_RECONSTRUCTION`、1 sample/pixel，
-所有玩家 SubViewport 使用 DLSS 质量比例 0.66。主窗口也应用相同设置，帧生成关闭。
-光栅对照关闭光追，原生分辨率、不启用 MSAA/FXAA；两者都取消帧率上限和 VSync。
-这比较的是两套实用配置，不是相同内部渲染分辨率下的纯算法对照。
+当前实验引擎来源与版本见 [rtx_engine.json](../tools/rtx_engine.json)。其中补丁提交属于待发布的
+本地引擎补丁系列，不是 NVIDIA 上游已有提交；应从经过审查的个人引擎 fork 取得对应提交。
+编辑器、导出模板和 Streamline 2.14.16 运行库必须成套，不能用标准模板导出实验工程。
+SDK 与运行库按 NVIDIA 自身许可分发，本游戏仓库不收录 SDK 或二进制构建产物。
 
-## 运行
+## 画面设置
 
-在 Windows 上取得上述提交的 NVIDIA 引擎，并按其官方构建文档配置 MSVC 和 SCons。
-该提交的 SConstruct 仅在 Windows 启用 Streamline；Linux 构建会关闭它。
-`use_streamline` 默认为 true，仍应检查 Streamline 运行库、NVIDIA 驱动与 SDK 许可/分发要求。
-本分支不分发 NVIDIA SDK 或来源不明的引擎二进制。
+普通 Godot 4.7.2 保留原生及原有五档 FSR2，不需要 Streamline 全局类型。
+可用引擎通过 `Engine.has_singleton`、动态调用、ClassDB 常量及属性探测启用实验入口。
+所有主视口和玩家 SubViewport 仍由 `RSSettings.apply_viewport` 统一设置，避免后续设置覆盖 DLSS。
 
-```sh
-git clone --branch nvidia-pt-dlss https://github.com/NVIDIA-RTX/godot godot-rtx
-cd godot-rtx
-git checkout 135dff3887a3d2ccf45cafbd9bdffa7b718e1e76
-scons platform=windows target=editor arch=x86_64 use_streamline=yes
-```
+- 超分新增 DLAA、DLSS 质量 / 均衡 / 性能，预设可选 Recommended、K、L、M。
+  这些是请求；不能仅据日志中的请求值声称驱动实际使用了该模型。
+- NVIDIA 菜单的 DLSS 锐化控制复用引擎的 `fsr_sharpness` / NIS，默认显式为 0。
+  切回 FSR 后恢复原来的 FSR 锐化值。没有增加 MFG、动态 MFG 或 DLSS 5。
+- DLSS 能力不可用时保留用户请求，并按对应的 FSR 档回退；菜单明确显示回退。
+  NVIDIA 超级性能暂不提供：候选引擎的输出尺寸 / SDK 模式匹配修复仍待最终 GPU 验收。
+- DDGI / PT + RR 需要 Vulkan Forward+、实际光追管线和对应属性。
+  PT + RR 还要求 DLAA / DLSS、SDK 的 DLSS RR 能力，使用 1 sample/pixel。
+  D3D12 的光追管线在此 fork 尚不可用，因此保持光栅；Windows HDR 仍沿用 D3D12 路径。
+- 普通帧生成只向主 Window 的非 XR 视口发请求。玩家 SubViewport 不请求 FG，
+  因而单人玩家格子和多人分屏都明确降级。引擎还会按实际渲染的 3D 视口数裁决；2D HUD 不计数。
+  菜单显示 `get_frame_generation_status` 的原因，`sdk_enabled` 只说明 SDK 接受选项，
+  不证明插入帧已经显示。实际生成帧应另用 SDK 状态 / 前台呈现证据确认。
+
+新增请求保存在原有 `settings.cfg` 的 display 区，不新增存档、autoload、协议或依赖。
+旧存档默认继续光栅、原生和关闭 FG。内置性能测试临时关闭实验光照与 FG，结束恢复原请求，
+不将 FG 后的显示帧率混入原性能基线。Jolt Physics 和 120 Hz 物理设置保持原值。
+
+## 运行与验证
+
+使用独立工程副本和独立用户目录。不要让实验编辑器覆盖唯一的标准开发副本。
+原启动器已经支持 `REGINA_GODOT` 指向显式引擎，不限定其必须是 4.7.2，标准查找路径不变。
+试玩快捷方式应只在自己的启动环境中设置该变量并隔离游戏的设置 / 存档。
 
 ```sh
 node tools/sync_assets.mjs
-<NVIDIA-Godot> --headless --path game --editor --import
-python tools/benchmark_rtx.py <NVIDIA-Godot>
+python tools/import_game.py --godot <NVIDIA-Godot>
+python tools/test_nvidia.py --godot <NVIDIA-Godot>
+python tools/smoke_game.py <NVIDIA-Godot> --project game
 ```
 
-默认 Vulkan，可传 `--driver d3d12` 对照。两张篮球地图分别跑 1、2、4 人，
-每项预热 12 秒、采样 20 秒，结果写入被忽略的 `audit-output/rtx`。
-报告包含引擎版本、GPU 型号、平均 FPS、帧时间 p50/p95 和驱动估算显存；不包含主机名、用户路径或设备地址。
-它不测量手机到画面的输入延迟。必须保持分辨率、画质和驱动一致，并保存驱动版本和实机截图。
+`test_nvidia.py` 使用 headless 测试官方引擎兼容、设置校验和明确回退，不能证明 GPU 功能。
+画面验收应串行运行两后端的菜单 / 大厅，以及各项目的 2 / 4 人流程，保留 1600×900 中英文截图。
+分别检查暂停改设置、重开、成绩、回菜单、HDR、XR 降级、蒙皮、透明物、天空、MultiMesh、闪烁和拖影。
+真实手柄 / BLE / 手机手感与长时间游玩另行验收。
 
-## 验收与限制
+原篮球对比入口仍保留，使用同一个篮球玩法和新的适配器：
 
-普通 Godot、无光追设备、无 RTX GPU、错误引擎提交或 headless 光追请求会明确失败，
-不会自动回退后输出假 RTX 帧率。属性配置成功也不等于 DLSS RR 在驱动中实际生效，
-仍需打开 fork 的 DLSS RR 调试视图确认，检查日志和画面。
+```sh
+python tools/benchmark_rtx.py <NVIDIA-Godot> --driver vulkan
+```
 
-实机重点检查球员蒙皮、toon/PBR 混合材质、篮网、透明物、天空、MultiMesh 和分屏。
-分别记录 1/2/4 人的显存、帧时间、闪烁、拖影和手感；多人明显退化时保留标准渲染作为默认。
-不要用帧生成 FPS 代替输入响应测试。
+两张地图分别运行 1 / 2 / 4 人，预热 12 秒、采样 20 秒。RTX 为 DLSS 质量 + PT / RR、
+Recommended 预设、锐化 0、FG 关闭；光栅为原生、MSAA / FXAA 关闭。每次进程使用隔离用户目录和
+`RS_TEST_MODE=1`。报告在被忽略的 `audit-output/rtx`，只记录墙钟帧时间、显存估算和实际引擎 / GPU / 后端。
+这不是相同内部分辨率的算法对照，也不测输入延迟。D3D12 可做光栅检查，但 RTX 对比会明确拒绝。
 
-2026-10-21 的执行环境是 Linux、没有 GPU，也没有官方预编译的该 fork Release。
-本次只验证实验入口的脚本兼容性、标准引擎拒绝路径及 API 与固定源码一致性；
-没有声称完成 NVIDIA 引擎编译、RTX 画面或性能验收。标准发行工作流仍只用官方 Godot。
+## 验收边界与来源
+
+[RTX_VALIDATION.json](RTX_VALIDATION.json) 是 2026-10-21 的历史验证，针对旧上游
+`135dff3887a3d2ccf45cafbd9bdffa7b718e1e76`，不代表新引擎或本次迁移已经完成 GPU 验收。
+当前 CPU 检查与 GPU 待验矩阵见 [RTX_MIGRATION.md](RTX_MIGRATION.md)。
+Vulkan SDK 的内部同步 / fake-swapchain 验证问题仍在排查；本分支不能称为发布候选版本。
+属性设置成功、headless 通过或单个菜单截图都不能替代实际 RTX / HDR / 性能验证。
+
+本次源代码适配由 OpenAI Codex 辅助完成；没有新增 AI 素材或第三方资产。
+保留原仓库 MIT、已有素材 CC0 / OFL 与 SDK 独立许可说明。

@@ -29,6 +29,16 @@ func _run() -> void:
 			menu._pages.close()
 		menu._settings.open()
 		await _capture(output.path_join(lang + "-settings.png"))
+		menu._settings._show_page("display", 0)
+		await _capture(output.path_join(lang + "-display.png"))
+		if Engine.has_singleton("Streamline"):
+			menu._settings._show_page("nvidia", 0)
+			await _capture(output.path_join(lang + "-nvidia.png"))
+			print("RS_NVIDIA_UI: ", JSON.stringify({"language": lang,
+				"driver": RenderingServer.get_current_rendering_driver_name(),
+				"dlss_available": RSNvidia.dlss_available(), "upscale_requested": RSSettings.upscale,
+				"upscale_effective": RSSettings.effective_upscale(), "viewport_mode": get_viewport().scaling_3d_mode,
+				"sharpness": get_viewport().fsr_sharpness, "fg": RSNvidia.fg_status()}))
 		menu._settings.close()
 		menu.queue_free()
 		await get_tree().process_frame

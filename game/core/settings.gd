@@ -28,8 +28,8 @@ const WINDOW_NAMES := ["窗口", "全屏", "独占全屏"]
 ## Upscaling: render 3D smaller and let AMD FSR 2 rebuild the detail (its own temporal
 ## anti-aliasing replaces MSAA / FXAA). At 1.0 FSR 2 only anti-aliases (AMD's "Native AA",
 ## like DLAA). Scales are AMD's FSR 2 presets.
-const UPSCALE_NAMES := ["原生", "FSR 原生抗锯齿", "FSR 质量", "FSR 均衡", "FSR 性能", "FSR 超级性能"]
-const UPSCALE_SCALES := [1.0, 1.0, 0.67, 0.59, 0.5, 0.33]
+const UPSCALE_NAMES := ["原生", "FSR 原生抗锯齿", "FSR 质量", "FSR 均衡", "FSR 性能", "FSR 超级性能", "DLAA", "DLSS 质量", "DLSS 均衡", "DLSS 性能"]
+const UPSCALE_SCALES := [1.0, 1.0, 0.67, 0.59, 0.5, 0.33, 1.0, 2.0 / 3.0, 0.58, 0.5]
 const OLD_UPSCALE := [0, 2, 2, 3, 4]   ## the "upscale" key's scales 1.0 / 0.77 / 0.67 / 0.59 / 0.5
 const TEXT_SCALES := [1.0, 1.25]
 ## Split-screen shadow tier: with this many views or more, every view renders the sun's
@@ -42,6 +42,10 @@ static var fps := 0                          ## index into FPS
 static var quality := 2                      ## index into QUALITY_NAMES
 static var window := 0                       ## index into WINDOW_NAMES
 static var upscale := 0                      ## index into UPSCALE_NAMES
+static var nvidia_preset := 0                ## optional fork; existing saves keep raster defaults
+static var nvidia_lighting := 0
+static var nvidia_sharpness := 0             ## NIS strength in 10% steps; disabled by default
+static var nvidia_fg := false
 static var language := 0                     ## index into RSLang.CODES
 static var hdr := false
 static var color_safe := false
@@ -75,6 +79,10 @@ static func load_once() -> void:
 	hdr = RSSave.boolean(cf, "display", "hdr", false)
 	upscale = clampi(RSSave.integer(cf, "display", "upscaling",
 		OLD_UPSCALE[clampi(RSSave.integer(cf, "display", "upscale", 0), 0, OLD_UPSCALE.size() - 1)]), 0, UPSCALE_NAMES.size() - 1)
+	nvidia_preset = clampi(RSSave.integer(cf, "display", "nvidia_preset", 0), 0, RSNvidia.PRESETS.size() - 1)
+	nvidia_lighting = clampi(RSSave.integer(cf, "display", "nvidia_lighting", 0), 0, RSNvidia.LIGHTING_NAMES.size() - 1)
+	nvidia_sharpness = clampi(RSSave.integer(cf, "display", "nvidia_sharpness", 0), 0, 10)
+	nvidia_fg = RSSave.boolean(cf, "display", "nvidia_fg", false)
 
 
 static func save() -> Error:
@@ -84,6 +92,10 @@ static func save() -> Error:
 	cf.set_value("display", "window", window)
 	cf.set_value("display", "hdr", hdr)
 	cf.set_value("display", "upscaling", upscale)
+	cf.set_value("display", "nvidia_preset", nvidia_preset)
+	cf.set_value("display", "nvidia_lighting", nvidia_lighting)
+	cf.set_value("display", "nvidia_sharpness", nvidia_sharpness)
+	cf.set_value("display", "nvidia_fg", nvidia_fg)
 	cf.set_value("general", "language", language)
 	cf.set_value("accessibility", "color_safe", color_safe)
 	cf.set_value("accessibility", "camera_shake", camera_shake)
@@ -173,7 +185,25 @@ static func window_name() -> String:
 
 
 static func upscale_name() -> String:
+	if upscale >= 6 and not RSNvidia.dlss_available():
+		return RSLang.t("%s（回退 FSR）") % RSLang.t(UPSCALE_NAMES[upscale])
 	return RSLang.t(UPSCALE_NAMES[upscale])
+
+
+static func upscale_count() -> int:
+	return UPSCALE_NAMES.size() if RSNvidia.dlss_available() else 6
+
+
+static func effective_upscale() -> int:
+	return upscale - 5 if upscale >= 6 and not RSNvidia.dlss_available() else upscale
+
+
+static func nvidia_lighting_name() -> String:
+	if not RSNvidia.lighting_available(nvidia_lighting):
+		return RSLang.t("%s（回退光栅）") % RSLang.t(RSNvidia.LIGHTING_NAMES[nvidia_lighting])
+	if nvidia_lighting == 2 and upscale < 6:
+		return RSLang.t("需要 DLAA / DLSS")
+	return RSLang.t(RSNvidia.LIGHTING_NAMES[nvidia_lighting])
 
 
 static func language_name() -> String:
@@ -228,6 +258,7 @@ static func apply(tree: SceneTree) -> void:
 		RenderingServer.SHADOW_QUALITY_SOFT_VERY_LOW, RenderingServer.SHADOW_QUALITY_SOFT_LOW,
 		RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM, RenderingServer.SHADOW_QUALITY_SOFT_HIGH][quality])
 	# Every viewport: resolution scale, anti-aliasing, mesh LOD.
+	RSNvidia.apply_preset()
 	var root := tree.root
 	apply_viewport(root)
 	for vp: Viewport in root.find_children("*", "SubViewport", true, false):
@@ -248,10 +279,18 @@ static func apply_world(root: Node) -> void:
 
 static func apply_viewport(vp: Viewport) -> void:
 	load_once()
-	var fsr := upscale > 0
-	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2 if fsr else Viewport.SCALING_3D_MODE_BILINEAR
-	vp.scaling_3d_scale = UPSCALE_SCALES[upscale]
-	if fsr:
+	var effective := effective_upscale()
+	var temporal := effective > 0
+	if effective >= 6:
+		vp.scaling_3d_mode = ClassDB.class_get_integer_constant("Viewport", "SCALING_3D_MODE_DLSS") as Viewport.Scaling3DMode
+	else:
+		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2 if temporal else Viewport.SCALING_3D_MODE_BILINEAR
+	vp.scaling_3d_scale = UPSCALE_SCALES[effective]
+	if not vp.has_meta("rs_fsr_sharpness"):
+		vp.set_meta("rs_fsr_sharpness", vp.fsr_sharpness)
+	vp.fsr_sharpness = float(nvidia_sharpness) * 0.1 if effective >= 6 else float(vp.get_meta("rs_fsr_sharpness"))
+	RSNvidia.apply_viewport(vp)
+	if temporal:
 		vp.msaa_3d = Viewport.MSAA_DISABLED
 		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 	else:
@@ -303,6 +342,7 @@ static func environment(env: Environment) -> void:
 	## metadata so they come back at higher settings.
 	if env == null:
 		return
+	RSNvidia.environment(env)
 	for key in ["ssao_enabled", "ssr_enabled", "ssil_enabled", "sdfgi_enabled", "glow_enabled", "volumetric_fog_enabled"]:
 		if not env.has_meta(key):
 			env.set_meta(key, env.get(key))
