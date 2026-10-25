@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://33g3wstdmwfd"
-path="res://.godot/imported/rider3_female_sportsuit01_diffuse.png-73a4e7ec14ac8ccb03003074e986a6e7.ctex"
+path.s3tc="res://.godot/imported/rider3_female_sportsuit01_diffuse.png-73a4e7ec14ac8ccb03003074e986a6e7.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "143b807aabcff9d4174a17f778db087c"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/characters/rider3_female_sportsuit01_diffuse.png"
-dest_files=["res://.godot/imported/rider3_female_sportsuit01_diffuse.png-73a4e7ec14ac8ccb03003074e986a6e7.ctex"]
+dest_files=["res://.godot/imported/rider3_female_sportsuit01_diffuse.png-73a4e7ec14ac8ccb03003074e986a6e7.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +40,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=2048
 detect_3d/compress_to=1

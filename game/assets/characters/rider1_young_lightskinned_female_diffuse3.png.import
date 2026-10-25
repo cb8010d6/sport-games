@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://blynmu0wrcqgi"
-path="res://.godot/imported/rider1_young_lightskinned_female_diffuse3.png-3e8479c61422804c47ab58aec3415b5f.ctex"
+path.s3tc="res://.godot/imported/rider1_young_lightskinned_female_diffuse3.png-3e8479c61422804c47ab58aec3415b5f.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "42ff2a2969dccbc90ab2709b352a96f7"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/characters/rider1_young_lightskinned_female_diffuse3.png"
-dest_files=["res://.godot/imported/rider1_young_lightskinned_female_diffuse3.png-3e8479c61422804c47ab58aec3415b5f.ctex"]
+dest_files=["res://.godot/imported/rider1_young_lightskinned_female_diffuse3.png-3e8479c61422804c47ab58aec3415b5f.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +40,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=2048
 detect_3d/compress_to=1
