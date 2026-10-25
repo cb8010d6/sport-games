@@ -27,6 +27,7 @@ func _run() -> void:
 	_course_lookups()
 	_clock()
 	await _riders_at_30fps()
+	await _idle_loops()
 	_split_shadow_tier()
 	for i in 3:   # let freed riders' rendering resources go before quitting
 		await get_tree().process_frame
@@ -186,6 +187,54 @@ func _riders_at_30fps() -> void:
 	_check(sr.s() > 25.0, "the skier rides down the slope at 30 FPS (s = %.1f)" % sr.s())
 	_check(sk.draw_pos.distance_to(sk.pos) < 1.0 and sr.draw_pos.distance_to(sr.pos) < 1.0, "riders are drawn next to their simulated position")
 	print("RS_PERF_RIDERS: skater + skier step at 30 FPS: %.1f us per frame" % spent)
+	sk.free()
+	sr.free()
+	skate.free()
+	ski.free()
+	for i in 3:
+		await get_tree().process_frame
+
+
+func _idle_loops() -> void:
+	if not (ResourceLoader.exists(RSSkaterRig.RIDERS[1]) and ResourceLoader.exists(RSSkierRig.SKIERS[1])):
+		print("RS_PERF_SKIP: rider models not checked out; idle loop check skipped")
+		return
+	var skate := RSSkateCourse.new()
+	var sk := RSSkater.new(skate, Color.WHITE, 1, 0)
+	add_child(sk)
+	var ski := RSSkiCourse.new(0)
+	var sr := RSSkier.new(ski, Color.WHITE, 1, 0)
+	add_child(sr)
+	await get_tree().process_frame
+	var sk_before := sk.active_loops()
+	var sr_before := sr.active_loops()
+	_check(sk_before == 4 and sr_before == 3, "new riders expose all four / three unpaused loops")
+	# place() runs visuals/audio with delta 0 and correctly pauses the initial -80 dB.
+	# Sample the factory state above, before placement applies that idle-audio update.
+	sk.place(0.0, RSSkateCourse.START_S)
+	sr.place(0.0, 5.0)
+	for rider in [sk, sr]:
+		var loop: AudioStreamPlayer = rider._wind
+		rider._set_loop_db(loop, rider.SILENT_DB)
+		_check(loop.stream_paused and loop.volume_db == rider.SILENT_DB, "loop pauses at the inclusive silent threshold")
+		rider._set_loop_db(loop, rider.SILENT_DB + 0.1)
+		_check(not loop.stream_paused, "loop resumes immediately above the threshold")
+	sk.quiet()
+	sr.quiet()
+	_check(sk.active_loops() == 0 and sr.active_loops() == 0, "quiet pauses every rider loop")
+	print("RS_PERF_LOOPS: idle skater %d -> %d, idle skier %d -> %d" % [
+		sk_before, sk.active_loops(), sr_before, sr.active_loops()])
+	var sk_bot := RSSkateBot.new(sk, 4100)
+	var sr_bot := RSSkiBot.new(sr, 91)
+	for i in 60:
+		var dt := 1.0 / 30.0
+		sk.step(dt, sk_bot.update(dt), true)
+		sr.step(dt, sr_bot.update(dt), true)
+	_check(sk.active_loops() > 0, "the moving skater automatically resumes a loop after quiet")
+	_check(sr.active_loops() > 0, "the moving skier automatically resumes a loop after quiet")
+	sk.quiet()
+	sr.quiet()
+	_check(sk.active_loops() == 0 and sr.active_loops() == 0, "quiet works again after bot-driven resumption")
 	sk.free()
 	sr.free()
 	skate.free()
