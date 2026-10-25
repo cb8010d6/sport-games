@@ -95,14 +95,7 @@ jobs:
         with:
           python-version: '3.12'
       - name: Download pinned Godot
-        run: |
-          mkdir -p tools/godot
-          cd tools/godot
-          curl --fail --location --retry 3 -O https://github.com/godotengine/godot/releases/download/4.7.2-stable/Godot_v4.7.2-stable_linux.x86_64.zip
-          curl --fail --location --retry 3 -O https://github.com/godotengine/godot/releases/download/4.7.2-stable/SHA512-SUMS.txt
-          sha512sum --ignore-missing -c SHA512-SUMS.txt
-          unzip -q Godot_v4.7.2-stable_linux.x86_64.zip
-          chmod +x Godot_v4.7.2-stable_linux.x86_64
+        run: python tools/download_godot.py --platform linux
       - name: Register script classes
         run: python tools/import_game.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
       - name: Test saves and complete party flow
