@@ -27,7 +27,6 @@ var rate_hz: float = 0.0
 var loss: float = 0.0
 var info: Dictionary = {}      ## full roster entry, for extra fields (fw, mtu, ...)
 
-
 # --- latest motion sample -------------------------------------------------------
 var sample_time: float = 0.0   ## hub clock, seconds
 var orientation: Quaternion = Quaternion.IDENTITY
