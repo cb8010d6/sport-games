@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "suite": "ski-current-core-v1-v2-rtx4060-six",
+  "archive_name": "ski-raw-archive-20261025-pr37.zip",
+  "archive_sha256": "f7c47e895b19606aa4466556ac0f15874fb07a9970356c460d5380c33cbe3492",
+  "archive_bytes": 2456996,
+  "availability": "Local review-evidence archive only; no public URL or release attachment",
+  "files": [
+    {
+      "file": "01-A-ski-m1-p2-q2-r1.json",
+      "sha256": "91d7cba906d7f85d5d9779c186ba63cf9dd138abd0ca99db5260bf9a69f932c7",
+      "bytes": 1556434
+    },
+    {
+      "file": "02-B-ski-m1-p2-q2-r1.json",
+      "sha256": "55724714dd82fc076ace7e24cec4de0916a3fd514e005264e34648b8fdf29de6",
+      "bytes": 1564511
+    },
+    {
+      "file": "03-B-ski-m1-p2-q2-r2.json",
+      "sha256": "3a0678ab6f694151e6ada591c26b1bc9450aa6dd748963cca91955a022034627",
+      "bytes": 1557659
+    },
+    {
+      "file": "04-A-ski-m1-p2-q2-r2.json",
+      "sha256": "600eaf1110e4801276359a71ae88cfc1dadb0da9055c64ab4b048d99ae4c37c9",
+      "bytes": 1542305
+    },
+    {
+      "file": "05-A-ski-m1-p2-q2-r3.json",
+      "sha256": "4fea521307ceb4c321e28740cf1efe391601db420c35d19664c56e7a4f81a8f2",
+      "bytes": 1544300
+    },
+    {
+      "file": "06-B-ski-m1-p2-q2-r3.json",
+      "sha256": "df51dc6aa4baad6b5669b369a42dbd58a455c43e4a93a553bb8d5be5fe2a47f5",
+      "bytes": 1561041
+    }
+  ],
+  "historical_manifest_sha256": "4d2e35cd2a054ace9ed660911cfc22fb91e2415e1c27e06656fd796139861caf",
+  "historical_statistics_sha256": "48f89e562f2b6d77fb45dd9089cbf3322345bfaebd33aa6067a989cdd3baf461"
+}
