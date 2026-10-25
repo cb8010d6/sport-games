@@ -12,6 +12,7 @@ from typing import Any
 
 from .. import protocol as P
 from ..controller import Controller
+from ..diagnostics import WarningLimiter, redact_devices
 from ..frames import REGINA_DEFAULT_AXIS_MAP, make_remap
 from ..hub import Hub
 
@@ -38,6 +39,7 @@ class ReginaTransport:
     def __init__(self, client: Any):
         self._client = client
         self._queue: asyncio.Queue[bytes] = asyncio.Queue(maxsize=64)
+        self._full_warning = WarningLimiter()
         self._task = asyncio.create_task(self._writer())
 
     async def _writer(self) -> None:
@@ -46,13 +48,13 @@ class ReginaTransport:
             try:
                 await self._client.write_gatt_char(P.CMD_CHAR_UUID, data, response=False)
             except Exception as exc:  # noqa: BLE001 - device may have dropped
-                log.debug("write failed: %s", exc)
+                log.debug("write failed: %s", redact_devices(exc))
 
     def _put(self, data: bytes) -> None:
         try:
             self._queue.put_nowait(data)
         except asyncio.QueueFull:
-            log.warning("command queue full, dropping %d bytes", len(data))
+            self._full_warning.warning(log, "command queue full, dropping %d bytes", len(data))
 
     def close(self) -> None:
         self._task.cancel()
@@ -88,6 +90,7 @@ class ReginaBleSource:
         self._active: dict[str, Any] = {}      # address -> BleakClient (connected or connecting)
         self._close_connections: dict[str, Callable[[], None]] = {}
         self._candidates: dict[str, tuple[Any, str, bool]] = {}
+        self._scan_warning = WarningLimiter()
         self._bad_packet_log_at = float("-inf")
 
     def _bad_packet(self, kind: str, controller: Controller) -> None:
@@ -118,7 +121,7 @@ class ReginaBleSource:
             if match and device.address not in self._active:
                 self._candidates[device.address] = (device, match[0], match[1])
 
-        log.info("scanning for Regina controllers (%s*)", self.name_prefix)
+        log.info("scanning for Regina controllers")
         try:
             while True:
                 self._candidates.clear()
@@ -126,7 +129,7 @@ class ReginaBleSource:
                     async with BleakScanner(detection_callback=on_detect):
                         await asyncio.sleep(3.0)
                 except Exception as exc:  # noqa: BLE001 - adapter off / busy
-                    log.warning("scan failed: %s (is Bluetooth on?)", exc)
+                    self._scan_warning.warning(log, "scan failed: %s (is Bluetooth on?)", redact_devices(exc))
                     await asyncio.sleep(5.0)
                     continue
                 for addr, (device, name, legacy) in list(self._candidates.items()):
@@ -166,13 +169,14 @@ class ReginaBleSource:
                 self.hub.detach(controller)
 
         def on_disconnect(_client: Any) -> None:
+            log.info("Regina controller disconnected")
             close_connection()
 
         client = BleakClient(device, disconnected_callback=on_disconnect, timeout=15.0)
         self._active[addr] = client
         self._close_connections[addr] = close_connection
         try:
-            log.info("connecting %s (%s)", name, addr)
+            log.info("connecting Regina controller")
             await client.connect()
             if closed:
                 return
@@ -233,13 +237,13 @@ class ReginaBleSource:
             await client.start_notify(P.STATUS_CHAR_UUID, on_status)
             on_status(None, await client.read_gatt_char(P.STATUS_CHAR_UUID))
             on_input(None, await client.read_gatt_char(P.INPUT_CHAR_UUID))
-            log.info("%s ready (mtu %s)", name, client.mtu_size)
+            log.info("controller %d ready (mtu %s)", c.id, client.mtu_size)
         except asyncio.CancelledError:
             close_connection()
             await self._disconnect(client)
             raise
         except Exception as exc:  # noqa: BLE001
-            log.warning("connect %s failed: %s", name, exc)
+            log.warning("Regina connection failed: %s", redact_devices(str(exc).replace(addr, "<device>")))
             close_connection()
             await self._disconnect(client)
 
@@ -268,7 +272,7 @@ class ReginaBleSource:
             try:
                 gyro = _sensor_vector(P.parse_legacy_vec3(bytes(data)), DEG2RAD, MAX_GYRO_RAD_S)
                 # No device clock: timestamp on arrival (BLE jitter goes straight into the integration).
-                t_us = time.monotonic() * 1e6
+                t_us = time.perf_counter() * 1e6  # monotonic() ticks every ~16 ms on Windows
                 self.hub.on_imu(c, [(t_us, self.remap(gyro), self.remap(last_accel[0]))])
             except (ValueError, OverflowError, struct.error):
                 self._bad_packet("legacy gyro", c)
@@ -289,5 +293,5 @@ class ReginaBleSource:
             # The caller only receives this controller after all subscriptions are ready.
             self.hub.detach(controller)
             raise
-        log.info("%s ready (original firmware, ~20 Hz; flash firmware/ for 200 Hz)", name)
+        log.info("controller %d ready (original firmware, ~20 Hz; flash firmware/ for 200 Hz)", c.id)
         return controller

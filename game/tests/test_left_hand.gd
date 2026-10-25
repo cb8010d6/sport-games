@@ -104,7 +104,10 @@ func _math() -> void:
 		jump_right = maxf(jump_right, out_right.ollie)
 	_check(is_equal_approx(out_left.pitch, out_right.pitch), "fore/aft tilt unchanged")
 	_check(jump_left == jump_right and jump_left > 0, "upward flick timing and strength unchanged")
-	for id: String in ["plane", "bowling", "skate", "ski"]:
+	for entry: Dictionary in RSCatalog.games():
+		var id: String = entry["id"]
+		if RSCatalog.lessons(id).is_empty() or RSCatalog.lessons(id)[0] != "TILT_RIGHT":
+			continue   # this check starts from a lesson that opens with the right tilt
 		var c := _controller(1)
 		var lesson := RSTutorial.new(id)
 		lesson.start(c)
@@ -122,8 +125,8 @@ func _players_page() -> void:
 	_scene = (load("res://scenes/menu/main_menu.tscn") as PackedScene).instantiate()
 	get_tree().root.add_child(_scene)
 	get_tree().current_scene = _scene
-	for i in _scene.GAMES.size():
-		if _scene.GAMES[i].get("page", "") == "players":
+	for i in _scene.entries.size():
+		if _scene.entries[i].get("page", "") == "players":
 			_scene._open(i)
 			break
 	await _frames()

@@ -2,7 +2,7 @@
 
 ## Repository boundary
 
-The repository root is `regina-sports/`. Only this directory belongs in the GitHub repository.
+The repository root is `sport-games/`. Only this directory belongs in the GitHub repository.
 The separate Regina hardware application, its dependencies, editor installations and backups
 in the parent directory must not be imported into this repository.
 
@@ -36,7 +36,7 @@ sibling engine installation, but that installation is not part of this repositor
 
 Phone controllers load the local HTTPS page and stream through WSS. Certificates are
 generated locally and must not be committed. Keep personal device allowlists or network
-overrides in ignored `hub/config.local.json`, passed through `--config config.local.json`.
+overrides in ignored `hub/config.local.json`; the hub loads it automatically on top of `hub/config.json` (an explicit `--config` file is still overlaid by a `config.local.json` next to it). The axis wizard follows the same rule: its `--config` names the base config, it reads the effective configuration exactly like the hub, and it writes the solved axis map to that overlay.
 
 ## Checks
 
@@ -67,7 +67,10 @@ does not verify rendering, controller feel or performance.
 ## Updating Python dependencies
 
 `hub/pyproject.toml` owns the runtime and development minimum versions.
-`hub/requirements.txt` mirrors those inputs for pip/Dependabot; keep both in sync.
+`hub/requirements.txt` mirrors the runtime inputs for pip/Dependabot; keep both in sync.
+`hub/requirements-runtime.txt` locks only the runtime dependencies: `start.bat` and `hub/run_hub.bat`
+install it through `regina_hub.setup_env`, which records the lock's SHA-256 in `hub/.venv` and reinstalls
+when the lock changes, and refuses Python older than 3.11 (3.13+ only gets a warning: CI tests 3.11 and 3.12).
 `hub/requirements-windows.in` also pins the existing PyInstaller version from
 `tools/release_config.json`. The generated locks include transitive dependencies,
 platform/Python markers and distribution hashes. CI uses `--require-hashes` on both
@@ -80,11 +83,12 @@ Install **uv 0.13.5** in a tooling environment, then run these commands from the
 ```powershell
 python -m pip install uv==0.13.5
 uv pip compile hub/pyproject.toml --extra dev --universal --python-version 3.11 --generate-hashes --no-header --output-file hub/requirements-dev.txt
+uv pip compile hub/pyproject.toml --universal --python-version 3.11 --generate-hashes --no-header --output-file hub/requirements-runtime.txt
 uv pip compile hub/requirements-windows.in --universal --python-version 3.11 --generate-hashes --no-header --output-file hub/requirements-windows.txt
 ```
 
 These commands reuse existing pins. Add `--upgrade` for an intentional full update or
-`--upgrade-package <name>` for a targeted update. Review and commit both regenerated
+`--upgrade-package <name>` for a targeted update. Review and commit all regenerated
 locks, then test installation with `python -m pip install --require-hashes -r <lock>`.
 Dependabot checks Actions and `/hub` weekly against `dev`, grouping each ecosystem's
 updates into one PR. If a bot PR changes input requirements without updating a lock,

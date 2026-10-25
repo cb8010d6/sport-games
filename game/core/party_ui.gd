@@ -5,12 +5,15 @@ extends Control
 ## the rounds and says what to show; its hooks (_game_name, _how_to_play, _lobby_extra, _maps)
 ## fill the lobby.
 
+const EXIT_NOTICE_TOP := -104.0  ## Logical pixels relative to the window bottom.
+
 var game: RSPartyGame
 var pause: RSPauseMenu
 var lobby_panel: Control
 var results_panel: Control
 
 var _lobby_players: RichTextLabel
+var _lobby_hint: Label
 var _qr_box: Control
 var _qr_rect: TextureRect
 var _qr_url: Label
@@ -25,6 +28,7 @@ var _tutorial_panel: Control
 var _tutorial_grid: GridContainer
 var _tutorial_cards: Dictionary = {}
 var _tutorial_roster := ""
+var _exit_notice: Control
 
 
 func _init(owner_game: RSPartyGame) -> void:
@@ -38,6 +42,7 @@ func _ready() -> void:
 	_build_lobby()
 	_build_results()
 	_build_tutorials()
+	_build_exit_confirmation()
 	pause = RSPauseMenu.new(game)
 	pause.restart_requested.connect(game.restart_round)
 	pause.menu_requested.connect(game.go_menu)
@@ -48,26 +53,45 @@ func _ready() -> void:
 # -------------------------------------------------------------------------- lobby ----
 
 func show_lobby() -> void:
+	show_exit_confirmation(false)
 	lobby_panel.visible = true
 	results_panel.visible = false
 	_tutorial_panel.visible = false
+
+
+static func _state_text(text: String, color: Color) -> String:
+	## Lobby state lines are BBCode; the colour is code, never part of the tr key,
+	## so it can follow the colour-safe palette.
+	return "[color=#%s]%s[/color]" % [color.to_html(false), text]
+
+
+static func _ready_color() -> Color:
+	return Color("009e73") if RSSettings.color_safe else Color("22c55e")
+
+
+static func _alert_color() -> Color:
+	return Color("e69f00") if RSSettings.color_safe else Color("f87171")
 
 
 func update_lobby() -> void:
 	## Who has joined and who is ready (called every lobby frame; only redraws on change).
 	var lines := PackedStringArray()
 	for p: RSPartyGame.Player in game.ordered():
-		var state := tr("[color=#22c55e]✓ 已准备[/color]") if p.ready else tr("[color=#9aa3b5]按 A 准备[/color]")
+		var state := _state_text(tr("✓ 已准备"), _ready_color()) if p.ready else _state_text(tr("按 A 准备"), RSUi.TEXT_MUTED)
 		var lesson := game.tutorial_for(p)
 		if lesson != null:
 			state = RSProfiles.bbcode(lesson.status())
 		lines.append("[color=#%s][b]P%d[/b][/color]   %s   %s" % [game.color_of(p).to_html(false), p.c.player, RSProfiles.bbcode(game.name_of(p)), state])
 	if lines.is_empty():
-		lines.append(tr("[color=#9aa3b5]还没有手柄。\n先运行 hub/run_hub.bat，然后打开 Regina，或用手机扫右边的二维码。[/color]"))
+		lines.append(_state_text(tr("还没有手柄。\n先运行 hub/run_hub.bat，然后打开 Regina，或用手机扫右边的二维码。"), RSUi.TEXT_MUTED))
 	if not game.demo and not ControllerHub.is_hub_connected():
-		lines.append(tr("[color=#f87171]● 未连接 hub —— 请运行 hub/run_hub.bat[/color]"))
+		lines.append(_state_text(tr("● 未连接 hub —— 请运行 hub/run_hub.bat"), _alert_color()))
 	if RSTournament.active():
 		lines.append(tr("大赛总积分 · %d / %d") % [RSTournament.index + 1, RSTournament.games.size()])
+		lines.append(tr("在场参赛者全部准备即可继续；缺席者本项目加 0 大赛积分。"))
+		for slot: int in RSTournament.entrants:
+			if not _slot_present(slot):
+				lines.append(tr("P%d 本项目缺席：0 大赛积分，保留此前积分") % slot)
 	if game.solo_mode:
 		lines.append(tr("单人挑战 · %s · P%d 对战电脑") % [RSSolo.difficulty_name(), RSSolo.slot])
 	var text := "\n".join(lines)
@@ -91,6 +115,13 @@ func _build_tutorials() -> void:
 	_tutorial_grid.add_theme_constant_override("v_separation", 14)
 	col.add_child(_tutorial_grid)
 	col.add_child(RSUi.label(tr("C 返回菜单　　D / Esc 暂停　　断线后重连可重新练习"), 15, RSUi.TEXT_MUTED, true))
+
+
+func _slot_present(slot: int) -> bool:
+	for p: RSPartyGame.Player in game.players.values():
+		if p.c.player == slot and p.c.connected:
+			return true
+	return false
 
 
 func _update_tutorials() -> void:
@@ -154,6 +185,7 @@ func set_map_card(title: String, line: String, desc: String) -> void:
 # ------------------------------------------------------------------------ results ----
 
 func set_results(lines: PackedStringArray, show_now: bool) -> void:
+	show_exit_confirmation(false)
 	RSUi.set_rich_text(_results_text, "\n".join(lines))
 	if show_now:
 		show_results()
@@ -174,10 +206,11 @@ func results_on_right(on: bool) -> void:
 
 
 func show_tournament_podium(rows: Array) -> void:
+	show_exit_confirmation(false)
 	results_on_right(false)
 	_results_title.text = tr("大赛总领奖台")
 	_results_text.visible = false
-	_results_hint.text = tr("A / C 返回主菜单")
+	_results_hint.text = tr("A 返回主菜单　　C 二次确认退出")
 	var podium := HBoxContainer.new()
 	podium.alignment = BoxContainer.ALIGNMENT_CENTER
 	podium.add_theme_constant_override("separation", 14)
@@ -195,14 +228,14 @@ func show_tournament_podium(rows: Array) -> void:
 		name_label.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
 		name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		col.add_child(name_label)
-		var block := PanelContainer.new()
-		block.custom_minimum_size.y = [180, 130, 95, 65][i]
-		block.add_theme_stylebox_override("panel", RSUi.panel_style(12, RSProfiles.player_color(row["slot"]).darkened(0.3)))
-		col.add_child(block)
 		var rank := 1
-		for j in i:
+		for j in rows.size():
 			if rows[j]["points"] > row["points"]:
 				rank += 1
+		var block := PanelContainer.new()
+		block.custom_minimum_size.y = [180, 130, 95, 65][mini(rank - 1, 3)]
+		block.add_theme_stylebox_override("panel", RSUi.panel_style(12, RSProfiles.player_color(row["slot"]).darkened(0.3)))
+		col.add_child(block)
 		var label := RSUi.label("#%d · P%d\n%d" % [rank, row["slot"], row["points"]], 30)
 		label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 		label.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
@@ -251,7 +284,8 @@ func _build_lobby() -> void:
 	_qr_box.add_child(RSUi.label(tr("手机扫码加入"), 14, RSUi.TEXT_MUTED))
 	_qr_url = RSUi.label("", 11, RSUi.TEXT_MUTED)
 	_qr_box.add_child(_qr_url)
-	col.add_child(RSUi.label(tr("A 准备 / 取消　　C 返回菜单　　D / Esc 暂停菜单　　所有人准备好后自动开始"), 15, RSUi.TEXT_MUTED, true))
+	_lobby_hint = RSUi.label(tr("A 准备 / 取消　　C 二次确认退出大赛　　D / Esc 暂停菜单") if RSTournament.active() else tr("A 准备 / 取消　　C 返回菜单　　D / Esc 暂停菜单　　所有人准备好后自动开始"), 15, RSUi.TEXT_MUTED, true)
+	col.add_child(_lobby_hint)
 
 
 func _build_map_card(col: VBoxContainer) -> void:
@@ -288,8 +322,39 @@ func _build_results() -> void:
 	RSUi.set_text_size(_results_text, 18, &"normal_font_size")
 	_results_text.add_theme_constant_override("line_separation", 6)
 	col.add_child(_results_text)
-	_results_hint = RSUi.label(tr("A 继续　　C 返回菜单　　D / Esc 暂停菜单") if RSTournament.active() else tr("A 再来一局　　C 返回菜单　　D / Esc 暂停菜单"), 15, RSUi.TEXT_MUTED, true)
+	_results_hint = RSUi.label(tr("A 继续　　C 二次确认退出大赛　　D / Esc 暂停菜单") if RSTournament.active() else tr("A 再来一局　　C 返回菜单　　D / Esc 暂停菜单"), 15, RSUi.TEXT_MUTED, true)
 	col.add_child(_results_hint)
+
+
+func show_exit_confirmation(show_now: bool) -> void:
+	# RSPartyGame reports this every frame; only transitions should sort containers.
+	if not is_instance_valid(_exit_notice) or _exit_notice.visible == show_now:
+		return
+	_exit_notice.visible = show_now
+	_lobby_hint.visible = not show_now
+	_results_hint.visible = not show_now
+	for page: Control in [lobby_panel, results_panel]:
+		page.offset_bottom = _exit_notice.offset_top if show_now else 0.0
+	if show_now:
+		move_child(_exit_notice, get_child_count() - 1)
+
+
+func _build_exit_confirmation() -> void:
+	var panel := PanelContainer.new()
+	panel.set_anchors_preset(PRESET_BOTTOM_WIDE)
+	panel.offset_left = 32.0
+	panel.offset_right = -32.0
+	panel.offset_top = EXIT_NOTICE_TOP
+	panel.offset_bottom = -24.0
+	panel.mouse_filter = MOUSE_FILTER_IGNORE
+	panel.add_theme_stylebox_override("panel", RSUi.modal_style())
+	var hint := RSUi.label(tr("退出将清空大赛积分。3 秒内同一手柄再按一次 C 确认，其他按键取消。"), 20, RSUi.HIGHLIGHT, true)
+	hint.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	hint.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	panel.add_child(hint)
+	_exit_notice = panel
+	panel.visible = false
+	add_child(panel)
 
 
 func _centered_panel(width: float) -> Array:

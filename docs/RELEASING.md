@@ -46,14 +46,16 @@ git push origin v0.1.0-alpha.2
 标签触发完整构建；只有构建成功且提交位于 `main` 的历史中，才创建带 ZIP/校验和的 GitHub 预发布。
 目前所有标签都发布为 prerelease。达到稳定条件后再明确修改工作流；不要仅靠去掉版本名中的 alpha 宣称稳定。
 
-## 主分支规则
+## 分支规则
 
-审阅后的配置位于 `.github/rulesets/main.json`：禁止删除和强推、要求 PR、对话解决以及五项 CI 检查。
+审阅后的配置位于 `.github/rulesets/`：`main.json` 和 `dev.json` 都禁止删除和强推、要求 PR 和对话解决，并列出必需的 CI 检查。
+`main` 要求分支与目标同步（strict），并多要求 `engine-runner (windows-latest)`；`dev` 不要求同步，以免并行 PR 反复排队，
+也暂不要求该 Windows 工具测试（已知偶发失败 #41）。改了 CI job 名称或 matrix 时同步修改这两个文件，`tools/tests/test_repository_rules.py` 会检查。
 GitHub 不会自动应用仓库中的 JSON。维护者使用具有仓库管理权限的 GitHub CLI 登录后运行：
 
 ```sh
 python tools/apply_repository_rules.py
 ```
 
-脚本幂等更新同名 ruleset 并读取验证。连接器可以提交代码，但未提供管理规则的写入能力，
+脚本应用目录下的全部 ruleset，按名称幂等更新并读取验证。连接器可以提交代码，但未提供管理规则的写入能力，
 所以不能把提交 JSON 当作 GitHub 已开启保护。可在仓库 Settings → Rules → Rulesets 核实状态。

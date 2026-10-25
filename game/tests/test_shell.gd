@@ -1,5 +1,6 @@
 extends Node
 const TutorialCases := preload("res://tests/tutorial_cases.gd")
+const CatalogCases := preload("res://tests/catalog_cases.gd")
 ## Run this scene with an isolated APPDATA directory; it writes actual ConfigFile saves.
 
 var _failures := 0
@@ -154,6 +155,7 @@ func _run() -> void:
 	ControllerHub._handle_json(JSON.stringify({"type": "roster", "controllers": []}).to_utf8_buffer())
 	_check(vanish_cancels[0] == 1 and kept.buttons == 0, "vanishing from the roster cancels held buttons (#45/#55)")
 	_check(load("res://scenes/menu/main_menu.gd") != null, "main menu compiles")
+	CatalogCases.run(_check)
 	TutorialCases.run(_check)
 	await TutorialCases.integration(self, _check)
 	await get_tree().process_frame

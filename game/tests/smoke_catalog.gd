@@ -1,5 +1,7 @@
 extends Node
-## Read the lobby's real map lists without building the worlds or connecting controllers.
+## Read the lobby's real map lists without building the worlds or connecting controllers, and
+## check that each game's _maps() matches the maps its RSGameModule manifest points to.
+## --games may name hidden (ready = false) modules; without it every menu game is listed.
 
 
 func _ready() -> void:
@@ -15,7 +17,7 @@ func _ready() -> void:
 		get_tree().quit(1)
 		return
 	var cases: Array = []
-	for entry: Dictionary in RSCatalog.GAMES:
+	for entry: Dictionary in RSCatalog.games(not selected.is_empty()):
 		var id: String = entry["id"]
 		if not selected.is_empty() and id not in selected:
 			continue
@@ -29,6 +31,11 @@ func _ready() -> void:
 			get_tree().quit(1)
 			return
 		var maps := game._maps()
+		if maps != RSCatalog.maps(id):
+			push_error("Manifest maps_script does not match _maps(): " + id)
+			game.free()
+			get_tree().quit(1)
+			return
 		for index in maxi(maps.size(), 1):
 			var map_name: String = str(maps[index].get("en", maps[index].get("name", ""))) if not maps.is_empty() else "Default"
 			cases.append({"game": id, "scene": entry["scene"], "map": index, "map_name": map_name})

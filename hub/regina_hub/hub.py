@@ -204,7 +204,7 @@ class Hub:
         self._prune_player_prefs()
 
         self._refresh_next_id()
-        log.info("controller %d attached: %s %s (player %d)", cid, kind, name, c.player)
+        log.info("controller %d attached: %s (player %d)", cid, kind, c.player)
         transport.set_player(c.player)
         if c.ui.fields:
             transport.send_ui(c.ui.snapshot())
@@ -217,7 +217,7 @@ class Hub:
             return
         c.connected = False
         c.disconnected_at = _now()
-        log.info("controller %d detached: %s", c.id, c.name)
+        log.info("controller %d detached", c.id)
         self._emit_event(c, "disconnected")
         self._roster_dirty = True
 

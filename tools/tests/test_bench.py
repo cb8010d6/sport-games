@@ -45,6 +45,16 @@ class BenchTests(unittest.TestCase):
             with self.subTest(flags=flags), mock.patch("sys.stderr"), self.assertRaises(SystemExit):
                 bench.main(list(flags))
 
+    def test_resolution_is_a_fixed_choice_checked_against_the_report(self):
+        with mock.patch("sys.stderr"), self.assertRaises(SystemExit):
+            arguments("--resolution", "2000x1000")
+        qhd = arguments("--resolution", "2560x1440")
+        payload = report()
+        with self.assertRaisesRegex(ValueError, "2560x1440"):
+            bench.validate_report(payload, bench.Case("ski", 0, 2, 2, 1), qhd)
+        payload["metadata"]["resolution"] = [2560, 1440]
+        bench.validate_report(payload, bench.Case("ski", 0, 2, 2, 1), qhd)
+
     def test_statistics_weight_frame_time_and_slow_tail(self):
         samples = report()["samples"][:4]
         for sample, value in zip(samples, (1, 2, 3, 94), strict=True):
@@ -97,6 +107,7 @@ class BenchTests(unittest.TestCase):
             self.assertNotIn("--headless", command)
             self.assertNotIn("--fixed-fps", command)
             self.assertEqual(command[command.index("--resolution") + 1], "1600x900")
+            self.assertIn("--bench-resolution=1600x900", command)
             self.assertEqual(command[command.index("--gpu-index") + 1], "1")
             self.assertEqual(env["RS_TEST_MODE"], "1")
             self.assertTrue(Path(env["APPDATA"]).is_dir())
