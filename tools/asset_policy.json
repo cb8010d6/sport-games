@@ -9,6 +9,11 @@
   ],
   "documented": [
     {
+      "prefix": "docs/screenshots/bowling-b1-",
+      "license": "MIT AND CC0-1.0",
+      "evidence": "docs/BOWLING_B1_ENVIRONMENT.md#历史原图与来源"
+    },
+    {
       "prefix": "docs/screenshots/phase11-podium-",
       "license": "MIT AND CC0-1.0",
       "evidence": "docs/PHASE_11_SHARED_PODIUM.md"
