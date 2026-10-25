@@ -303,10 +303,12 @@ func _apply_roster(msg: Dictionary) -> void:
 		phone_url = str(url)
 		if qr_rows.is_empty():
 			request_qr()
+	var present := {}
 	for entry in msg.get("controllers", []):
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		var c := _ensure(int(entry.get("id", 0)))
+		present[c.id] = true
 		var was_connected := c.connected  # the event handler may already have emitted for this connection
 		c.apply_roster(entry)
 		if c.connected and not was_connected:
@@ -315,6 +317,17 @@ func _apply_roster(msg: Dictionary) -> void:
 			# The roster alone reports it offline (the disconnected event was
 			# lost or reordered): same cancellation as the event path, or a
 			# held button would surface as a late release on reconnect (#55).
+			_cancel_held_buttons(c)
+			controller_disconnected.emit(c)
+	# A controller that drops out of the roster is only marked disconnected,
+	# never deleted: RSPartyGame keys player state to the RSController object,
+	# and the same id coming back must get the same object (a mid-game dropout
+	# keeps its score and slot). Hub-side id recycling bounds this dictionary
+	# to at most 255 entries (#45).
+	for id in controllers.keys():
+		var c := controllers[id] as RSController
+		if not present.has(id) and c.connected:
+			c.connected = false
 			_cancel_held_buttons(c)
 			controller_disconnected.emit(c)
 	roster_changed.emit()
