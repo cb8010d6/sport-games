@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-/** Restore pinned upstream assets with Node.js 20+. No npm packages or Git LFS required. */
+/** Restore pinned upstream assets. No npm packages or Git LFS required. Node version requirements: docs/DEVELOPMENT.md. */
 import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
@@ -125,7 +125,20 @@ export async function installAsset(item, root, resolve, { fetcher = fetch, force
   }
 }
 
+// Patched Node lines only (2026-10-21 security releases); the canonical
+// statement of this requirement is docs/DEVELOPMENT.md / CODING_STANDARDS §5.
+const NODE_MINIMUMS = [[22, 23, 4], [24, 22, 1], [26, 12, 1]];
+export function nodeVersionSupported(version = process.versions.node) {
+  const [major, minor, patch] = version.split('.').map(Number);
+  if (major > NODE_MINIMUMS.at(-1)[0]) return true;  // newer major lines than this list: allowed
+  return NODE_MINIMUMS.some(([maj, min, pat]) => major === maj && (minor > min || (minor === min && patch >= pat)));
+}
+
 export async function main(args = process.argv.slice(2)) {
+  if (!nodeVersionSupported()) {
+    console.error(`Node.js ${process.versions.node} is not a supported patched release (need 22.23.4+, 24.22.1+ or 26.12.1+; see docs/DEVELOPMENT.md).`);
+    return 1;
+  }
   const options = { check: false, list: false, force: false, only: null };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--help') {

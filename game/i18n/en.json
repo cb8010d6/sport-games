@@ -108,10 +108,6 @@
  "A 准备 / 取消　　C 返回菜单　　D / Esc 暂停菜单　　所有人准备好后自动开始": "A  Ready / unready     C  Main menu     D / Esc  Pause     Starts when everyone is ready",
  "成绩": "Results",
  "A 再来一局　　C 返回菜单　　D / Esc 暂停菜单": "A  Play again     C  Main menu     D / Esc  Pause",
- "[color=#22c55e]✓ 已准备[/color]": "[color=#22c55e]✓ Ready[/color]",
- "[color=#9aa3b5]按 A 准备[/color]": "[color=#9aa3b5]Press A when ready[/color]",
- "[color=#9aa3b5]还没有手柄。\n先运行 hub/run_hub.bat，然后打开 Regina，或用手机扫右边的二维码。[/color]": "[color=#9aa3b5]No controllers yet.\nRun hub/run_hub.bat, then switch on a Regina or scan the QR code on the right with your phone.[/color]",
- "[color=#f87171]● 未连接 hub —— 请运行 hub/run_hub.bat[/color]": "[color=#f87171]● Hub not connected — run hub/run_hub.bat[/color]",
  "剩余时间": "Time left",
  "手柄断线 —— 等待重连": "Controller disconnected — waiting for it to reconnect",
  "● 未连接 hub —— 请运行 hub/run_hub.bat": "● Hub not connected — run hub/run_hub.bat",
@@ -477,5 +473,10 @@
   "高尔夫": "Golf",
   "占位输入：A切换60/120/220米，按住B再松开击球，C取消。三洞一局，每洞150秒，各自同时打球；不计正式纪录。": "Placeholder input: A selects 60/120/220 m; hold and release B to shoot; C cancels. Three holes per round, 150 seconds each; players shoot simultaneously. No official records.",
   "3洞 · 标准杆12 · 占位出手": "3 holes · Par 12 · Placeholder shots",
-  "占位局 · %d杆（%s）· %d洞上限 · 各洞%s（杆/分，不计纪录）": "Placeholder · %d strokes (%s) · %d capped · Holes %s (strokes/points, no records)"
+  "占位局 · %d杆（%s）· %d洞上限 · 各洞%s（杆/分，不计纪录）": "Placeholder · %d strokes (%s) · %d capped · Holes %s (strokes/points, no records)",
+ "✓ 已准备": "✓ Ready",
+ "按 A 准备": "Press A when ready",
+ "还没有手柄。\n先运行 hub/run_hub.bat，然后打开 Regina，或用手机扫右边的二维码。": "No controllers yet.\nRun hub/run_hub.bat, then switch on a Regina or scan the QR code on the right with your phone.",
+ "机器人 %d": "Bot-%d",
+ "回放": "REPLAY"
 }
