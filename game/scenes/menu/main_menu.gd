@@ -321,6 +321,11 @@ func _status_text() -> void:
 		_status.text = tr("● 未连接 hub —— 请先运行 hub/run_hub.bat")
 		_status.add_theme_color_override("font_color", RSUi.BAD)
 		return
+	var ble_warning := ControllerHub.ble_warning()
+	if not ble_warning.is_empty():
+		_status.text = ble_warning
+		_status.add_theme_color_override("font_color", RSUi.HIGHLIGHT)
+		return
 	var live := ControllerHub.connected_controllers()
 	_status.text = tr("● hub 已连接 · %d 个手柄") % live.size() if not live.is_empty() else tr("● hub 已连接 · 还没有手柄：打开 Regina 或用手机扫码（二维码在游戏大厅和调试场景里）")
 	_status.add_theme_color_override("font_color", RSUi.GOOD)

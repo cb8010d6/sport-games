@@ -141,7 +141,7 @@ async def test_scan_failures_are_redacted_and_rate_limited(caplog, monkeypatch):
     with pytest.raises(asyncio.CancelledError):
         await ble.ReginaBleSource(Hub()).run()
     assert calls == 5
-    assert len(caplog.records) == 1 and "scan failed" in caplog.text
+    assert len(caplog.records) == 1 and "BLE scanning unavailable" in caplog.text
     assert ADDRESS not in caplog.text
 
 
@@ -149,9 +149,9 @@ async def test_command_queue_overflow_is_rate_limited(caplog):
     transport = ble.ReginaTransport(SimpleNamespace(write_gatt_char=AsyncMock()))
     try:
         for _ in range(1000):
-            transport._put(b"fixture")
+            transport._put("beep", b"fixture")
         assert len(caplog.records) == 1
-        assert "command queue full" in caplog.text
+        assert "feedback queue full" in caplog.text
     finally:
         transport.close()
         await asyncio.sleep(0)

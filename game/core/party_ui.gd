@@ -86,6 +86,10 @@ func update_lobby() -> void:
 		lines.append(_state_text(tr("还没有手柄。\n先运行 hub/run_hub.bat，然后打开 Regina，或用手机扫右边的二维码。"), RSUi.TEXT_MUTED))
 	if not game.demo and not ControllerHub.is_hub_connected():
 		lines.append(_state_text(tr("● 未连接 hub —— 请运行 hub/run_hub.bat"), _alert_color()))
+	if not game.demo:
+		var ble_warning := ControllerHub.ble_warning()
+		if not ble_warning.is_empty():
+			lines.append(RSProfiles.bbcode(ble_warning))
 	if RSTournament.active():
 		lines.append(tr("大赛总积分 · %d / %d") % [RSTournament.index + 1, RSTournament.games.size()])
 		lines.append(tr("在场参赛者全部准备即可继续；缺席者本项目加 0 大赛积分。"))

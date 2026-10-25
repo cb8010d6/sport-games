@@ -36,6 +36,8 @@ var _port := 0
 var _hub_port := 0
 var _hello_timer := 0.0
 var _last_rx_msec := -100000
+var _ble_state := "disabled"
+var _ble_roster_msec := -100000
 
 
 func _ready() -> void:
@@ -107,6 +109,18 @@ func listen_port() -> int:
 
 func is_hub_connected() -> bool:
 	return Time.get_ticks_msec() - _last_rx_msec < int(HUB_TIMEOUT * 1000.0)
+
+
+func ble_warning() -> String:
+	## Diagnostics expire with their roster even if another input source still sends samples.
+	if not is_hub_connected() or Time.get_ticks_msec() - _ble_roster_msec >= int(HUB_TIMEOUT * 1000.0):
+		return ""
+	match _ble_state:
+		"no_adverts":
+			return RSLang.t("蓝牙未发现广播，请尝试关闭再打开电脑蓝牙。")
+		"unavailable":
+			return RSLang.t("蓝牙不可用，请检查适配器；手机手柄仍可使用。")
+	return ""
 
 
 func get_controller(id: int) -> RSController:
@@ -280,6 +294,8 @@ func _handle_json(pkt: PackedByteArray) -> void:
 
 
 func _apply_roster(msg: Dictionary) -> void:
+	_ble_state = str(msg.get("ble_state", "disabled"))
+	_ble_roster_msec = Time.get_ticks_msec()
 	var url = msg.get("phone_url")
 	if url != null and str(url) != phone_url:
 		phone_url = str(url)
