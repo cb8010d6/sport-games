@@ -187,6 +187,7 @@
       "asset": "WetFloorSign_01",
       "sourcePage": "https://polyhaven.com/a/WetFloorSign_01",
       "license": "CC0-1.0",
+      "purpose": "#58 A7 场边家具，给保龄球馆（#25）；RSProps hall_wet_floor_sign",
       "selector": [
         "gltf",
         "2k",
@@ -203,6 +204,7 @@
       "asset": "WetFloorSign_01",
       "sourcePage": "https://polyhaven.com/a/WetFloorSign_01",
       "license": "CC0-1.0",
+      "purpose": "#58 A7 场边家具，给保龄球馆（#25）；RSProps hall_wet_floor_sign",
       "selector": [
         "gltf",
         "2k",
@@ -219,6 +221,7 @@
       "asset": "WetFloorSign_01",
       "sourcePage": "https://polyhaven.com/a/WetFloorSign_01",
       "license": "CC0-1.0",
+      "purpose": "#58 A7 场边家具，给保龄球馆（#25）；RSProps hall_wet_floor_sign",
       "selector": [
         "gltf",
         "2k",
@@ -235,6 +238,7 @@
       "asset": "WetFloorSign_01",
       "sourcePage": "https://polyhaven.com/a/WetFloorSign_01",
       "license": "CC0-1.0",
+      "purpose": "#58 A7 场边家具，给保龄球馆（#25）；RSProps hall_wet_floor_sign",
       "selector": [
         "gltf",
         "2k",
@@ -603,6 +607,7 @@
       "asset": "concrete_cat_statue",
       "sourcePage": "https://polyhaven.com/a/concrete_cat_statue",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景装饰；RSProps urban_cat_statue",
       "selector": [
         "gltf",
         "2k",
@@ -619,6 +624,7 @@
       "asset": "concrete_cat_statue",
       "sourcePage": "https://polyhaven.com/a/concrete_cat_statue",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景装饰；RSProps urban_cat_statue",
       "selector": [
         "gltf",
         "2k",
@@ -635,6 +641,7 @@
       "asset": "concrete_cat_statue",
       "sourcePage": "https://polyhaven.com/a/concrete_cat_statue",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景装饰；RSProps urban_cat_statue",
       "selector": [
         "gltf",
         "2k",
@@ -651,6 +658,7 @@
       "asset": "concrete_cat_statue",
       "sourcePage": "https://polyhaven.com/a/concrete_cat_statue",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景装饰；RSProps urban_cat_statue",
       "selector": [
         "gltf",
         "2k",
@@ -1931,6 +1939,7 @@
       "asset": "rollershutter_window_01",
       "sourcePage": "https://polyhaven.com/a/rollershutter_window_01",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景立面；RSProps urban_shutter_window_01(_graffiti)",
       "selector": [
         "gltf",
         "2k",
@@ -1947,6 +1956,7 @@
       "asset": "rollershutter_window_01",
       "sourcePage": "https://polyhaven.com/a/rollershutter_window_01",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景立面；RSProps urban_shutter_window_01(_graffiti)",
       "selector": [
         "gltf",
         "2k",
@@ -1963,6 +1973,7 @@
       "asset": "rollershutter_window_01",
       "sourcePage": "https://polyhaven.com/a/rollershutter_window_01",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景立面；RSProps urban_shutter_window_01(_graffiti)",
       "selector": [
         "gltf",
         "2k",
@@ -1979,6 +1990,7 @@
       "asset": "rollershutter_window_01",
       "sourcePage": "https://polyhaven.com/a/rollershutter_window_01",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景立面；RSProps urban_shutter_window_01(_graffiti)",
       "selector": [
         "gltf",
         "2k",
@@ -1995,6 +2007,7 @@
       "asset": "rollershutter_window_01",
       "sourcePage": "https://polyhaven.com/a/rollershutter_window_01",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景立面；RSProps urban_shutter_window_01(_graffiti)",
       "selector": [
         "gltf",
         "2k",
@@ -2091,6 +2104,7 @@
       "asset": "spray_paint_bottles",
       "sourcePage": "https://polyhaven.com/a/spray_paint_bottles",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景装饰（滑板 / 篮球可用）；RSProps urban_spray_paint(_dirty)",
       "selector": [
         "gltf",
         "2k",
@@ -2107,6 +2121,7 @@
       "asset": "spray_paint_bottles",
       "sourcePage": "https://polyhaven.com/a/spray_paint_bottles",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景装饰（滑板 / 篮球可用）；RSProps urban_spray_paint(_dirty)",
       "selector": [
         "gltf",
         "2k",
@@ -2123,6 +2138,7 @@
       "asset": "spray_paint_bottles",
       "sourcePage": "https://polyhaven.com/a/spray_paint_bottles",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景装饰（滑板 / 篮球可用）；RSProps urban_spray_paint(_dirty)",
       "selector": [
         "gltf",
         "2k",
@@ -2139,6 +2155,7 @@
       "asset": "spray_paint_bottles",
       "sourcePage": "https://polyhaven.com/a/spray_paint_bottles",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景装饰（滑板 / 篮球可用）；RSProps urban_spray_paint(_dirty)",
       "selector": [
         "gltf",
         "2k",
@@ -2155,6 +2172,7 @@
       "asset": "spray_paint_bottles",
       "sourcePage": "https://polyhaven.com/a/spray_paint_bottles",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景装饰（滑板 / 篮球可用）；RSProps urban_spray_paint(_dirty)",
       "selector": [
         "gltf",
         "2k",
@@ -2171,6 +2189,7 @@
       "asset": "spray_paint_bottles",
       "sourcePage": "https://polyhaven.com/a/spray_paint_bottles",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景装饰（滑板 / 篮球可用）；RSProps urban_spray_paint(_dirty)",
       "selector": [
         "gltf",
         "2k",
@@ -2187,6 +2206,7 @@
       "asset": "spray_paint_bottles",
       "sourcePage": "https://polyhaven.com/a/spray_paint_bottles",
       "license": "CC0-1.0",
+      "purpose": "#25 翻新街景装饰（滑板 / 篮球可用）；RSProps urban_spray_paint(_dirty)",
       "selector": [
         "gltf",
         "2k",
@@ -2941,6 +2961,7 @@
       "asset": "painted_metal_shutter",
       "sourcePage": "https://polyhaven.com/a/painted_metal_shutter",
       "license": "CC0-1.0",
+      "purpose": "#58 C6 室内场馆外壳（卷帘门、设备间）",
       "selector": [
         "arm",
         "2k",
@@ -2955,6 +2976,7 @@
       "asset": "painted_metal_shutter",
       "sourcePage": "https://polyhaven.com/a/painted_metal_shutter",
       "license": "CC0-1.0",
+      "purpose": "#58 C6 室内场馆外壳（卷帘门、设备间）",
       "selector": [
         "Diffuse",
         "2k",
@@ -2969,6 +2991,7 @@
       "asset": "painted_metal_shutter",
       "sourcePage": "https://polyhaven.com/a/painted_metal_shutter",
       "license": "CC0-1.0",
+      "purpose": "#58 C6 室内场馆外壳（卷帘门、设备间）",
       "selector": [
         "nor_gl",
         "2k",
@@ -2983,6 +3006,7 @@
       "asset": "painted_plaster_wall",
       "sourcePage": "https://polyhaven.com/a/painted_plaster_wall",
       "license": "CC0-1.0",
+      "purpose": "#58 C6 室内场馆外壳（墙面）；#25 翻新候选",
       "selector": [
         "arm",
         "2k",
@@ -2997,6 +3021,7 @@
       "asset": "painted_plaster_wall",
       "sourcePage": "https://polyhaven.com/a/painted_plaster_wall",
       "license": "CC0-1.0",
+      "purpose": "#58 C6 室内场馆外壳（墙面）；#25 翻新候选",
       "selector": [
         "Diffuse",
         "2k",
@@ -3011,6 +3036,7 @@
       "asset": "painted_plaster_wall",
       "sourcePage": "https://polyhaven.com/a/painted_plaster_wall",
       "license": "CC0-1.0",
+      "purpose": "#58 C6 室内场馆外壳（墙面）；#25 翻新候选",
       "selector": [
         "nor_gl",
         "2k",
@@ -3152,6 +3178,7 @@
       "asset": "red_brick",
       "sourcePage": "https://polyhaven.com/a/red_brick",
       "license": "CC0-1.0",
+      "purpose": "#58 C6 室内场馆外壳（砖墙）；#25 翻新候选",
       "selector": [
         "arm",
         "2k",
@@ -3166,6 +3193,7 @@
       "asset": "red_brick",
       "sourcePage": "https://polyhaven.com/a/red_brick",
       "license": "CC0-1.0",
+      "purpose": "#58 C6 室内场馆外壳（砖墙）；#25 翻新候选",
       "selector": [
         "Diffuse",
         "2k",
@@ -3180,6 +3208,7 @@
       "asset": "red_brick",
       "sourcePage": "https://polyhaven.com/a/red_brick",
       "license": "CC0-1.0",
+      "purpose": "#58 C6 室内场馆外壳（砖墙）；#25 翻新候选",
       "selector": [
         "nor_gl",
         "2k",
@@ -3278,6 +3307,7 @@
       "asset": "sparse_grass",
       "sourcePage": "https://polyhaven.com/a/sparse_grass",
       "license": "CC0-1.0",
+      "purpose": "#25 射箭场草地（A1）；#58 C8 场边绿化",
       "selector": [
         "arm",
         "2k",
@@ -3292,6 +3322,7 @@
       "asset": "sparse_grass",
       "sourcePage": "https://polyhaven.com/a/sparse_grass",
       "license": "CC0-1.0",
+      "purpose": "#25 射箭场草地（A1）；#58 C8 场边绿化",
       "selector": [
         "Diffuse",
         "2k",
@@ -3306,6 +3337,7 @@
       "asset": "sparse_grass",
       "sourcePage": "https://polyhaven.com/a/sparse_grass",
       "license": "CC0-1.0",
+      "purpose": "#25 射箭场草地（A1）；#58 C8 场边绿化",
       "selector": [
         "nor_gl",
         "2k",
@@ -3320,6 +3352,7 @@
       "asset": "white_plaster_02",
       "sourcePage": "https://polyhaven.com/a/white_plaster_02",
       "license": "CC0-1.0",
+      "purpose": "#58 C6 室内场馆外壳（墙面 / 顶棚）",
       "selector": [
         "arm",
         "2k",
@@ -3334,6 +3367,7 @@
       "asset": "white_plaster_02",
       "sourcePage": "https://polyhaven.com/a/white_plaster_02",
       "license": "CC0-1.0",
+      "purpose": "#58 C6 室内场馆外壳（墙面 / 顶棚）",
       "selector": [
         "Diffuse",
         "2k",
@@ -3348,6 +3382,7 @@
       "asset": "white_plaster_02",
       "sourcePage": "https://polyhaven.com/a/white_plaster_02",
       "license": "CC0-1.0",
+      "purpose": "#58 C6 室内场馆外壳（墙面 / 顶棚）",
       "selector": [
         "nor_gl",
         "2k",
