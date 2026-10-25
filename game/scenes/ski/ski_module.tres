@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RSGameModule" format=3]
+
+[ext_resource type="Script" path="res://core/game_module.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "ski"
+name = "滑雪"
+oled = "SKI"
+scene = "res://scenes/ski/ski_game.tscn"
+desc = "从山顶滑到终点：倾斜转弯穿旗门，往前压团身加速，飞跳台转体抓板。4 张地图（晴空 / 黄昏松林 / 夜场 / 暴风雪冰川），大厅按 B 选。1–4 人分屏同时滑。"
+maps_script = "res://scenes/ski/ski_maps.gd"
+lessons = PackedStringArray("TILT_RIGHT", "TILT_FORWARD", "JUMP", "GRAB")
+solo_goals = PackedInt32Array(2000, 5000, 9000)
+players = Vector2i(1, 4)
+mode = "individual"
+ambience = "wind_amb"
+preview = "res://assets/previews/ski.jpg"
+ready = true
+order = 50
+benchmark = true

@@ -13,6 +13,7 @@ import tempfile
 import time
 from pathlib import Path
 
+import catalog
 from smoke_test import discover_cases, engine_errors, png_size
 from test_game import ROOT, find_godot, run_engine
 
@@ -23,8 +24,8 @@ def main() -> int:
     parser.add_argument("--ui-only", action="store_true")
     parser.add_argument("--screenshots", action="store_true")
     parser.add_argument("--players", nargs="+", type=int, choices=(1, 2, 3, 4), default=[2, 4])
-    parser.add_argument("--games", nargs="+", choices=("plane", "archery", "bowling", "skate", "ski", "basketball"),
-                        default=["plane", "archery", "bowling", "skate", "ski", "basketball"])
+    parser.add_argument("--games", nargs="+", choices=catalog.game_ids(),
+                        default=list(catalog.game_ids()))
     parser.add_argument("--output", type=Path, default=ROOT / "audit-output/text-size")
     # Non-16:9 windows (16:10, 21:9) check that menus and HUDs still fit the expanded canvas.
     parser.add_argument("--resolution", default=(1600, 900), type=lambda text: tuple(map(int, text.lower().split("x", 1))))

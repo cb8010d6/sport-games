@@ -95,8 +95,8 @@ func _settings() -> void:
 	get_tree().current_scene = _scene
 	await _frames()
 	var settings_index := -1
-	for i in _scene.GAMES.size():
-		if _scene.GAMES[i].get("page", "") == "settings":
+	for i in _scene.entries.size():
+		if _scene.entries[i].get("page", "") == "settings":
 			settings_index = i
 	_scene._open(settings_index)
 	var menu: RSPauseMenu = _scene._settings

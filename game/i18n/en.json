@@ -94,7 +94,7 @@
  "一位真人对战一位电脑。挑战星数按地图 1 的正式个人最佳计算，既有纪录也计入；每个目标一星。": "One player versus one CPU. Each Map 1 score target earns one star. Existing personal bests count too.",
  "玩家档案": "Player profile",
  "电脑难度": "CPU difficulty",
- "P%d · %s · 星数 %d / 18": "P%d · %s · Stars %d / 18",
+ "P%d · %s · 星数 %d / %d": "P%d · %s · Stars %d / %d",
  "单局分数目标：%s": "Single-round score targets: %s",
  "请先连接分配给 P%d 的手柄，可在玩家 / 手柄页分配。": "Connect a controller assigned to P%d. Assign it on the Players / controllers page.",
   "无障碍": "Accessibility",
