@@ -77,3 +77,93 @@ node --test tools/tests/asset_sync.test.mjs
 
 2026-10-21 已从 Poly Haven 实际下载全部 222 个文件，随后离线校验全部通过，失败数为 0。
 下载器另有模拟网络、损坏文件和元数据脱敏测试。原站可用性会变化，CI 每次打包都会重新校验。
+
+## 共享素材库
+
+规划见 issue #58。两个及以上项目会用的成品与加工件放 `game/assets/shared/`（普通 Git）；
+只有一个项目用、将来大概率也只有它用的放 `game/assets/<sport_id>/`。拿不准时放 `shared/`。
+项目代码不得引用别的项目目录，需要共用就先搬进 `shared/`。
+
+### 目录
+
+```
+game/assets/
+  polyhaven/                 # 不变：Poly Haven 原始文件（同步下载）
+  shared/                    # 共享成品与加工件，CREDITS.md 是总索引
+    characters/              # roster/<avatar_id>/、outfits/<sport>/、textures/（去重）
+    crowd/  arena/  vegetation/  vfx/  signage/
+    equipment/<item>/        # racket_tennis/、paddle_tt/、ball_*/、net/ …
+    materials/<来源>_<id>/   # 非 Poly Haven 材质：acg_net004a/ …
+  <sport_id>/                # 仅本项目使用
+  sfx/ music/ fonts/ previews/ decals/ models/   # 不变
+```
+
+每个子目录都有 `CREDITS.md`（模板已建好）。现有 `characters/`、`golf/trees/` 在 #58 P1 / P2
+迁移，迁移 PR 只做 `git mv` + 路径与记录更新，不同时改内容。
+
+### 命名与代码入口
+
+- 全部小写 ASCII `snake_case`，格式 `<类别>_<名称>[_<变体>]`：`arena_bleacher_outdoor`、`eq_racket_tennis`、`vfx_spray_atlas`。
+- 纹理沿用 Poly Haven 命名：`<id>_diff_<res>.jpg`、`<id>_nor_gl_<res>.jpg`、`<id>_arm_<res>.jpg`；
+  带透明的 diff 用 PNG。外部材质加工时改成同一套命名。
+- 材质用 `RSPbr.maps / surface / standard`：Poly Haven 写 ID（`"clean_asphalt"`），共享材质写
+  `"shared:<来源>_<id>"`（读 `res://assets/shared/materials/<来源>_<id>/`）。不要在项目里手拼路径。
+- 批量道具用 `RSProps.place`。`PREFABS` 键名是 `<套件>_<名称>`，套件：`urban`（街景）、`nature`
+  （岩石植被）、`beach`、`marina`、`arena`、`hall`（室内场馆）。glTF 路径以 `shared:` 开头时读
+  `res://assets/shared/`。
+- 音效 ID 用动作 / 物体（`racket_hit`），确实专属才加项目前缀（`pp_table`）；变体用 `_0`、`_1`。
+
+### 导入设置
+
+| 类型 | 设置 |
+|---|---|
+| 颜色 / ARM 纹理 | `compress/mode=2`（VRAM），`mipmaps/generate=true`；ARM 不当 sRGB |
+| 法线 | `compress/mode=2`，`compress/normal_map=1`，OpenGL 方向（`nor_gl`） |
+| 人物纹理 | 同上，`process/size_limit=2048`；眼睛 / 睫毛 / 眉毛 ≤ 1K |
+| HDRI | 室外可见天空 4K；室内或只做反射 2K |
+| 模型 | `meshes/generate_lods=true`、`create_shadow_meshes=true`、`ensure_tangents=true`；不导入无用动画；纹理外部引用 |
+| 音频 | WAV 单声道（环境循环可立体声），裁掉首尾静音；循环 ≤ 1.6 MB，一次性 ≤ 300 KB |
+
+重复物体用 `RSProps` / MultiMesh、同一材质。三角面：主角器材 ≤ 5k（水上摩托 ≤ 15k），场边道具
+≤ 10k，人物 LOD0 ≤ 30k，前排观众 ≤ 3k / 人；40 m 外的植被 / 观众 / 远景用 impostor；高面数
+扫描模型先减面或烘焙再入库。
+
+### 每个新项目的预算
+
+| 项目 | 上限（高画质） |
+|---|---|
+| 场地材质 | ≤ 12 组 2K，≤ 2 组 4K 主表面 |
+| HDRI | 每张地图 1 张；室外 4K / 室内 2K |
+| 人物 | 4 名选手 + ≤ 2 名 NPC；每人新增服装纹理 ≤ 2 × 2K |
+| 道具 / 器材 / 观众 / 特效 | 合计 ≤ 120 MB 显存 |
+| 合计显存 | ≤ 550 MB（`RENDER_VIDEO_MEM_USED` 实测，写进 PR） |
+| 新增 Poly Haven 下载 | ≤ 120 MiB |
+| 新增 Git 成品 | ≤ 40 MiB，单文件 ≤ 20 MiB |
+
+超出要在 PR 里写明理由。
+
+### 来源记录
+
+| 来源 | 放哪 | 必须更新 |
+|---|---|---|
+| Poly Haven | `polyhaven/`（不进 Git） | 用同步工具生成 `tools/assets.lock.json` 条目（不手写哈希）；`polyhaven/CREDITS.md` 追加一行；本文的组数 / 文件数 / 字节数 |
+| 其他 CC0（ambientCG、Kenney、Freesound、OpenGameArt、MakeHuman 社区包） | 加工后进 `shared/...` 或 `sfx/` | 所在目录 `CREDITS.md` 逐文件写原始页面、资产 ID、作者、许可、下载日期、原始文件名与 SHA-256、加工步骤；重新生成 `docs/ASSET_MANIFEST.json`；`docs/THIRD_PARTY.md` 加该来源一节 |
+| 项目脚本生成（Blender 器材、人物、impostor） | `shared/...` | 脚本放 `tools/blender/`；CREDITS 写输入素材、Blender / MPFB 版本、命令与参数；全 CC0 输入记 `CC0-1.0`，含原创几何 / 着色器记 `MIT AND CC0-1.0` |
+| AI 生成 | 原则上不新增 | 确需使用时按 [来源声明](ASSET_PROVENANCE.md) 单独列出 |
+
+`tools/asset_policy.json` 把 `game/assets/shared/` 登记为 `CC0-1.0`。`MIT AND CC0-1.0` 的子目录要加
+一条更窄的前缀规则并放在它之前（先匹配的规则生效，`asset_sync.test.mjs` 会检查被遮住的规则）。
+ambientCG 只提供 ZIP，下载器不解压：少量材质手动下载、只留需要的贴图、改成 Poly Haven 命名后提交
+1K / 2K 成品。不使用 CC-BY / CC-BY-SA / “royalty free” / 来源不明的素材；真实商标去掉或换成虚构标志。
+
+### 暂未使用的 Poly Haven 素材
+
+以下 9 组已同步但还没有场景使用，用途写在 `tools/assets.lock.json` 对应条目的 `purpose` 字段里；
+M4 打包前仍无人使用的再从锁定清单移除：
+
+| 素材 | 分配 |
+|---|---|
+| `painted_plaster_wall`、`white_plaster_02`、`red_brick`、`painted_metal_shutter` | #58 C6 室内场馆外壳（#25 翻新也可用） |
+| `sparse_grass` | #25 射箭场草地；#58 C8 场边绿化 |
+| `WetFloorSign_01` | #58 A7，给保龄球馆（#25）；`RSProps` 键 `hall_wet_floor_sign` |
+| `concrete_cat_statue`、`rollershutter_window_01`、`spray_paint_bottles` | #25 翻新街景；`RSProps` 键 `urban_cat_statue`、`urban_shutter_window_01(_graffiti)`、`urban_spray_paint(_dirty)` |

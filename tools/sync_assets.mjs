@@ -63,7 +63,8 @@ export function validateManifest(manifest) {
       !/^[a-f\d]{64}$/.test(item.downloadSha256) || !Number.isSafeInteger(item.bytes) || item.bytes <= 0 ||
       !/^[A-Za-z0-9_]+$/.test(item.asset) || !Array.isArray(item.selector) || !item.selector.length ||
       item.selector.some(s => typeof s !== 'string' || !s || ['__proto__', 'constructor', 'prototype'].includes(s)) ||
-      item.transform && item.transform !== 'jpeg-processing-history-v1')
+      item.transform && item.transform !== 'jpeg-processing-history-v1' ||
+      'purpose' in item && (typeof item.purpose !== 'string' || !item.purpose))
       throw new Error('Invalid locked asset entry');
   }
   return manifest;
