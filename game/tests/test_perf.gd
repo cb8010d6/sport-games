@@ -28,6 +28,7 @@ func _run() -> void:
 	_clock()
 	await _riders_at_30fps()
 	_split_shadow_tier()
+	await _ball_fire_shared()
 	for i in 3:   # let freed riders' rendering resources go before quitting
 		await get_tree().process_frame
 	print("RS_PERF_TESTS: %d checks, %d failures" % [_checks, _failures])
@@ -192,6 +193,37 @@ func _riders_at_30fps() -> void:
 	ski.free()
 	for i in 3:
 		await get_tree().process_frame
+
+
+func _ball_fire_shared() -> void:
+	var first := RSBasketball.new()
+	var second := RSBasketball.new()
+	add_child(first)
+	add_child(second)
+	first.set_fire(true)
+	var before := int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT))
+	second.set_fire(true)
+	var added := int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)) - before
+	_check(first._fire.process_material == second._fire.process_material, "basketball fires share the process material")
+	_check(first._fire.draw_pass_1 == second._fire.draw_pass_1, "basketball fires share the particle mesh and its materials")
+	_check(added <= 1, "second ball fire creates at most one internal resource (%d)" % added)
+	print("RS_PERF_FIRE: resources per new fire 9 -> %d" % added)
+	var resources := RSBasketball.fire_resources()
+	var process := first._fire.process_material
+	second.set_fire(false)
+	second.set_layers(8)
+	_check(first._fire.emitting and not second._fire.emitting, "fire emission is independent for each ball")
+	_check(first._fire.layers != second._fire.layers and first._fire.process_material == process,
+		"per-ball layers do not mutate shared fire resources")
+	first.free()
+	second.free()
+	var children_before := get_child_count()
+	RSBasketball.warm_up_fire(self)
+	_check(get_child_count() == children_before + 1, "fire warm-up temporarily owns one particle node")
+	for i in 3:
+		await get_tree().process_frame
+	_check(get_child_count() == children_before, "fire warm-up frees its temporary node after a frame")
+	_check(RSBasketball.fire_resources() == resources, "warm-up reuses the same cached resource array")
 
 
 # ------------------------------------------------------------- split shadow tier ----
