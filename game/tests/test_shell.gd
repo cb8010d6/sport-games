@@ -115,6 +115,30 @@ func _run() -> void:
 	ControllerHub._handle_json(hub_event.call("disconnected"))
 	ControllerHub._handle_json(hub_event.call("connected"))
 	_check(hub_events[0] == 2, "reconnect emits controller_connected again (#50)")
+	# #55: disconnecting mid-hold cancels the button (never a plain release),
+	# exactly once, and clears the held state.
+	var cancels := [0]
+	var plain_releases := [0]
+	ControllerHub.button_cancelled.connect(func(_c: RSController, _b: int) -> void: cancels[0] += 1)
+	ControllerHub.button_released.connect(func(_c: RSController, _b: int) -> void: plain_releases[0] += 1)
+	ControllerHub.controllers[9].buttons = RSController.BTN_A
+	ControllerHub._handle_json(hub_event.call("disconnected"))
+	ControllerHub._handle_json(hub_event.call("disconnected"))
+	_check(cancels[0] == 1 and plain_releases[0] == 0, "disconnect mid-hold cancels the button once, without a release (#55)")
+	_check(ControllerHub.controllers[9].buttons == 0, "disconnect clears the held buttons (#55)")
+	# The roster alone reporting it offline -- no disconnected event -- cancels
+	# the same way, and a repeat does not cancel twice; with the held buttons
+	# cleared, no late release can surface when it comes back (#55).
+	var roster9 := func(online: bool) -> PackedByteArray:
+		return JSON.stringify({"type": "roster", "controllers": [{"id": 9, "kind": "phone", "name": "T", "player": 1, "connected": online}]}).to_utf8_buffer()
+	ControllerHub._handle_json(roster9.call(true))
+	ControllerHub.controllers[9].buttons = RSController.BTN_A
+	ControllerHub._handle_json(roster9.call(false))
+	_check(cancels[0] == 2 and plain_releases[0] == 0, "roster-only offline cancels the held button, no event needed (#55)")
+	_check(ControllerHub.controllers[9].buttons == 0, "roster-only offline clears the held buttons (#55)")
+	ControllerHub._handle_json(roster9.call(false))
+	ControllerHub._handle_json(hub_event.call("disconnected"))
+	_check(cancels[0] == 2, "repeated offline roster/event does not cancel twice (#55)")
 	ControllerHub.controllers.erase(9)
 	var pause := RSPauseMenu.new(self, true)
 	add_child(pause)
@@ -135,6 +159,25 @@ func _run() -> void:
 		_check(pages.visible and pages._focus.size() > 0, "menu page: " + page)
 		pages.close()
 	pages.queue_free()
+	# A controller that drops out of the roster is kept, only marked
+	# disconnected: player state keys on the RSController object, so the same
+	# id coming back must reuse it (#45, review of the local purge).
+	var dropped := [0]
+	ControllerHub.controller_disconnected.connect(func(_c: RSController) -> void: dropped[0] += 1)
+	ControllerHub._handle_json(JSON.stringify({"type": "roster", "controllers": [{"id": 7, "kind": "phone", "name": "T", "player": 1, "connected": true}]}).to_utf8_buffer())
+	_check(ControllerHub.controllers.has(7), "roster adds the controller locally")
+	var kept: RSController = ControllerHub.controllers[7]
+	ControllerHub._handle_json(JSON.stringify({"type": "roster", "controllers": []}).to_utf8_buffer())
+	_check(ControllerHub.controllers.get(7) == kept and not kept.connected, "controller missing from the next roster is kept, marked disconnected (#45)")
+	_check(dropped[0] == 1, "dropped controller emits controller_disconnected once")
+	ControllerHub._handle_json(JSON.stringify({"type": "roster", "controllers": [{"id": 7, "kind": "phone", "name": "T", "player": 1, "connected": true}]}).to_utf8_buffer())
+	_check(ControllerHub.controllers.get(7) == kept and kept.connected, "returning id reuses the same controller object (#45)")
+	# Vanishing from the roster mid-hold cancels the held buttons too (#55).
+	var vanish_cancels := [0]
+	ControllerHub.button_cancelled.connect(func(_c: RSController, _b: int) -> void: vanish_cancels[0] += 1)
+	kept.buttons = RSController.BTN_B
+	ControllerHub._handle_json(JSON.stringify({"type": "roster", "controllers": []}).to_utf8_buffer())
+	_check(vanish_cancels[0] == 1 and kept.buttons == 0, "vanishing from the roster cancels held buttons (#45/#55)")
 	_check(load("res://scenes/menu/main_menu.gd") != null, "main menu compiles")
 	CatalogCases.run(_check)
 	TutorialCases.run(_check)

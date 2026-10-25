@@ -13,6 +13,7 @@ var _recovery_mode := ""
 var _recovery_elapsed := 0.0
 var _checks := 0
 var _heartbeat_at := 0
+var _roster_entries: Array = []
 
 
 ## Count calls before the framework guard, so a repeated timeout finish cannot
@@ -62,9 +63,9 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	if Time.get_ticks_msec() - _heartbeat_at >= 500:
+	if not _roster_entries.is_empty() and Time.get_ticks_msec() - _heartbeat_at >= 500:
 		_heartbeat_at = Time.get_ticks_msec()
-		_peer.put_packet(JSON.stringify({"type": "roster", "controllers": []}).to_utf8_buffer())
+		_send_roster_snapshot()
 
 
 func _check(ok: bool, label: String) -> void:
@@ -84,9 +85,14 @@ func _roster(disconnected: int = 0) -> void:
 	for slot in range(1, _count + 1):
 		entries.append({"id": 80 + slot, "player": slot, "kind": ["phone", "regina", "sim"][slot % 3],
 			"name": "Fixture P%d" % slot, "connected": slot != disconnected, "battery": 80})
-	_peer.put_packet(JSON.stringify({"type": "roster", "controllers": entries}).to_utf8_buffer())
+	_roster_entries = entries
+	_send_roster_snapshot()
 	await _frames()
 
+
+func _send_roster_snapshot() -> void:
+	# A roster is authoritative: an empty heartbeat would disconnect every player.
+	_peer.put_packet(JSON.stringify({"type": "roster", "controllers": _roster_entries}).to_utf8_buffer())
 
 func _send_input(slot: int, buttons: int) -> void:
 	var packet := PackedByteArray()
@@ -96,6 +102,15 @@ func _send_input(slot: int, buttons: int) -> void:
 	packet[2] = 80 + slot
 	packet[3] = buttons
 	_peer.put_packet(packet)
+	await _frames()
+
+
+func _send_event(slot: int, ev_name: String) -> void:
+	if ev_name in ["connected", "disconnected"]:
+		for entry: Dictionary in _roster_entries:
+			if int(entry["id"]) == 80 + slot:
+				entry["connected"] = ev_name == "connected"
+	_peer.put_packet(JSON.stringify({"type": "event", "controller": 80 + slot, "name": ev_name}).to_utf8_buffer())
 	await _frames()
 
 
@@ -376,6 +391,79 @@ func _results_reentry_checks(game: Variant) -> void:
 		_check(game.finish_calls == 1, "RESULTS and empty-player pause cancellation do not finish the round again")
 
 
+## #55: disconnecting while a button is held reports the hold as cancelled once.
+func _disconnect_release_check(game: Variant) -> void:
+	var button := RSController.BTN_A if _game_id == "archery" else RSController.BTN_B
+	var cancels := [0]
+	var releases := [0]
+	var counter := func(c: RSController, b: int) -> void:
+		if c.id == 82 and b == button:
+			cancels[0] += 1
+	var release_counter := func(c: RSController, b: int) -> void:
+		if c.id == 82 and b == button:
+			releases[0] += 1
+	ControllerHub.button_cancelled.connect(counter)
+	ControllerHub.button_released.connect(release_counter)
+	for route: String in ["event", "offline", "missing"]:
+		if _game_id == "archery":
+			for _i in 900:
+				if int(game._stage) == 1:
+					break
+				await _frames(1)
+		if _game_id == "basketball":
+			for _ready in 300:
+				if game._sh(game.players[82]).st == game.St.READY:
+					break
+				await _frames(1)
+			_check(game._sh(game.players[82]).st == game.St.READY, "basketball finishes the real pickup before " + route)
+		await _send_input(2, button)
+		var p: RSPartyGame.Player = game.players[82]
+		var score := p.score
+		var snapshot: Array = []
+		if _game_id == "archery":
+			var state: Variant = game._archer(p)
+			for _charge in 120:
+				if state.power() >= game.MIN_POWER:
+					break
+				await _frames(1)
+			_check(state.drawing and state.power() >= game.MIN_POWER, "archery is charged enough to expose an unintended shot before " + route)
+			snapshot = [state.arrows_left, state.arrows.size(), state.hits.size()]
+		elif _game_id == "basketball":
+			_check(game._sh(p).st == game.St.SET, "basketball really raises the ball before " + route)
+			snapshot = [game._sh(p).flying.size()]
+		elif _game_id == "bowling":
+			_check(game._bowler(p).step == game.Step.SWING, "bowling really swings before " + route)
+			snapshot = [game._bowler(p).rolls.size()]
+		var previous: int = cancels[0]
+		for _repeat in 2:
+			if route == "event":
+				await _send_event(2, "disconnected")
+			elif route == "offline":
+				await _roster(2)
+			else:
+				var remaining: Array = []
+				for entry: Dictionary in _roster_entries:
+					if int(entry["id"]) != 82:
+						remaining.append(entry)
+				_roster_entries = remaining
+				_send_roster_snapshot()
+				await _frames()
+		_check(cancels[0] == previous + 1 and p.c.buttons == 0, route + " cancels a held button once")
+		if _game_id == "archery":
+			var state: Variant = game._archer(p)
+			_check(not state.drawing and [state.arrows_left, state.arrows.size(), state.hits.size()] == snapshot, route + " lowers the bow without shooting or consuming an arrow")
+		elif _game_id == "basketball":
+			_check(game._sh(p).st == game.St.READY and [game._sh(p).flying.size()] == snapshot, route + " lowers the basketball without a shot")
+		elif _game_id == "bowling":
+			_check(game._bowler(p).step == game.Step.AIM and [game._bowler(p).rolls.size()] == snapshot, route + " aborts the swing without a throw")
+		_check(p.score == score, route + " cancellation preserves score")
+		await _roster()
+		await _send_input(2, 0)
+		_check(releases[0] == 0, route + " reconnect creates no late release")
+	ControllerHub.button_cancelled.disconnect(counter)
+	ControllerHub.button_released.disconnect(release_counter)
+
+
 func _exercise() -> void:
 	get_tree().current_scene = null
 	var entry := RSCatalog.find_game(_game_id)
@@ -429,10 +517,15 @@ func _exercise() -> void:
 			await _round_recovery(game)
 		return
 	if not _layout_only:
+		await _disconnect_release_check(game)
 		var original: RSPartyGame.Player = game.players[81]
 		original.score = 123
 		await _roster(1)
 		_check(game.players[81] == original and not original.c.connected, "playing disconnect retains slot")
+		_heartbeat_at = Time.get_ticks_msec() - 500
+		_process(0.0)
+		await _frames()
+		_check(game.players[81] == original and not original.c.connected and original.score == 123, "heartbeat preserves the authoritative offline slot and score")
 		await _roster()
 		_check(game.players[81] == original and original.c.connected and original.score == 123, "playing rejoin preserves score")
 		await _pause_check(game)

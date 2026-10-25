@@ -9,6 +9,7 @@ var _id := "plane"
 var _level := 1
 var _slot := 1
 var _heartbeat := 0
+var _roster_entries: Array = []
 var _captures := ""
 var _layout := false
 
@@ -28,9 +29,9 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	if Time.get_ticks_msec() - _heartbeat >= 500:
+	if not _roster_entries.is_empty() and Time.get_ticks_msec() - _heartbeat >= 500:
 		_heartbeat = Time.get_ticks_msec()
-		_peer.put_packet(JSON.stringify({"type": "roster", "controllers": []}).to_utf8_buffer())
+		_peer.put_packet(JSON.stringify({"type": "roster", "controllers": _roster_entries}).to_utf8_buffer())
 
 
 func _check(ok: bool, label: String) -> void:
@@ -50,7 +51,8 @@ func _roster(connected: bool) -> void:
 	for slot in range(1, 5):
 		entries.append({"id": 80 + slot, "player": slot, "kind": "phone", "name": "Fixture P%d" % slot,
 			"connected": connected if slot == _slot else true, "battery": 80})
-	_peer.put_packet(JSON.stringify({"type": "roster", "controllers": entries}).to_utf8_buffer())
+	_roster_entries = entries
+	_peer.put_packet(JSON.stringify({"type": "roster", "controllers": _roster_entries}).to_utf8_buffer())
 	await _frames()
 
 

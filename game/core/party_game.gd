@@ -97,6 +97,7 @@ var _smoke_report := ""
 var _smoke_shot := ""
 var _smoke_done := false
 var _tournament_final_shown := false
+var _tournament_final_msec := 0  ## when the final podium appeared; A is ignored for 1 s (#55)
 var _tournament_exit := RSTournament.ExitGuard.new()
 var _tutorials: Dictionary = {}  ## controller id -> its active lobby lesson
 var _music: RSMusic
@@ -186,6 +187,14 @@ func _results_process(_delta: float) -> void:
 
 func _player_button(_p: Player, _button: int, _pressed: bool) -> void:
 	## Buttons during the countdown and play (A in the lobby / results is handled here).
+	pass
+
+
+func _player_cancel_hold(_p: Player, _button: int) -> void:
+	## A hold that ended without the player's intent: the pause menu opened
+	## mid-hold, or the controller disconnected while a button was down (#55).
+	## Cancel the held action (drop the draw / lower the ball) instead of
+	## completing it the way a real release would. Default: nothing is held.
 	pass
 
 
@@ -286,6 +295,7 @@ func _ready() -> void:
 	_music = RSMusic.attach(self)
 	ControllerHub.button_pressed.connect(_on_button.bind(true))
 	ControllerHub.button_released.connect(_on_button.bind(false))
+	ControllerHub.button_cancelled.connect(_on_button_cancelled)
 	ControllerHub.controller_event.connect(_on_event)
 	_tournament_exit.eligible = _exit_eligible
 	ControllerHub.controller_disconnected.connect(_exit_disconnected)
@@ -662,6 +672,12 @@ func _on_button(c: RSController, button: int, pressed: bool) -> void:
 	if ui.pause.is_open():
 		if pressed:
 			ui.pause.on_button(button)
+		else:
+			# A release inside the pause menu cancels the hold instead of
+			# completing it: the player let go without meaning to act (#55).
+			var held_p: Player = players.get(c.id)
+			if held_p != null:
+				_player_cancel_hold(held_p, button)
 		return
 	if pressed and button == RSController.BTN_C and phase in [Phase.LOBBY, Phase.RESULTS]:
 		if RSTournament.active():
@@ -689,17 +705,31 @@ func _on_button(c: RSController, button: int, pressed: bool) -> void:
 				if RSTournament.last_round():
 					if not _tournament_final_shown:
 						_tournament_final_shown = true
+						_tournament_final_msec = Time.get_ticks_msec()
 						ui.show_tournament_podium(RSTournament.standings())
 						for participant: Player in players.values():
 							send_ui(participant, {"clear": true, "title": "PARTY", "main": "FINISHED", "legends": ["MENU", "", "MENU", null]})
-					else:
+					elif Time.get_ticks_msec() - _tournament_final_msec >= 1000:
 						go_menu()
+					# else: a second A within 1 s of the podium appearing (two
+					# players pressing together) must not skip it (#55).
 				else:
-					get_tree().change_scene_to_file(RSTournament.advance())
+					var next_scene := RSTournament.advance()
+					if next_scene != "":
+						get_tree().change_scene_to_file(next_scene)
 			else:
 				_to_lobby()
 	elif phase in [Phase.COUNTDOWN, Phase.PLAY]:
 		_player_button(p, button, pressed)
+
+
+func _on_button_cancelled(c: RSController, button: int) -> void:
+	## The controller went away mid-hold: cancel, never complete (#55).
+	if benchmark_mode:
+		return
+	var p: Player = players.get(c.id)
+	if p != null:
+		_player_cancel_hold(p, button)
 
 
 func _on_event(c: RSController, ev: String) -> void:
