@@ -5,8 +5,9 @@
 没有用旧实验分支覆盖新框架、项目、素材或体感协议。标准发行仍使用官方 Godot 4.7.2；
 实验目标是 `experiment/nvidia-rtx`，不向 `dev` / `main` 推送。
 
-当前实验引擎来源与版本见 [rtx_engine.json](../tools/rtx_engine.json)。其中补丁提交属于待发布的
-本地引擎补丁系列，不是 NVIDIA 上游已有提交；应从经过审查的个人引擎 fork 取得对应提交。
+当前实验引擎来源与版本见 [rtx_engine.json](../tools/rtx_engine.json)，固定个人 fork
+`cb8010d6/godot` 的 `c1fc0252a98913d3be394417b6977a8c5aa4d77d`（C1）。
+这是经过审查的个人引擎补丁系列，不是 NVIDIA 上游已有提交。
 编辑器、导出模板和 Streamline 2.14.16 运行库必须成套，不能用标准模板导出实验工程。
 SDK 与运行库按 NVIDIA 自身许可分发，本游戏仓库不收录 SDK 或二进制构建产物。
 
@@ -21,7 +22,7 @@ SDK 与运行库按 NVIDIA 自身许可分发，本游戏仓库不收录 SDK 或
 - NVIDIA 菜单的 DLSS 锐化控制复用引擎的 `fsr_sharpness` / NIS，默认显式为 0。
   切回 FSR 后恢复原来的 FSR 锐化值。没有增加 MFG、动态 MFG 或 DLSS 5。
 - DLSS 能力不可用时保留用户请求，并按对应的 FSR 档回退；菜单明确显示回退。
-  NVIDIA 超级性能暂不提供：候选引擎的输出尺寸 / SDK 模式匹配修复仍待最终 GPU 验收。
+  游戏菜单暂不提供 NVIDIA 超级性能；本次真实游戏矩阵覆盖 DLAA、质量和性能档。
 - DDGI / PT + RR 需要 Vulkan Forward+、实际光追管线和对应属性。
   PT + RR 还要求 DLAA / DLSS、SDK 的 DLSS RR 能力，使用 1 sample/pixel。
   D3D12 的光追管线在此 fork 尚不可用，因此保持光栅；Windows HDR 仍沿用 D3D12 路径。
@@ -67,8 +68,15 @@ Recommended 预设、锐化 0、FG 关闭；光栅为原生、MSAA / FXAA 关闭
 
 [RTX_VALIDATION.json](RTX_VALIDATION.json) 是 2026-10-21 的历史验证，针对旧上游
 `135dff3887a3d2ccf45cafbd9bdffa7b718e1e76`，不代表新引擎或本次迁移已经完成 GPU 验收。
-当前 CPU 检查与 GPU 待验矩阵见 [RTX_MIGRATION.md](RTX_MIGRATION.md)。
-Vulkan SDK 的内部同步 / fake-swapchain 验证问题仍在排查；本分支不能称为发布候选版本。
+实测范围见 [RTX_MIGRATION.md](RTX_MIGRATION.md) 与
+[脱敏验证摘要](validation/rtx-c1fc0252a9.json)。C1 六种 Windows 构建、17 个真实游戏画面用例及
+四种 installed template 物理测试工程导出 / 运行通过；后者不是 Regina 本体导出，游戏本体导出仍待验。
+画面用例在 RTX 4060 Laptop GPU 上验证 Vulkan / D3D12、Jolt 120 Hz、DLSS / DLAA、
+分屏 FG 降级、DDGI / PT 请求以及无 SDK 的 FSR2 回退，没有请求验证层或验证实际 DLSS 模型。
+早期 CPU 检查的实验引擎是 `1000baebd`；六组 D3D12 严格干净对照发生在 `d37b63e72b`，
+不能标成 C1 重跑通过。此前 d37 游戏画面运行因工具哈希变化导致的整体 FAIL 也保持原样。
+Vulkan SDK 2.14 仍有 `09600` / `03868` 验证诊断，FG 另有内部同步与线程诊断；
+本分支不能称为发布候选版本。
 属性设置成功、headless 通过或单个菜单截图都不能替代实际 RTX / HDR / 性能验证。
 
 本次源代码适配由 OpenAI Codex 辅助完成；没有新增 AI 素材或第三方资产。

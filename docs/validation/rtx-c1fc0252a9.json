@@ -1,0 +1,185 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-26",
+  "status": "experimental; not a release candidate",
+  "engineRepository": "https://github.com/cb8010d6/godot",
+  "engineCommit": "c1fc0252a98913d3be394417b6977a8c5aa4d77d",
+  "gameBaselineCommit": "209897f4573208e02df52c4c929731a27d3527b1",
+  "rawEvidenceIncluded": false,
+  "windowsBuild": {
+    "status": "PASS",
+    "variants": 6,
+    "exitCode": 0,
+    "durationSeconds": 527.406,
+    "evidence": {
+      "id": "full-release-c1fc.json",
+      "sha256": "a8164db07d9798fcef43c036ac2904673f4312b5bb733fb48c26f84ad296157e"
+    }
+  },
+  "gameCaptures": {
+    "status": "PASS",
+    "passed": 17,
+    "total": 17,
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "physics": "Jolt Physics",
+    "physicsTicksPerSecond": 120,
+    "imageSize": [
+      1600,
+      900
+    ],
+    "postDrawFrames": 180,
+    "validationLayerRequested": false,
+    "actualModelQueried": false,
+    "generatedFramePresentationVerified": false,
+    "hdrRequested": false,
+    "inputHashesUnchangedDuringRun": true,
+    "cases": {
+      "vulkan-skate1-quality-recommended": "b3a7b7a839fdc1213920bab4e2a04b64a9206d418cda2cbbf7dde245c500b70f",
+      "vulkan-skate1-dlaa-M": "9fa451ac91668ade529ebd2400733b396997b8771ae832118ffbd0a51580438b",
+      "vulkan-skate1-performance-M": "7fb3af78a55a668af04bbf869c59013745d1249c0c88f04377bf557cba6fce3f",
+      "vulkan-basketball2-quality-fg-request": "882cb5eff39aed493265d6edee2fc0c8d561c1e000424ad8de71dd47ecacaa10",
+      "vulkan-basketball4-quality-fg-request": "5453d8e10952fcafa71dc3098ba88938ddc458844ab56e4e9856376caa34979b",
+      "vulkan-skate3-quality": "82e6598ddd43e0fc08d4c47a35cb19c8b6a5b2e3c3f007f2918c0edccfe73527",
+      "d3d12-skate1-quality-recommended": "9ba2a2f8debfcd35235971766c4b0099229c12776550f92f41bbc906eeb19f4f",
+      "d3d12-skate1-dlaa-M": "9cdc057ac59de868f9064d5c6f78fe607522f5cb1325dc5e4255eef2dd5c0235",
+      "d3d12-skate1-performance-M": "9339b75e0638e69f835811707ad5b4f3e0ebc048ab6f08887193adb28ed31561",
+      "d3d12-basketball2-quality-fg-request": "b48b0b130ce0b9f380539d2a4240d643331529975cabc58966fe0e2fad2b0b49",
+      "d3d12-basketball4-quality-fg-request": "5a15289e2c5b94d2043459feadaaa24f9f9296aa5f635324221448a5727fce9c",
+      "d3d12-skate3-quality": "ead4d7ca4e8e47d03c23a6463498a08d463c504d38c05dd998b01dee766b8930",
+      "vulkan-skate1-ddgi": "be973592f8ec313b7a6e0d1965dd37dac29248ceb11bbc3519d3dd010e3524e7",
+      "vulkan-skate1-pt-rr": "56e84ec302bfb9622ec25ff90823787b6861686f7e4e39d291c5714c125dafc5",
+      "d3d12-skate1-pt-raster-fallback": "9ba2a2f8debfcd35235971766c4b0099229c12776550f92f41bbc906eeb19f4f",
+      "no-sdk-vulkan-skate1-fsr-fallback": "1b031b1d0765c279f67dedb82d6585a4900dfb9d6ff6b50edb335a087559c91f",
+      "no-sdk-d3d12-skate1-fsr-fallback": "ab1ba250c3a63c01c2da6f4ed0b474a066deec285148a41b4555a549a76f63ce"
+    },
+    "caseValues": "Case names describe requests; hashes identify the captured PNGs. All cases passed their effective-state checks.",
+    "effectiveStateChecks": [
+      "requested API and C1 engine hash",
+      "Jolt Physics at 120 Hz",
+      "DLSS/DLAA viewport scaling",
+      "player SubViewport FG disabled and SDK FG disabled",
+      "Vulkan DDGI/PT environment flags",
+      "D3D12 PT request falls back to raster",
+      "no-SDK DLSS request falls back to FSR2"
+    ],
+    "limitations": [
+      "180 real post-draw frames, fixed simulation delta; functional captures, not FPS measurements.",
+      "Requested preset and SDK status do not prove active DLSS model or generated output frames.",
+      "No validation layer is requested; this matrix does not claim strict GPU validation-layer cleanliness."
+    ],
+    "evidence": {
+      "id": "game-captures-c1fc0252a9-20261025T202743Z-ca774d/matrix.json",
+      "sha256": "e8f18e1955a1f4bf24d450543e8365c80518466f1f9faec1e558e668cded3a0d"
+    }
+  },
+  "installedTemplateFixtureExports": {
+    "status": "PASS",
+    "passed": 4,
+    "total": 4,
+    "fixture": "Physics smoke projects; not Regina Sports",
+    "backend": "d3d12",
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "customTemplateUsed": false,
+    "freshNugetCache": true,
+    "inputIntegrityAfter": {
+      "feed_unchanged": true,
+      "managed_companions_unchanged": true,
+      "archives_unchanged": true,
+      "editors_unchanged": true
+    },
+    "cases": {
+      "standard-debug": {
+        "status": "PASS",
+        "templateVersion": "4.8.beta1",
+        "smokeMarker": "PHYSX_SMOKE_PASS",
+        "processEnvironmentWithoutDotnetSdk": false,
+        "executableSha256": "a6164f85954c6bf816616b93808327e6d5c918ee2907d1136e64cbdac1327781"
+      },
+      "standard-release": {
+        "status": "PASS",
+        "templateVersion": "4.8.beta1",
+        "smokeMarker": "PHYSX_SMOKE_PASS",
+        "processEnvironmentWithoutDotnetSdk": false,
+        "executableSha256": "d8c8a6b75facceef8e145635b9c96d6d2c125460fd9c59cecb9be4d169ee23fd"
+      },
+      "mono-debug": {
+        "status": "PASS",
+        "templateVersion": "4.8.beta1.mono",
+        "smokeMarker": "CSHARP_PHYSX_SMOKE_PASS",
+        "processEnvironmentWithoutDotnetSdk": true,
+        "executableSha256": "11abe64c8153e7cdeb1b436b317c5ab132079c1dad734dfdfa4b422a4b7198e2"
+      },
+      "mono-release": {
+        "status": "PASS",
+        "templateVersion": "4.8.beta1.mono",
+        "smokeMarker": "CSHARP_PHYSX_SMOKE_PASS",
+        "processEnvironmentWithoutDotnetSdk": true,
+        "executableSha256": "6f5100d6a8ea54f9c27044b8903036ad29fb800f5f4c0b282c525ab28c04c80f"
+      }
+    },
+    "limitations": [
+      "Mono run removes dotnet SDK from the process environment; the machine still has an SDK installed.",
+      "Rendered smoke proves backend and fixture markers, not image quality, gameplay, or performance."
+    ],
+    "evidence": {
+      "id": "final-exports-c1fc0252a9-20261025T204313Z-c8540654/matrix.json",
+      "sha256": "c56e7ed3d7309780f9d514c0d9c1299101ea91440066a2f5a8893e4d72aee088"
+    }
+  },
+  "launcherSmoke": {
+    "backend": "d3d12",
+    "gameExitCode": 0,
+    "helperExitCode": 0,
+    "jobPolicy": "KILL_ON_JOB_CLOSE",
+    "ngxUpdatersAfter": 0,
+    "ownedNgxRemaining": 0,
+    "evidence": {
+      "id": "launcher-c1-raw/game-process.json",
+      "sha256": "8fb40fd7ebe5e0b75a2be845d37d7024fa987967b5a26b5be929c9f594868ab2"
+    }
+  },
+  "earlierStrictGpuValidation": {
+    "engineCommit": "d37b63e72bd5b0b72c8d72adb7cceb1b20e1b1f8",
+    "total": 13,
+    "d3d12StrictClean": 6,
+    "d3d12Total": 6,
+    "vulkanStrictClean": 1,
+    "vulkanTotal": 7,
+    "rerunAtC1": false,
+    "knownSdk214Diagnostics": [
+      "VUID-vkCmdDraw-None-09600",
+      "VUID-vkQueueSubmit2-semaphore-03868",
+      "FG synchronization hazards and multiple-thread read/write diagnostics"
+    ],
+    "evidence": {
+      "id": "final-d37b63e72b-strict-matrix.json",
+      "sha256": "39519ebdf36700e9c96d59a6454390c24a88cc857953a4e79d82d74b4f631f3e"
+    }
+  },
+  "priorUnfrozenGameCaptureRun": {
+    "status": "FAIL",
+    "individualCasesPassed": 17,
+    "failure": "A frozen input changed during the run; original overall FAIL retained.",
+    "evidence": {
+      "id": "game-captures-d37b63e72b-20261025T195444Z-573ba3/matrix.json",
+      "sha256": "a2e27620e2ffec1e84117ad853b8ed364c5141fd1fc48be2e814ff9f8a8d6050"
+    }
+  },
+  "earlierHeadlessAdapterChecks": {
+    "engineCommit": "1000baebdaccc35a6dfb9511c7fe9209cdc8295b",
+    "official472ChecksPassed": 56,
+    "experimentalChecksPassed": 57,
+    "rerunAtC1": false
+  },
+  "reginaGameExport": {
+    "status": "PENDING",
+    "scope": "Regina Sports Windows game export and exported-game launch"
+  },
+  "notValidated": [
+    "C1 strict validation-layer rerun",
+    "full natural gameplay and BLE/mobile input",
+    "stable FPS or input latency",
+    "HDR and XR",
+    "fresh-machine distribution"
+  ]
+}
