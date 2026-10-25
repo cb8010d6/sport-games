@@ -24,6 +24,7 @@ static func run(check: Callable) -> void:
 	for p in [RSWater.preset_bay(), RSWater.preset_lake()]:
 		_preset(check, p)
 	_shader_contract(check)
+	_surface(check)
 
 
 static func _single_wave(check: Callable) -> void:
@@ -133,3 +134,64 @@ static func _material(check: Callable, p: RSWater.Preset) -> void:
 	check.call(mat.get_shader_parameter("deep_color") == p.deep_color and mat.get_shader_parameter("shallow_color") == p.shallow_color, "water: material colors match the preset")
 	check.call(mat.get_shader_parameter("clear_depth") == p.clear_depth and mat.get_shader_parameter("foam_amount") == p.foam_amount, "water: material depth and foam match the preset")
 	check.call(mat.get_shader_parameter("wave_time") == 17.25, "water: applying a preset preserves the caller's game clock")
+
+
+static func _surface(check: Callable) -> void:
+	var old_quality := RSSettings.quality
+	var old_views := RSSettings.views
+	RSSettings.quality = 3
+	RSSettings.views = 1
+	var surface := RSWaterSurface.new(RSWater.preset_bay(), Vector2(200, 200), Vector3(8, 12, -16))
+	check.call(surface.position == Vector3(8, 0, -16), "water surface: centre positions XZ without introducing a different water level")
+	var mat := surface.material_override as ShaderMaterial
+	var original_mesh := surface.mesh
+	check.call(original_mesh is ArrayMesh and original_mesh.get_surface_count() == 1, "water surface: construction creates an indexed mesh")
+	var arrays := original_mesh.surface_get_arrays(0)
+	var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+	var indices: PackedInt32Array = arrays[Mesh.ARRAY_INDEX]
+	check.call(vertices[0] == Vector3(-100, 0, -100) and vertices[vertices.size() - 1] == Vector3(100, 0, 100) and indices.size() > 0, "water surface: mesh covers the requested extent")
+	var smallest := INF
+	var largest := 0.0
+	for i in vertices.size() - 1:
+		if vertices[i + 1].z != vertices[i].z:
+			break
+		var gap := vertices[i + 1].x - vertices[i].x
+		smallest = minf(smallest, gap)
+		largest = maxf(largest, gap)
+	check.call(smallest == 0.25 and largest == 2.0, "water surface: high quality has dense centre and coarse outer grid spacing")
+	surface.update(1.5)
+	check.call(mat.get_shader_parameter("wave_time") == 1.5 and surface.mesh == original_mesh, "water surface: update writes only the shared game clock")
+	var bay_waves: PackedVector4Array = mat.get_shader_parameter("waves")
+	var lake := RSWater.preset_lake()
+	surface.set_preset(lake)
+	check.call(mat.get_shader_parameter("waves") != bay_waves and surface.mesh == original_mesh and mat.get_shader_parameter("wave_time") == 1.5, "water surface: preset change updates waves without rebuilding or resetting time")
+	check.call(surface.height_at(4.25, -7.5) == RSWater.height_at(lake, 4.25, -7.5, 1.5), "water surface: convenience height query uses world coordinates and current time")
+	surface.position = Vector3(24, 0, -32)
+	check.call(surface.height_at(4.25, -7.5) == RSWater.height_at(lake, 4.25, -7.5, 1.5), "water surface: moving the grid does not move the CPU wave phase")
+	if not ResourceLoader.exists(RSWaterSurface.FOAM_TEXTURE):
+		check.call(mat.get_shader_parameter("use_foam_texture") == false, "water surface: missing optional foam texture uses procedural fallback")
+	var previous_count := 2147483647
+	var counts := PackedInt32Array()
+	counts.resize(4)
+	for quality in [3, 2, 1, 0]:
+		RSSettings.quality = quality
+		surface.apply_quality()
+		var count := (surface.mesh as ArrayMesh).surface_get_array_len(0)
+		counts[quality] = count
+		check.call(count <= previous_count, "water surface: lowering quality never increases vertex count")
+		previous_count = count
+		var same_mesh := surface.mesh
+		surface.apply_quality()
+		check.call(surface.mesh == same_mesh, "water surface: an unchanged quality tier reuses the mesh")
+	check.call(counts[3] == counts[2] and counts[2] > counts[1] and counts[1] > counts[0], "water surface: ultra and high share density, with distinct medium and low tiers")
+	RSSettings.views = RSSettings.SPLIT_TIER_VIEWS
+	for quality in [1, 2, 3]:
+		RSSettings.quality = quality
+		surface.apply_quality()
+		check.call((surface.mesh as ArrayMesh).surface_get_array_len(0) < counts[quality], "water surface: split tier lowers medium, high and ultra mesh density")
+	RSSettings.quality = 0
+	surface.apply_quality()
+	check.call((surface.mesh as ArrayMesh).surface_get_array_len(0) == counts[0] and mat.get_shader_parameter("detail_normals") == false, "water surface: low quality is the density floor and disables fine normals")
+	RSSettings.quality = old_quality
+	RSSettings.views = old_views
+	surface.free()
