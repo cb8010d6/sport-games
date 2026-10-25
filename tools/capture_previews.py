@@ -17,6 +17,7 @@ from collections.abc import Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+import catalog
 from smoke_test import GAMES, engine_errors
 from test_game import ROOT, find_godot, run_engine
 
@@ -71,7 +72,7 @@ def temporary_data(output: Path) -> Iterator[str]:
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot")
-    parser.add_argument("--games", nargs="+", choices=GAMES, default=list(GAMES))
+    parser.add_argument("--games", nargs="+", choices=catalog.game_ids(include_hidden=True), default=list(GAMES))
     parser.add_argument("--output", type=Path, default=ROOT / "game/assets/previews")
     args = parser.parse_args()
     out = args.output.resolve()

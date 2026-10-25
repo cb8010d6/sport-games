@@ -4,6 +4,7 @@ from __future__ import annotations
 import hashlib
 import json
 import math
+import os
 import sys
 import unittest
 import wave
@@ -16,8 +17,10 @@ ROOT = Path(__file__).resolve().parents[2]
 class MusicAssetTests(unittest.TestCase):
     def test_cues_match_manifest_and_have_safe_loop_boundaries(self) -> None:
         folder = ROOT / "game/assets/music"
-        # Lightweight process-tool CI intentionally omits the game art tree.
         if not (folder / "manifest.json").is_file():
+            # Only the lightweight process-tool CI (RS_SPARSE_ASSETS=1) omits the art tree; elsewhere the folder is lost.
+            if os.environ.get("RS_SPARSE_ASSETS") != "1":
+                self.fail(f"{folder} has no manifest.json (RS_SPARSE_ASSETS=1 is only for sparse checkouts)")
             self.skipTest("Music assets are absent from this sparse checkout")
         manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(set(manifest["tracks"]), {"menu", "lobby", "victory"})

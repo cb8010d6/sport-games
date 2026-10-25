@@ -20,9 +20,10 @@ import tempfile
 import time
 from pathlib import Path
 
+import catalog
 from test_game import ROOT, find_godot, run_engine, silence_native_crash_dialogs
 
-GAMES = ("plane", "archery", "bowling", "skate", "ski", "basketball")
+GAMES = catalog.game_ids()   # the menu games (tools/catalog.py)
 
 
 def engine_errors(log: str) -> tuple[list[str], list[str]]:
@@ -160,7 +161,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot")
     parser.add_argument("--players", type=int, choices=(1, 2, 3, 4), default=2)
-    parser.add_argument("--games", nargs="+", choices=GAMES, default=list(GAMES))
+    parser.add_argument("--games", nargs="+", choices=catalog.game_ids(include_hidden=True), default=list(GAMES))
     maps = parser.add_mutually_exclusive_group()
     maps.add_argument("--all-maps", action="store_true")
     maps.add_argument("--map", type=int, default=0, dest="map_index")

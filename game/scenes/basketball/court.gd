@@ -642,7 +642,7 @@ func _build_props() -> void:
 		benches.append(Transform3D(face_court, Vector3(x + bx, 0, 15.2)))
 		bins.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), Vector3(x + (7.0 if i == 2 else 5.0), 0, 15.6)))
 	# A boombox on the bench behind court 1; spare balls and crates by the stairwell.
-	RSProps.place(self, "boombox", [Transform3D(Basis(Vector3.UP, PI + 0.3).scaled(Vector3.ONE * 1.4), Vector3(court_x(1) - 2.8, 0.47, 15.15))])
+	RSProps.place(self, "urban_boombox", [Transform3D(Basis(Vector3.UP, PI + 0.3).scaled(Vector3.ONE * 1.4), Vector3(court_x(1) - 2.8, 0.47, 15.15))])
 	for k in 4:
 		crates.append(Transform3D(Basis(Vector3.UP, _rng.randf_range(-0.2, 0.2)), Vector3(r.position.x + 6.2 + (k % 2) * 0.62, 0.36 * floori(k / 2.0), 19.6)))
 	for k in 5:
@@ -664,14 +664,14 @@ func _build_props() -> void:
 	for z: float in [-4.6, 13.8]:
 		for lx: float in [r.position.x + 0.8, r.end.x - 0.8]:
 			lamps.append(Transform3D(Basis(Vector3.UP, (0.0 if lx < 0 else PI) + PI * 0.5), Vector3(lx, 0, z)))
-	RSProps.place(self, "bench", benches)
-	RSProps.place(self, "bin", bins)
-	RSProps.place(self, "crate", crates)
-	RSProps.place(self, "aircon", ac)
-	RSProps.place(self, "aircon_rust", ac_rust)
-	RSProps.place(self, "planter", plants)
-	RSProps.place(self, "lamp", lamps)
-	var lamp_h := RSProps.size("lamp").y
+	RSProps.place(self, "urban_bench", benches)
+	RSProps.place(self, "urban_bin", bins)
+	RSProps.place(self, "urban_crate", crates)
+	RSProps.place(self, "urban_aircon", ac)
+	RSProps.place(self, "urban_aircon_rust", ac_rust)
+	RSProps.place(self, "urban_planter", plants)
+	RSProps.place(self, "urban_lamp", lamps)
+	var lamp_h := RSProps.size("urban_lamp").y
 	for l: Transform3D in lamps:
 		var ol := OmniLight3D.new()
 		ol.light_color = Color(1.0, 0.78, 0.5)

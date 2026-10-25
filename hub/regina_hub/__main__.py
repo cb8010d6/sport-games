@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import asyncio
 import contextlib
+import ipaddress
 import json
 import logging
 import sys
@@ -16,7 +17,7 @@ from . import protocol as P
 from .diagnostics import PrivateFormatter
 from .frames import PHONE_AXIS_MAP, REGINA_DEFAULT_AXIS_MAP, handedness
 from .hub import Hub
-from .netutil import ensure_cert, lan_ips, qr_ascii, qr_rows, ssl_context
+from .netutil import ensure_cert, lan_ips, qr_rows, ssl_context
 from .recorder import Recorder, replay
 from .sources.web import WebSource
 
@@ -34,9 +35,13 @@ def load_config(path: Path) -> dict[str, Any]:
         "regina_allow": [],
         "regina_name_prefix": P.DEVICE_NAME_PREFIX,
         "regina_screen_rotation": 3,
+        "https_host": "0.0.0.0",
     }
     if path.exists():
         cfg.update(json.loads(path.read_text(encoding="utf-8")))
+    local = path.with_name("config.local.json")
+    if local != path and local.exists():
+        cfg.update(json.loads(local.read_text(encoding="utf-8")))
     for key in ("regina_axis_map", "phone_axis_map"):
         if handedness(cfg[key]) < 0:
             raise SystemExit(f"{key} {cfg[key]} is a mirror image (left-handed); flip the sign of one axis")
@@ -48,6 +53,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     ap.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     ap.add_argument("--data-dir", type=Path, default=HUB_DIR, help="directory for locally generated certificates")
     ap.add_argument("--no-ble", action="store_true", help="don't scan for Regina controllers")
+    ap.add_argument("--ble-selftest", action="store_true", help="check the BLE backend loads (no scan), then exit")
     ap.add_argument("--no-https", action="store_true", help="don't serve the phone controller page")
     ap.add_argument("--record", type=Path, help="append raw controller data to this JSONL file")
     ap.add_argument("--replay", type=Path, help="replay a recording as a virtual controller")
@@ -55,6 +61,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     ap.add_argument("--hub-port", type=int, default=P.HUB_PORT)
     ap.add_argument("--http-port", type=int, default=P.HTTP_PORT)
     ap.add_argument("--https-port", type=int, default=P.HTTPS_PORT)
+    ap.add_argument("--https-host", help="interface address for the phone HTTPS listener (default: all interfaces)")
     ap.add_argument("--lan-ip", help="address phones should use (default: auto-detected)")
     ap.add_argument("-v", "--verbose", action="store_true")
     return ap.parse_args(argv)
@@ -104,36 +111,39 @@ async def amain(args: argparse.Namespace) -> None:
     await hub.start()
 
     web = WebSource(hub, phone_axis_map=cfg["phone_axis_map"])
-    ssl_ctx = None
-    if not args.no_https:
-        ips = lan_ips()
-        ip = args.lan_ip or cfg.get("lan_ip") or ips[0]
-        cert, key = ensure_cert(args.data_dir / ".certs", sorted(set(ips + [ip])))
-        ssl_ctx = ssl_context(cert, key)
-        hub.phone_url = f"https://{ip}:{args.https_port}/"
-        hub.qr = {"type": "qr", "url": hub.phone_url, "rows": qr_rows(hub.phone_url)}
-    await web.start("127.0.0.1", args.http_port, None if args.no_https else args.https_port, ssl_ctx)
-
-    tasks = [asyncio.create_task(hub.run_forever(), name="hub")]
-    if not args.no_ble:
-        tasks.append(asyncio.create_task(_run_optional_source("BLE", lambda: _run_ble(hub, cfg), retry=True), name="ble"))
-    if args.replay:
-        # A corrupt replay is stopped, not retried from its beginning (which duplicates input).
-        tasks.append(asyncio.create_task(_run_optional_source("replay", lambda: _run_replay(hub, args.replay)), name="replay"))
-
-    print()
-    print("  Regina Sports hub is running")
-    print(f"  Simulator:   http://127.0.0.1:{args.http_port}/sim")
-    if hub.phone_url:
-        print(f"  Phone:       {hub.phone_url}   (same Wi-Fi; accept the certificate warning once)")
-        print()
-        print(qr_ascii(hub.phone_url))
-        others = [i for i in ips if i != ip]
-        if others:
-            print(f"  Wrong network? Other addresses: {', '.join(others)}  (use --lan-ip)")
-    print()
-
+    tasks: list[asyncio.Task[None]] = []
     try:
+        ssl_ctx = None
+        if not args.no_https:
+            ips = lan_ips()
+            https_host = args.https_host or cfg["https_host"]
+            selected_interface = ipaddress.ip_address(https_host)
+            ip = args.lan_ip or cfg.get("lan_ip") or (str(selected_interface) if not selected_interface.is_unspecified else ips[0])
+            cert, key = ensure_cert(args.data_dir / ".certs", [ip])
+            ssl_ctx = ssl_context(cert, key)
+            url_host = f"[{ip}]" if ":" in ip else ip
+            hub.phone_url = f"https://{url_host}:{args.https_port}/#k={web.pairing_token}"
+            hub.qr = {"type": "qr", "url": hub.phone_url, "rows": qr_rows(hub.phone_url)}
+        await web.start("127.0.0.1", args.http_port, None if args.no_https else args.https_port, ssl_ctx,
+                        https_host=args.https_host or cfg["https_host"])
+
+        tasks.append(asyncio.create_task(hub.run_forever(), name="hub"))
+        if not args.no_ble:
+            tasks.append(asyncio.create_task(_run_optional_source("BLE", lambda: _run_ble(hub, cfg), retry=True), name="ble"))
+        if args.replay:
+            # A corrupt replay is stopped, not retried from its beginning (which duplicates input).
+            tasks.append(asyncio.create_task(_run_optional_source("replay", lambda: _run_replay(hub, args.replay)), name="replay"))
+
+        print()
+        print("  Regina Sports hub is running")
+        print(f"  Simulator:   http://127.0.0.1:{args.http_port}/sim")
+        if hub.phone_url:
+            print(f"  Phone:       {hub.phone_url.split('#', 1)[0]}   (scan the in-game QR code to pair)")
+            others = [i for i in ips if i != ip]
+            if others:
+                print(f"  Wrong network? Other addresses: {', '.join(others)}  (use --lan-ip)")
+        print()
+
         await asyncio.gather(*tasks)
     finally:
         for t in tasks:
@@ -147,6 +157,10 @@ async def amain(args: argparse.Namespace) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(sys.argv[1:] if argv is None else argv)
+    if args.ble_selftest:
+        from .ble_selftest import run as ble_selftest
+
+        raise SystemExit(ble_selftest())
     handler = logging.StreamHandler()
     handler.setFormatter(PrivateFormatter("%(asctime)s %(name)-5s %(message)s", datefmt="%H:%M:%S"))
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, handlers=[handler])

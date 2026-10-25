@@ -13,7 +13,7 @@ static func export_directory() -> String:
 
 
 func begin(tree: SceneTree, quality: int, resolution: Vector2i) -> Error:
-	if _active or tree.paused or quality not in range(4) or resolution not in [Vector2i(1600, 900), Vector2i(1920, 1080)]:
+	if _active or tree.paused or quality not in range(4) or resolution not in [Vector2i(1600, 900), Vector2i(1920, 1080), Vector2i(2560, 1440)]:
 		return ERR_INVALID_PARAMETER
 	if DisplayServer.get_name() == "headless":
 		return ERR_UNAVAILABLE
