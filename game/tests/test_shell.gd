@@ -104,42 +104,11 @@ func _run() -> void:
 	RSSettings._loaded = false
 	RSSettings.load_once()
 	_check(RSSettings.volumes == [9, 0, 6, 5] and RSSettings.color_safe, "settings round trip")
-	# Quality tiers reach the positional shadow atlas and the rig materials (#57).
-	var saved_quality := RSSettings.quality
-	var saved_upscale := RSSettings.upscale
-	var probe_vp := SubViewport.new()
-	RSSettings.quality = 0
-	RSSettings.apply_viewport(probe_vp)
-	_check(probe_vp.positional_shadow_atlas_size == 1024, "lowest quality shrinks the positional shadow atlas (#57)")
-	RSSettings.quality = 3
-	RSSettings.apply_viewport(probe_vp)
-	_check(probe_vp.positional_shadow_atlas_size == 4096, "top quality keeps the full positional shadow atlas (#57)")
-	probe_vp.free()
-	var probe_rig := RSHumanRig.new()
-	var skin := StandardMaterial3D.new()
-	RSSettings.quality = 0
-	probe_rig._tune_material(skin, "body")
-	_check(not skin.subsurf_scatter_enabled, "lowest quality turns subsurface scattering off (#57)")
-	RSSettings.quality = 2
-	probe_rig._tune_material(skin, "body")
-	_check(skin.subsurf_scatter_enabled, "higher quality keeps subsurface scattering (#57)")
-	var hair := StandardMaterial3D.new()
-	RSSettings.quality = 0
-	probe_rig._tune_material(hair, "ponytail")
-	_check(hair.alpha_antialiasing_mode == BaseMaterial3D.ALPHA_ANTIALIASING_OFF, "lowest quality turns alpha-to-coverage off (#57)")
-	RSSettings.quality = 2
-	probe_rig._tune_material(hair, "ponytail")
-	_check(hair.alpha_antialiasing_mode == BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE, "higher quality keeps alpha-to-coverage (#57)")
-	probe_rig.free()
-	RSSettings.quality = saved_quality
-	RSSettings.upscale = saved_upscale
+	_quality_cases()
 	# Menu glyph discs come from the RSUi factory (#57).
 	var glyph := RSUi.glyph_style()
 	_check(glyph.bg_color == RSUi.TEXT and glyph.corner_radius_top_left == 14, "menu glyph style comes from RSUi (#57)")
-	# Animated HUD sizes snap to a coarse ladder (#57).
-	_check(RSPartyGame._snap_font_size(15.3) == 15, "small font sizes snap to whole pixels (#57)")
-	_check(RSPartyGame._snap_font_size(36.9) == 36 and RSPartyGame._snap_font_size(37.4) == 38, "mid font sizes snap to 2px steps (#57)")
-	_check(RSPartyGame._snap_font_size(120.0) == 119 and RSPartyGame._snap_font_size(130.0) == 128, "display font sizes snap to wide steps (#57)")
+	_font_cases()
 	var hub_events := [0]
 	ControllerHub.controller_connected.connect(func(_c: RSController) -> void: hub_events[0] += 1)
 	var hub_event := func(ev: String) -> PackedByteArray:
@@ -180,3 +149,66 @@ func _run() -> void:
 	await get_tree().create_timer(0.25).timeout
 	print("RS_SHELL_TESTS: %d failures" % _failures)
 	get_tree().quit(1 if _failures else 0)
+
+
+func _quality_cases() -> void:
+	var saved_quality := RSSettings.quality
+	var saved_upscale := RSSettings.upscale
+	var orphan_count := Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)
+	var probe_vp := SubViewport.new()
+	var probe_rig := RSHumanRig.new()
+	# Concrete rigs parent body while building; this material-only probe must own it too.
+	probe_rig.add_child(probe_rig.body)
+	var skin := StandardMaterial3D.new()
+	var hair := StandardMaterial3D.new()
+	for upscale: int in RSSettings.UPSCALE_SCALES.size():
+		RSSettings.upscale = upscale
+		for quality: int in RSSettings.QUALITY_NAMES.size():
+			RSSettings.quality = quality
+			RSSettings.apply_viewport(probe_vp)
+			_check(probe_vp.positional_shadow_atlas_size == [1024, 2048, 4096, 4096][quality], "positional atlas follows every quality tier (#57)")
+			probe_rig._tune_material(skin, "body")
+			_check(skin.subsurf_scatter_enabled == (quality >= 2), "skin SSS follows every quality tier (#57)")
+			# Reuse the material to also catch stale A2C after high -> low or native -> FSR.
+			probe_rig._tune_material(hair, "ponytail")
+			var expected := BaseMaterial3D.ALPHA_ANTIALIASING_OFF if probe_vp.msaa_3d == Viewport.MSAA_DISABLED else BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE
+			_check(hair.alpha_antialiasing_mode == expected, "hair alpha-to-coverage agrees with actual viewport MSAA (#57)")
+	probe_vp.free()
+	probe_rig.free()
+	_check(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT) == orphan_count, "quality probes release all owned nodes (#57)")
+	RSSettings.quality = saved_quality
+	RSSettings.upscale = saved_upscale
+
+
+func _font_cases() -> void:
+	var previous := 0
+	var monotonic := true
+	var idempotent := true
+	var rounds_down := true
+	var bounded_steps := true
+	for sample: int in range(16, 6401):
+		var requested := sample / 16.0
+		var snapped := RSUi.snap_font_size(requested)
+		monotonic = monotonic and snapped >= previous
+		idempotent = idempotent and RSUi.snap_font_size(snapped) == snapped
+		rounds_down = rounds_down and RSUi.snap_font_size(requested, true) <= requested
+		if previous >= 64:
+			bounded_steps = bounded_steps and snapped - previous <= previous / 32.0
+		previous = snapped
+	_check(monotonic and idempotent and rounds_down and bounded_steps, "font ladder is monotonic, idempotent, bounded and safe to round down (#57)")
+	var saved_text_size := RSSettings.text_size
+	for text_setting: int in RSSettings.TEXT_SCALES.size():
+		RSSettings.text_size = text_setting
+		for viewport_scale: float in [0.6, 1.0, 1.6, 2.0]:
+			for animation: Vector2 in [Vector2(36, 45), Vector2(40, 47.2), Vector2(120, 150), Vector2(130, 149.5), Vector2(36.48, 39.52)]:
+				var sizes := {}
+				for frame: int in range(129):
+					var base := lerpf(animation.x, animation.y, frame / 128.0) * viewport_scale
+					sizes[RSUi.snap_font_size(RSUi.text_size(base))] = true
+				_check(sizes.size() <= 16, "each HUD animation uses a bounded set of raster sizes at either text scale (#57)")
+		var f := RSUi.font_bold()
+		for width: float in [92.0, 240.0]:
+			var fs := RSUi.fit_text_size("倒数测试", 150.0, width, 90.0, 140.0, f, true) # no-i18n: font metrics fixture
+			_check(fs == RSUi.snap_font_size(fs), "fitted HUD text stays on the font ladder (#57)")
+			_check(f.get_string_size("倒数测试", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x <= width and f.get_ascent(fs) <= 90.0 and f.get_descent(fs) <= 50.0, "snapped HUD text respects all fit bounds (#57)") # no-i18n: font metrics fixture
+	RSSettings.text_size = saved_text_size

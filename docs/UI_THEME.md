@@ -43,6 +43,7 @@ python tools/subset_fonts.py <google/fonts 的 NotoSansSC[wght].ttf>   # 需要 
 - `modal_style()`：盖在菜单或游戏上的完整面板，深色不透明，顶部一条强调色线，带阴影。
 - `card_style()`：面板内的分组，略亮的平底色块，没有边框。
 - `chip_style(颜色)`：状态标签，深底，左侧一条颜色条。
+- `glyph_style()`：菜单按键圆标，28px 标签使用文字色底和 14px 圆角。
 - `button_style(状态)`：普通按钮是半透明的平底色块。
 - 每页唯一的主要操作（如“开始大赛”）设置 `theme_type_variation = &"RSPrimary"`：始终是黄色斜条，获得焦点时加白边。
 - 标题用 `RSUi.font_bold()`，数字用 `RSUi.font_numeric()`。
@@ -74,6 +75,8 @@ python tools/subset_fonts.py <google/fonts 的 NotoSansSC[wght].ttf>   # 需要 
 - `RSUi.pop_in(控件)`：面板出现时淡入并轻微放大。用于菜单子页面、设置 / 暂停菜单和成绩面板。
 - `RSUi.ease_out(t)`：HUD 里分数轻跳、加分飘字、倒计时数字的缓动。
 - 主菜单的预览图切换时会短暂淡入。
+
+HUD 动画共用 `RSUi.snap_font_size()` 的固定字号台阶：小于 64px 时按整数，之后每个二倍区间的步宽固定，档距最多约 3.125%。字号变大时不会倒退，已量化的值再次量化不变。`draw_text` 的字体度量和边界适配同样量化；分数弹跳、popup、倒数、GO! 和项目里的文字脉冲均使用这套策略。它减少大字号动画的位图光栅组合；小字号仍以清晰度为先，是否可见跳动、字体内存及帧时间需在 2／4 人、中英文与 100%／125% 字号下检查。
 
 ## 截图
 

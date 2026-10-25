@@ -93,10 +93,10 @@ func _tune_material(m: StandardMaterial3D, part: String) -> void:
 	if part.contains("eyebrow") or part.contains("eyelash") or _is_hair(part):
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 		m.alpha_scissor_threshold = 0.35
-		if RSSettings.upscale == 0 and RSSettings.quality >= 1:
-			# Alpha-to-coverage only does anything while MSAA is in effect, and
-			# apply_viewport turns MSAA off at the lowest tier and under FSR.
-			m.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE
+		# Match apply_viewport's MSAA rule in both directions: imported materials can
+		# be reused after another rig was built at a different quality or upscale mode.
+		var msaa := RSSettings.upscale == 0 and RSSettings.quality >= 1
+		m.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE if msaa else BaseMaterial3D.ALPHA_ANTIALIASING_OFF
 		m.alpha_antialiasing_edge = 0.3
 		m.cull_mode = BaseMaterial3D.CULL_DISABLED
 		m.roughness = 0.55
@@ -110,8 +110,8 @@ func _tune_material(m: StandardMaterial3D, part: String) -> void:
 	if part.contains("body"):
 		m.roughness = 0.52
 		# Subsurface scattering costs per pixel on every character; keep it for the
-		# top two quality tiers. Materials are tuned once at build time, so a menu
-		# quality change only reaches rigs built afterwards.
+		# top two quality tiers. There is no live retuning pass: existing material
+		# state can persist after a settings change until a rig is rebuilt.
 		m.subsurf_scatter_enabled = RSSettings.quality >= 2
 		m.subsurf_scatter_strength = 0.35
 		m.subsurf_scatter_skin_mode = true
