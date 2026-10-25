@@ -150,6 +150,7 @@ func _sh(p: Player) -> Shooter:
 func _setup_world() -> void:
 	_rng.seed = 2323
 	RSSfx.warm_up(SFX)
+	RSBasketball.warm_up_fire(self)
 	_ambience = RSSfx.loop(self, "city_amb")
 	_crowd = RSSfx.loop(self, "applause")
 	_podium = RSPodium.new()
