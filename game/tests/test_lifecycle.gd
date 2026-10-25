@@ -410,6 +410,12 @@ func _disconnect_release_check(game: Variant) -> void:
 				if int(game._stage) == 1:
 					break
 				await _frames(1)
+		if _game_id == "basketball":
+			for _ready in 300:
+				if game._sh(game.players[82]).st == game.St.READY:
+					break
+				await _frames(1)
+			_check(game._sh(game.players[82]).st == game.St.READY, "basketball finishes the real pickup before " + route)
 		await _send_input(2, button)
 		var p: RSPartyGame.Player = game.players[82]
 		var score := p.score
