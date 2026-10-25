@@ -27,7 +27,10 @@ func _run() -> void:
 	_course_lookups()
 	_clock()
 	await _riders_at_30fps()
+	await _idle_loops()
 	_split_shadow_tier()
+	await _ball_fire_shared()
+	_ski_snow_budget()
 	for i in 3:   # let freed riders' rendering resources go before quitting
 		await get_tree().process_frame
 	print("RS_PERF_TESTS: %d checks, %d failures" % [_checks, _failures])
@@ -194,6 +197,85 @@ func _riders_at_30fps() -> void:
 		await get_tree().process_frame
 
 
+func _ball_fire_shared() -> void:
+	var first := RSBasketball.new()
+	var second := RSBasketball.new()
+	add_child(first)
+	add_child(second)
+	first.set_fire(true)
+	var before := int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT))
+	second.set_fire(true)
+	var added := int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)) - before
+	_check(first._fire.process_material == second._fire.process_material, "basketball fires share the process material")
+	_check(first._fire.draw_pass_1 == second._fire.draw_pass_1, "basketball fires share the particle mesh and its materials")
+	_check(added <= 1, "second ball fire creates at most one internal resource (%d)" % added)
+	print("RS_PERF_FIRE: resources per new fire 9 -> %d" % added)
+	var resources := RSBasketball.fire_resources()
+	var process := first._fire.process_material
+	second.set_fire(false)
+	second.set_layers(8)
+	_check(first._fire.emitting and not second._fire.emitting, "fire emission is independent for each ball")
+	_check(first._fire.layers != second._fire.layers and first._fire.process_material == process,
+		"per-ball layers do not mutate shared fire resources")
+	first.free()
+	second.free()
+	var children_before := get_child_count()
+	RSBasketball.warm_up_fire(self)
+	_check(get_child_count() == children_before + 1, "fire warm-up temporarily owns one particle node")
+	for i in 3:
+		await get_tree().process_frame
+	_check(get_child_count() == children_before, "fire warm-up frees its temporary node after a frame")
+	_check(RSBasketball.fire_resources() == resources, "warm-up reuses the same cached resource array")
+
+
+func _idle_loops() -> void:
+	if not (ResourceLoader.exists(RSSkaterRig.RIDERS[1]) and ResourceLoader.exists(RSSkierRig.SKIERS[1])):
+		print("RS_PERF_SKIP: rider models not checked out; idle loop check skipped")
+		return
+	var skate := RSSkateCourse.new()
+	var sk := RSSkater.new(skate, Color.WHITE, 1, 0)
+	add_child(sk)
+	var ski := RSSkiCourse.new(0)
+	var sr := RSSkier.new(ski, Color.WHITE, 1, 0)
+	add_child(sr)
+	await get_tree().process_frame
+	var sk_before := sk.active_loops()
+	var sr_before := sr.active_loops()
+	_check(sk_before == 4 and sr_before == 3, "new riders expose all four / three unpaused loops")
+	# place() runs visuals/audio with delta 0 and correctly pauses the initial -80 dB.
+	# Sample the factory state above, before placement applies that idle-audio update.
+	sk.place(0.0, RSSkateCourse.START_S)
+	sr.place(0.0, 5.0)
+	for rider in [sk, sr]:
+		var loop: AudioStreamPlayer = rider._wind
+		rider._set_loop_db(loop, rider.SILENT_DB)
+		_check(loop.stream_paused and loop.volume_db == rider.SILENT_DB, "loop pauses at the inclusive silent threshold")
+		rider._set_loop_db(loop, rider.SILENT_DB + 0.1)
+		_check(not loop.stream_paused, "loop resumes immediately above the threshold")
+	sk.quiet()
+	sr.quiet()
+	_check(sk.active_loops() == 0 and sr.active_loops() == 0, "quiet pauses every rider loop")
+	print("RS_PERF_LOOPS: idle skater %d -> %d, idle skier %d -> %d" % [
+		sk_before, sk.active_loops(), sr_before, sr.active_loops()])
+	var sk_bot := RSSkateBot.new(sk, 4100)
+	var sr_bot := RSSkiBot.new(sr, 91)
+	for i in 60:
+		var dt := 1.0 / 30.0
+		sk.step(dt, sk_bot.update(dt), true)
+		sr.step(dt, sr_bot.update(dt), true)
+	_check(sk.active_loops() > 0, "the moving skater automatically resumes a loop after quiet")
+	_check(sr.active_loops() > 0, "the moving skier automatically resumes a loop after quiet")
+	sk.quiet()
+	sr.quiet()
+	_check(sk.active_loops() == 0 and sr.active_loops() == 0, "quiet works again after bot-driven resumption")
+	sk.free()
+	sr.free()
+	skate.free()
+	ski.free()
+	for i in 3:
+		await get_tree().process_frame
+
+
 # ------------------------------------------------------------- split shadow tier ----
 
 func _split_shadow_tier() -> void:
@@ -244,3 +326,29 @@ func _split_shadow_tier() -> void:
 	_check(late.directional_shadow_mode == DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS and late.directional_shadow_max_distance == 90.0,
 		"leaving the tier restores the late sun's scene values")
 	world.free()
+
+
+# ----------------------------------------------------------------- ski snowfall budget ----
+
+func _ski_snow_budget() -> void:
+	_check(RSSkiSnow.ratio(0.0, 4) == 0.0 and RSSkiSnow.ratio(-1.0, 4) == 0.0, "snow: dry maps emit no particles")
+	_check(RSSkiSnow.ratio(1.0, 1) == 1.0, "snow: one view retains full storm density")
+	_check(RSSkiSnow.ratio(1.0, 4) == 0.5 and RSSkiSnow.ratio(1.0, 3) == 0.5, "snow: three or four views halve storm density")
+	_check(RSSkiSnow.ratio(0.25, 2) == 0.25, "snow: two views retain night-map density")
+	_check(RSSkiSnow.ratio(0.001, 4) == 0.01, "snow: nonzero snowfall keeps the minimum particle ratio")
+	var low := RSSkiSnow.make(1, 0)
+	var high := RSSkiSnow.make(1, 2)
+	_check(not (low.process_material as ParticleProcessMaterial).turbulence_enabled, "snow: low quality disables turbulence")
+	_check((high.process_material as ParticleProcessMaterial).turbulence_enabled, "snow: normal quality retains turbulence")
+	for ps: GPUParticles3D in [low, high]:
+		_check(ps.amount == RSSkiSnow.AMOUNT and ps.layers == 1 and not ps.emitting, "snow: construction preserves the amount, camera layer and initially stopped emission")
+		RSSkiSnow.apply(ps, 1.0, 1)
+		_check(ps.emitting and ps.amount_ratio == 1.0, "snow: applying a storm map starts full snowfall")
+		RSSkiSnow.apply(ps, 1.0, 4)
+		_check(ps.emitting and ps.amount_ratio == 0.5, "snow: adding split views updates the particle budget")
+		RSSkiSnow.apply(ps, 0.0, 4)
+		_check(not ps.emitting and ps.amount_ratio == 0.0, "snow: switching to a dry map stops snowfall")
+		RSSkiSnow.apply(ps, 0.25, 2)
+		_check(ps.emitting and ps.amount_ratio == 0.25, "snow: returning to a night map restores snowfall")
+		ps.free()
+	print("RS_PERF_SNOW: storm map, 4 views: %d -> %d particles" % [5 * RSSkiSnow.AMOUNT, roundi(4 * RSSkiSnow.AMOUNT * RSSkiSnow.ratio(1.0, 4))])

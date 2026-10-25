@@ -11,6 +11,7 @@ const AIM := {"kind": "aim", "text": "轻轻转动手柄，练习瞄准"}
 const BOOST := {"kind": "hold_b", "text": "按住 B，练习加速"}
 const DRAW := {"kind": "draw", "text": "按住 A 拉弓一秒，再松开"}
 const THROW := {"kind": "throw", "text": "按住 B 挥动手柄，再松开出手"}
+const SWING := {"kind": "swing", "text": "像挥拍一样快速挥动手柄（正手或反手都可以）"}
 const JUMP := {"kind": "jump", "text": "快速向上抬手柄，练习起跳"}
 const GRAB := {"kind": "hold_b", "text": "按住 B，练习空中抓板"}
 
@@ -30,11 +31,25 @@ var _sample_at_start := 0.0
 var _last_sample := -1.0
 var _stale := 0.0
 var _left_hand := false
+var _swing := RSSwingDetector.new()
+var _swung := false
+var _swung_epoch := -1
 
 
 func _init(game_id: String) -> void:
 	steps = step_list(RSCatalog.lessons(game_id))
 	finished = steps.is_empty()
+	_watch_swing(self)
+
+
+static func _watch_swing(lesson: RSTutorial) -> void:
+	# The lesson owns the detector; its signal must not keep the lesson alive.
+	var target: WeakRef = weakref(lesson)
+	lesson._swing.swing_peaked.connect(func(_c: RSController, swing: Dictionary) -> void:
+		var current := target.get_ref() as RSTutorial
+		if current != null:
+			current._on_swing_peaked(swing)
+	)
 
 
 static func step_list(names: PackedStringArray) -> Array:
@@ -67,6 +82,8 @@ func _begin_step(c: RSController) -> void:
 	_held = false
 	_held_for = 0.0
 	_peak = 0.0
+	_swing.reset()
+	_swung = false
 	_sample_at_start = c.sample_time
 	_last_sample = c.sample_time
 	_stale = 0.0
@@ -93,6 +110,8 @@ func update(c: RSController, delta: float) -> void:
 		_hold = 0.0
 		_held = false
 		_held_for = 0.0
+		_swing.reset()
+		_swung = false
 		return
 	if c.sample_time < _last_sample:
 		_neutral = c.motion_orientation()
@@ -101,10 +120,15 @@ func update(c: RSController, delta: float) -> void:
 		return
 	elapsed += delta
 	if not practicing:
+		if steps[index]["kind"] == "swing":
+			_swing.feed_new(c)
 		if elapsed >= DEMO_SECONDS:
 			practicing = true
 			_sample_at_start = c.sample_time
 			_last_sample = c.sample_time
+			if steps[index]["kind"] == "swing":
+				_swing.reset() # A motion begun during demonstration cannot carry over.
+				_swung = false
 		return
 	if c.sample_time != _last_sample:
 		_last_sample = c.sample_time
@@ -132,6 +156,13 @@ func update(c: RSController, delta: float) -> void:
 		"throw":
 			if _held:
 				_peak = maxf(_peak, _motion_peak(c, false))
+		"swing":
+			_swing.feed_new(c)
+			# A later sample in this batch may have reset the detector again.
+			if fresh and _swung and _swung_epoch == _swing.epoch():
+				_pass(c)
+			_swung = false # A stale candidate cannot pass on a later fresh sample.
+			return
 		"jump":
 			if fresh and _motion_peak(c, true) >= 4.0:
 				_pass(c)
@@ -166,6 +197,12 @@ func on_button(c: RSController, button: int, pressed: bool) -> void:
 			_pass(c)
 		_held = false
 		_held_for = 0.0
+
+
+func _on_swing_peaked(swing: Dictionary) -> void:
+	if practicing and swing["epoch"] == _swing.epoch() and swing["peak_time"] > _sample_at_start:
+		_swung = true
+		_swung_epoch = swing["epoch"]
 
 
 func _motion_peak(c: RSController, upward: bool) -> float:
@@ -208,9 +245,13 @@ class Demo extends Control:
 		var phase := fmod(float(lesson.elapsed) / DEMO_SECONDS, 1.0) if lesson != null else 0.0
 		var wave := sin(phase * TAU)
 		var angle := 0.35 * maxf(wave, 0.0) if kind == "right" else (0.35 * wave if kind == "aim" else 0.0)
+		if kind == "swing":
+			angle = 0.65 * wave
 		if lesson != null and lesson._left_hand:
 			angle = -angle
 		var at := size * 0.5 + Vector2(0, -16.0 * maxf(wave, 0.0) if kind in ["jump", "throw"] else 0.0)
+		if kind == "swing":
+			at.x += 20.0 * wave
 		var scale_y := 1.0 - 0.35 * maxf(wave, 0.0) if kind == "forward" else 1.0
 		draw_set_transform(at, angle, Vector2(1, scale_y))
 		draw_style_box(_body, Rect2(-35, -29, 70, 58))
