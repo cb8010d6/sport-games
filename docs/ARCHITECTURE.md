@@ -96,9 +96,9 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 | 需求 | 用这个 | 不要 |
 |---|---|---|
 | 项目列表、地图、教学、挑战 | `RSCatalog`（读各项目的 `RSGameModule` 清单）；工具用 `tools/catalog.py` | 在框架、菜单、测试或工具里另写一份项目或地图列表 |
-| 大厅教学 | 清单的 `lessons` 引用 `RSTutorial` 的步骤常量；新动作先在 `RSTutorial` 加通用步骤 | 项目自己做教学流程 |
+| 大厅教学 | 清单的 `lessons` 引用 `RSTutorial` 的步骤常量（含 `SWING`）；新动作先在 `RSTutorial` 加通用步骤 | 项目自己做教学流程 |
 | 手柄状态、按键 | `ControllerHub` 的信号，`RSController`（`orientation`、`forward()`、`pitch()`、`is_pressed()`） | 自己连 UDP 或解析协议 |
-| 体感手势 | `RSMotionGestures` → `RSMotionControls`（倾斜转向、甩动起跳、翻转、转体）；`RSSwingDetector`（挥动）；`RSTiltStick`（倾斜当摇杆） | 在项目里重写阈值和滤波 |
+| 体感手势 | `RSMotionGestures` → `RSMotionControls`（倾斜转向、甩动起跳、翻转、转体）；`RSSwingDetector.swing_peaked`（挥动峰值候选）；`RSSwingClassifier`（挥拍分类，见 39-08）；`RSTiltStick`（倾斜当摇杆） | 在项目里重写阈值和滤波 |
 | 震动 | `haptic(p, "hit")`、`haptic_all(name)`（名称表是 `ControllerHub.HAPTICS`，新名称加在那里） | 直接 `ControllerHub.vibrate`（ARCH-HAPTIC） |
 | 手柄屏幕 | `send_ui(p, {...})`（自动去重） | 每帧发同样的内容 |
 | 音效 | `RSSfx.play(node, id)`、`RSSfx.loop(node, id)`，加载时 `RSSfx.warm_up([...])` | 自己 new AudioStreamPlayer（ARCH-AUDIO）；所有声音必须走 `RSAudio` 的总线，音量设置才有效 |
