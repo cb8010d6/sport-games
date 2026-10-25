@@ -698,7 +698,7 @@ func _build_rocks() -> void:
 		var x := centre(s) + u
 		var sc := _rng.randf_range(0.8, 2.6)
 		xfs.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU).scaled(Vector3.ONE * sc), Vector3(x, ground(x, -s) - 0.35 * sc, -s)))
-	RSProps.place(self, "boulder", xfs)
+	RSProps.place(self, "nature_boulder", xfs)
 
 
 # --------------------------------------------------------------------- start area ----

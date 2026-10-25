@@ -52,6 +52,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     ap.add_argument("--config", type=Path, default=DEFAULT_CONFIG)
     ap.add_argument("--data-dir", type=Path, default=HUB_DIR, help="directory for locally generated certificates")
     ap.add_argument("--no-ble", action="store_true", help="don't scan for Regina controllers")
+    ap.add_argument("--ble-selftest", action="store_true", help="check the BLE backend loads (no scan), then exit")
     ap.add_argument("--no-https", action="store_true", help="don't serve the phone controller page")
     ap.add_argument("--record", type=Path, help="append raw controller data to this JSONL file")
     ap.add_argument("--replay", type=Path, help="replay a recording as a virtual controller")
@@ -155,6 +156,10 @@ async def amain(args: argparse.Namespace) -> None:
 
 def main(argv: list[str] | None = None) -> None:
     args = parse_args(sys.argv[1:] if argv is None else argv)
+    if args.ble_selftest:
+        from .ble_selftest import run as ble_selftest
+
+        raise SystemExit(ble_selftest())
     logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format="%(asctime)s %(name)-5s %(message)s", datefmt="%H:%M:%S")
     logging.getLogger("bleak").setLevel(logging.INFO)
     logging.getLogger("asyncio").setLevel(logging.WARNING)

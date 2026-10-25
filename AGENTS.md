@@ -24,6 +24,7 @@
 python tools/check_conventions.py
 python tools/i18n_check.py
 python -m pytest -q tools/tests
+python -m ruff check --config hub/pyproject.toml hub tools
 cd hub && python -m pytest -q
 node --test tools/tests/asset_sync.test.mjs
 ```
@@ -47,7 +48,7 @@ node --test tools/tests/asset_sync.test.mjs
 
 ```bash
 node tools/sync_assets.mjs                      # 下载 Poly Haven 素材（首次）
-python -m venv hub/.venv && hub/.venv/Scripts/python -m pip install -r hub/requirements.txt
+python -m venv hub/.venv && hub/.venv/Scripts/python -m pip install --require-hashes -r hub/requirements-dev.txt
 <Godot> --path game -- --game=skate --demo=2    # 直接进入某个项目，2 个机器人
 <Godot> --path game -- --game=ski --map=2 --demo=4 --shots=out/ski   # 截图后退出
 ```

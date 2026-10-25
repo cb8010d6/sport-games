@@ -3,8 +3,10 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { installAsset, nodeVersionSupported, request, resolveFile, safePath, sha256, validateUrl } from '../sync_assets.mjs';
+import { fileURLToPath } from 'node:url';
+import { installAsset, nodeVersionSupported, request, resolveFile, safePath, sha256, validateManifest, validateUrl } from '../sync_assets.mjs';
 import { sanitizeJpegProcessingHistory } from '../asset_metadata.mjs';
+import { policyRule, shadowedRules } from '../asset_policy.mjs';
 
 const remote = { url: 'https://dl.polyhaven.com/file/ph-assets/fixture.bin' };
 const fixture = () => fs.mkdtempSync(path.join(os.tmpdir(), 'regina-assets-'));
@@ -108,4 +110,38 @@ test('only patched Node lines are supported (#51)', () => {
   assert.equal(nodeVersionSupported('20.19.0'), false);
   assert.equal(nodeVersionSupported('23.11.0'), false);
   assert.equal(nodeVersionSupported('28.0.0'), true);  // newer majors than the list are not blocked
+});
+
+const repo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
+const policy = JSON.parse(fs.readFileSync(path.join(repo, 'tools/asset_policy.json'), 'utf8'));
+
+test('shared asset library files are documented CC0 sources (#58)', () => {
+  for (const p of ['game/assets/shared/arena/arena_bleacher.glb', 'game/assets/shared/materials/acg_net004a/acg_net004a_diff_2k.png']) {
+    assert.equal(policyRule(policy.pending, p), undefined);
+    const rule = policyRule(policy.documented, p);
+    assert.equal(rule?.license, 'CC0-1.0');
+    assert.equal(rule.evidence, 'game/assets/shared/CREDITS.md');
+  }
+  assert.equal(policyRule(policy.documented, 'game/assets/sharedx/a.png')?.prefix, undefined);
+});
+
+test('asset policy rules point at existing evidence and none is shadowed', () => {
+  for (const r of policy.documented) assert.ok(fs.existsSync(path.join(repo, r.evidence.split('#')[0])), r.evidence);
+  assert.deepEqual(shadowedRules(policy.documented), []);
+  assert.deepEqual(shadowedRules(policy.pending), []);
+  const rules = [{ prefix: 'a/' }, { prefix: 'a/b/' }, { prefix: 'c/', extensions: ['.png'] }, { prefix: 'c/d/' }];
+  assert.deepEqual(shadowedRules(rules).map(r => r.prefix), ['a/b/']);
+});
+
+test('locked entries may carry a planned-use note, but only as text', () => {
+  const entry = { path: 'game/assets/polyhaven/x/x_2k.jpg', asset: 'x', selector: ['Diffuse', '2k', 'jpg'],
+    bytes: 1, sha256: 'a'.repeat(64), downloadSha256: 'a'.repeat(64) };
+  assert.doesNotThrow(() => validateManifest({ version: 1, files: [{ ...entry, purpose: 'C6 hall shell' }] }));
+  for (const purpose of ['', 7, ['C6']])
+    assert.throws(() => validateManifest({ version: 1, files: [{ ...entry, purpose }] }), /Invalid locked asset entry/);
+  const lock = validateManifest(JSON.parse(fs.readFileSync(path.join(repo, 'tools/assets.lock.json'), 'utf8')));
+  const noted = new Set(lock.files.filter(x => x.purpose).map(x => x.asset));
+  for (const id of ['painted_metal_shutter', 'painted_plaster_wall', 'red_brick', 'sparse_grass', 'white_plaster_02',
+    'WetFloorSign_01', 'concrete_cat_statue', 'rollershutter_window_01', 'spray_paint_bottles'])
+    assert.ok(noted.has(id) && lock.files.filter(x => x.asset === id).every(x => x.purpose), id);
 });
