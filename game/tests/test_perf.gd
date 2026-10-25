@@ -28,6 +28,7 @@ func _run() -> void:
 	_clock()
 	await _riders_at_30fps()
 	_split_shadow_tier()
+	_ski_snow_budget()
 	for i in 3:   # let freed riders' rendering resources go before quitting
 		await get_tree().process_frame
 	print("RS_PERF_TESTS: %d checks, %d failures" % [_checks, _failures])
@@ -244,3 +245,29 @@ func _split_shadow_tier() -> void:
 	_check(late.directional_shadow_mode == DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS and late.directional_shadow_max_distance == 90.0,
 		"leaving the tier restores the late sun's scene values")
 	world.free()
+
+
+# ----------------------------------------------------------------- ski snowfall budget ----
+
+func _ski_snow_budget() -> void:
+	_check(RSSkiSnow.ratio(0.0, 4) == 0.0 and RSSkiSnow.ratio(-1.0, 4) == 0.0, "snow: dry maps emit no particles")
+	_check(RSSkiSnow.ratio(1.0, 1) == 1.0, "snow: one view retains full storm density")
+	_check(RSSkiSnow.ratio(1.0, 4) == 0.5 and RSSkiSnow.ratio(1.0, 3) == 0.5, "snow: three or four views halve storm density")
+	_check(RSSkiSnow.ratio(0.25, 2) == 0.25, "snow: two views retain night-map density")
+	_check(RSSkiSnow.ratio(0.001, 4) == 0.01, "snow: nonzero snowfall keeps the minimum particle ratio")
+	var low := RSSkiSnow.make(1, 0)
+	var high := RSSkiSnow.make(1, 2)
+	_check(not (low.process_material as ParticleProcessMaterial).turbulence_enabled, "snow: low quality disables turbulence")
+	_check((high.process_material as ParticleProcessMaterial).turbulence_enabled, "snow: normal quality retains turbulence")
+	for ps: GPUParticles3D in [low, high]:
+		_check(ps.amount == RSSkiSnow.AMOUNT and ps.layers == 1 and not ps.emitting, "snow: construction preserves the amount, camera layer and initially stopped emission")
+		RSSkiSnow.apply(ps, 1.0, 1)
+		_check(ps.emitting and ps.amount_ratio == 1.0, "snow: applying a storm map starts full snowfall")
+		RSSkiSnow.apply(ps, 1.0, 4)
+		_check(ps.emitting and ps.amount_ratio == 0.5, "snow: adding split views updates the particle budget")
+		RSSkiSnow.apply(ps, 0.0, 4)
+		_check(not ps.emitting and ps.amount_ratio == 0.0, "snow: switching to a dry map stops snowfall")
+		RSSkiSnow.apply(ps, 0.25, 2)
+		_check(ps.emitting and ps.amount_ratio == 0.25, "snow: returning to a night map restores snowfall")
+		ps.free()
+	print("RS_PERF_SNOW: storm map, 4 views: %d -> %d particles" % [5 * RSSkiSnow.AMOUNT, roundi(4 * RSSkiSnow.AMOUNT * RSSkiSnow.ratio(1.0, 4))])
