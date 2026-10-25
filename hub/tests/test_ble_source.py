@@ -151,7 +151,9 @@ async def test_failed_devices_cannot_starve_a_waiting_healthy_controller(monkeyp
     # Both bad attempts finish before the next fixed-order advertisement batch.
     # Rebuilding the queue every scan would therefore select those two forever.
     monkeypatch.setattr(ble, "GATT_TIMEOUT_S", 0.005)
-    monkeypatch.setattr(ble, "SCAN_DURATION_S", 0.001)
+    # The fake scanner advertises synchronously. Yield once rather than waiting
+    # for a sub-tick timer: Windows can round that wait beyond the scan deadline.
+    monkeypatch.setattr(ble, "SCAN_DURATION_S", 0)
     monkeypatch.setattr(ble, "SCAN_PAUSE_S", 0.02)
     source = ble.ReginaBleSource(Hub())
     task = asyncio.create_task(source.run())
@@ -215,6 +217,8 @@ async def test_failed_device_backoff_memory_is_bounded(monkeypatch):
                       {device.address: "connect" for device, _ in devices})
     monkeypatch.setattr(ble, "MAX_CANDIDATES", 3)
     monkeypatch.setattr(ble, "GATT_TIMEOUT_S", 0.004)
+    # No real advertising window is needed by this synchronous fake scanner.
+    monkeypatch.setattr(ble, "SCAN_DURATION_S", 0)
     source = ble.ReginaBleSource(Hub())
     task = asyncio.create_task(source.run())
     try:
