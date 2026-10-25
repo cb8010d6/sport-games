@@ -140,4 +140,7 @@ jobs:
       - name: Test bilingual text sizes, live menus and reload
         run: python tools/test_text_size.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --ui-only
       - name: Test shared material roots and prop kit keys
+        # Sparse checkout without the synced Poly Haven models: prefab files are not checked here.
+        env:
+          RS_SPARSE_ASSETS: '1'
         run: python tools/test_assets.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64

@@ -53,6 +53,8 @@ func _props() -> int:
 		_check(kit in RSProps.KITS and key.length() > kit.length() + 1, "prefab key has a kit prefix: " + key)
 		var spec: Array = RSProps.PREFABS[key]
 		var gltf := RSProps.path(spec[0])
+		if OS.get_environment("RS_SPARSE_ASSETS") == "1":   # CI's art-less checkout: keys and paths only
+			continue
 		_check(ResourceLoader.exists(gltf), "prefab glTF exists: " + key)
 		if not _buffers_synced(gltf):
 			continue
