@@ -297,5 +297,33 @@
     "fps_regression_percent_gt": 5,
     "mean_scene_ready_increase_ms_gt": 1000
   },
-  "decision": "Both numerical pause flags false; root accepted the static cost gate. Map1 B remains below the 45 FPS reference; M1 playability and physics acceptance remain separate."
+  "decision": "Both numerical pause flags false; root accepted the static cost gate. Map1 B remains below the 45 FPS reference; M1 playability and physics acceptance remain separate.",
+  "context": {
+    "source_commits": {
+      "golf_A_mip": "5dc4f7083cd5641c30232771e6c4fdc12db76165",
+      "golf_B_mip": "c36e1b0a4eb5cf9658ff70680311ff859e0013b3"
+    },
+    "engine": {
+      "version": "4.7.2.stable.official.ed1daf0bf",
+      "commit": "ed1daf0bf001b61586d9930840f2f1394092c079",
+      "console_executable_sha256": "c8f0a6bc45a19b33541501e57f6f7cd972ab18453743266339d495cbbe846643"
+    },
+    "environment": {
+      "gpu": "AMD Radeon 780M Graphics",
+      "driver": "AMD 32.0.31019.2002",
+      "renderer": "forward_plus",
+      "api": "vulkan",
+      "power_mode": "Balanced",
+      "frequency_locked": false,
+      "ac_check": "Hidden helper polled once per second; no AC-loss/unknown-power failure; endpoints online",
+      "desktop": "Hidden non-input rendering desktop; normal user desktop remained available",
+      "background": "No concurrent Godot, headless, heavy tests, imports, large copies, or builds"
+    },
+    "integrity": {
+      "all_sources_clean_unchanged": true,
+      "all_real_save_hashes_unchanged": true,
+      "no_records_files": true
+    }
+  },
+  "raw_samples": "Raw frames are retained privately under archive golf-m1-readability-20261025-B; see raw-sha256.json. No per-frame samples are tracked in this directory."
 }

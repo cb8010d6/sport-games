@@ -34,6 +34,7 @@ func _run() -> void:
 		get_tree().quit(1)
 		return
 	RuleCases.run(_check)
+	_projection_checks()
 	var connections := ControllerHub.button_pressed.get_connections().size()
 	var disconnect_connections := ControllerHub.controller_disconnected.get_connections().size()
 	var roster_connections := ControllerHub.roster_changed.get_connections().size()
@@ -43,6 +44,7 @@ func _run() -> void:
 	Engine.max_fps = 0  # Fixed simulation delta without a monitor-dependent wall-time cap.
 	_check(_game.course.hole_count() == 3 and _game._maps().size() == 2, "two maps with three holes")
 	_check(_game.players.size() == _game.demo and _game.demo in [1, 2, 4], "requested demo slots")
+	await _display_checks()
 	await _wait_phase(RSPartyGame.Phase.RESULTS, 30000)
 	_check(_game.phase == RSPartyGame.Phase.RESULTS and _game.hole_index == 2, "natural demo finishes all holes")
 	for p: RSPartyGame.Player in _game.players.values():
@@ -167,9 +169,74 @@ func _lifecycle() -> void:
 	_chunk_checks(p)
 	_coordination_checks(p)
 	var ball: WeakRef = weakref(state.ball)
+	var trail: WeakRef = weakref(state.visual.trail)
+	var ring: WeakRef = weakref(state.visual.ring)
 	_game._remove_player(p.c.id)
 	await get_tree().process_frame
 	_check(ball.get_ref() == null and p.data == null, "player removal releases project state")
+	_check(trail.get_ref() == null and ring.get_ref() == null, "player removal releases trail and ground ring")
+
+
+func _projection_checks() -> void:
+	var viewport := SubViewport.new()
+	viewport.own_world_3d = true
+	add_child(viewport)
+	var camera := Camera3D.new()
+	viewport.add_child(camera)
+	for size: Vector2i in [Vector2i(1062, 446), Vector2i(1062, 896), Vector2i(2133, 900)]:
+		viewport.size = size
+		for angle: float in [55.0, 72.0, 95.0]:
+			camera.fov = angle
+			for depth: float in [2.0, 8.0, 50.0]:
+				var at := Vector3(0.3, -0.2, -depth)
+				var radius := RSGolfState.Visual.radius_for_camera(camera, at)
+				# Independent engine screen projection, not a copy of the radius formula.
+				var left := camera.unproject_position(at - Vector3.RIGHT * radius)
+				var right := camera.unproject_position(at + Vector3.RIGHT * radius)
+				var top := camera.unproject_position(at + Vector3.UP * radius)
+				var bottom := camera.unproject_position(at - Vector3.UP * radius)
+				_check(absf(right.x - left.x) >= 7.995 and absf(bottom.y - top.y) >= 7.995, "actual camera projection respects eight-pixel ball floor")
+				_check(radius >= RSGolfBall.RADIUS, "presentation never shrinks the physical-size sphere")
+	viewport.size = Vector2i(1062, 446)
+	camera.projection = Camera3D.PROJECTION_ORTHOGONAL
+	camera.size = 20.0
+	var at := Vector3(0, 0, -10)
+	var radius := RSGolfState.Visual.radius_for_camera(camera, at)
+	_check(absf(camera.unproject_position(at + Vector3.UP * radius).y - camera.unproject_position(at - Vector3.UP * radius).y) >= 7.995, "orthogonal camera pixel floor uses actual projection")
+	camera.projection = Camera3D.PROJECTION_PERSPECTIVE
+	_check(RSGolfState.Visual.radius_for_camera(camera, Vector3(0, 0, -0.2)) == RSGolfBall.RADIUS, "near physical sphere is not enlarged unnecessarily")
+	_check(RSGolfState.Visual.radius_for_camera(camera, Vector3(0, 0, 1)) == RSGolfBall.RADIUS, "behind-camera centre never becomes a giant display sphere")
+	remove_child(viewport)
+	viewport.free()
+
+
+func _display_checks() -> void:
+	await get_tree().process_frame  # Let production containers assign real player viewport sizes.
+	var p: RSPartyGame.Player = _game.ordered()[0]
+	var state := p.data as RSGolfState
+	var before := [state.motion.position, state.motion.previous_position, state.motion.velocity,
+		state.motion.spin, state.motion.mode, state.motion.age_ticks, state.motion.outcome,
+		state.rules.summary(), p.score, _game.hole_tick, _game._accumulator]
+	var nodes := _game.get_child_count()
+	var ball_material := state.ball.material_override
+	var trail_material := state.visual.trail.material_override
+	var ring_material := state.visual.ring.material_override
+	var history := state.visual.trail.multimesh
+	for frame in 120:
+		_game._sync_ball(p, 1.0 / 60.0)
+	var after := [state.motion.position, state.motion.previous_position, state.motion.velocity,
+		state.motion.spin, state.motion.mode, state.motion.age_ticks, state.motion.outcome,
+		state.rules.summary(), p.score, _game.hole_tick, _game._accumulator]
+	_check(before == after, "display and camera updates cannot advance physics, scoring or the shared clock")
+	_check(_game.get_child_count() == nodes and state.ball.material_override == ball_material and state.visual.trail.material_override == trail_material and state.visual.ring.material_override == ring_material and state.visual.trail.multimesh == history, "repeated updates reuse nodes, materials and trail allocation")
+	_check(absf((state.ball.mesh as SphereMesh).radius - RSGolfBall.RADIUS) < 1.0e-8 and state.ball.scale.x >= 1.0, "only the display transform enlarges the ball")
+	_check(state.visual.ring.visible and history.visible_instance_count == 0, "a ready ground ball has a ring and no flight trail")
+	for frame in 30:
+		state.visual.update(state.position + Vector3(frame * 0.2, 1.0, 0), RSGolfBall.Mode.FLIGHT, false, p.cam, _game.course.surface, 1.0 / 60.0)
+	_check(history.visible_instance_count > 0 and history.visible_instance_count < RSGolfState.Visual.SAMPLES and not state.visual.ring.visible, "bounded flight history draws a trail and hides the ground ring")
+	state.visual.reset()
+	_check(history.visible_instance_count == 0 and not state.visual.trail.visible and not state.visual.ring.visible, "new-hole reset clears presentation history and indicators")
+	_game._sync_ball(p)
 
 
 func _disconnect_checks(p: RSPartyGame.Player) -> void:

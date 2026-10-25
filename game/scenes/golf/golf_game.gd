@@ -3,7 +3,7 @@ extends RSPartyGame
 ## M1 project shell: shared 120 Hz clock and independent sphere-swept physical balls.
 ## A/B/C are temporary button input; no official records until rules/physics/gestures are ready.
 
-const BALL_RADIUS := RSGolfBall.RADIUS  ## physical and rendered radius, m
+const BALL_RADIUS := RSGolfBall.RADIUS  ## physical radius, m; presentation has a separate pixel floor
 const BOT_TICKS := 180    ## 1.5 effective play seconds before a bot shot
 const BOT_FINISH_SPEED := 4.0  ## maximum presentation speed after every human has finished
 const CARD_SECONDS := 6.0 ## between-hole holding time; formal scorecard arrives in G6
@@ -85,22 +85,14 @@ func _player_added(p: Player) -> void:
 	var state := RSGolfState.new()
 	p.data = state
 	state.reset(_pars, p.c.player)
-	state.ball = MeshInstance3D.new()
-	var mesh := SphereMesh.new()
-	mesh.radius = BALL_RADIUS
-	mesh.height = BALL_RADIUS * 2.0
-	state.ball.mesh = mesh
-	var material := StandardMaterial3D.new()
-	material.albedo_color = color_of(p)
-	state.ball.material_override = material
-	state.ball.layers = 1 << p.c.player
-	add_child(state.ball)
+	state.visual = RSGolfState.Visual.new(self, color_of(p), 1 << p.c.player)
+	state.ball = state.visual.ball
 	_place(p)
 
 
 func _player_removed(p: Player) -> void:
 	_round_players.erase(p)
-	_state(p).ball.queue_free()
+	_state(p).visual.release()
 	p.data = null
 
 
@@ -120,6 +112,8 @@ func _place(p: Player) -> void:
 	if not _state(p).start_hole(hole_index, course.tee_pos(hole_index), physics_world):
 		push_error("RSGolfGame: invalid hole transition")
 		return
+	_state(p).visual.reset()
+	_state(p).camera_ready = false
 	_sync_ball(p)
 	_send_status(p)
 
@@ -153,7 +147,7 @@ func _play_process(delta: float) -> void:
 			_accumulator = 0.0  # A phase boundary never donates leftover time to a new hole.
 			break
 	for p: Player in _round_players:
-		_sync_ball(p)
+		_sync_ball(p, delta)
 
 
 func _play_tick() -> void:
@@ -228,13 +222,30 @@ func _shoot(p: Player) -> void:
 		_send_status(p)
 
 
-func _sync_ball(p: Player) -> void:
+func _sync_ball(p: Player, delta := 0.0) -> void:
 	var state := _state(p)
 	var at := state.render_position(_accumulator / STEP)
-	state.ball.position = at
 	var direction := course.tee_dir(hole_index)
-	p.cam.position = at - direction * 7.0 + Vector3.UP * 4.0
-	p.cam.look_at(at + direction * 8.0)
+	var travel := Vector3(state.motion.velocity.x, 0.0, state.motion.velocity.z)
+	if state.flying and travel.length_squared() > 0.25:
+		direction = travel.normalized()
+	else:
+		var pin := course.pin_pos(hole_index) - at
+		pin.y = 0.0
+		if pin.length_squared() > 0.01:
+			direction = pin.normalized()
+	var ahead := clampf(travel.length() * 0.25, 4.0, 14.0)
+	var focus := at + direction * ahead
+	if course.surface.contains_xz(focus.x, focus.z):
+		# Keep the real ball in frame at a high arc or an uphill lie while looking toward land.
+		focus.y = clampf(lerpf(at.y, course.surface.height_at(focus.x, focus.z), 0.35), at.y - ahead * 0.25, at.y + ahead * 0.1)
+	var eye := at - direction * (8.0 + ahead * 0.15) + Vector3.UP * (4.5 + ahead * 0.15)
+	var blend := 1.0 - exp(-delta * 8.0) if state.camera_ready and delta > 0.0 else 1.0
+	p.cam.position = p.cam.position.lerp(eye, blend)
+	state.camera_focus = state.camera_focus.lerp(focus, blend)
+	state.camera_ready = true
+	p.cam.look_at(state.camera_focus)
+	state.visual.update(at, state.motion.mode, state.done, p.cam, course.surface, delta)
 
 
 func _configure_physics() -> void:
