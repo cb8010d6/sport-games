@@ -134,7 +134,6 @@ func _run() -> void:
 		_check(pages.visible and pages._focus.size() > 0, "menu page: " + page)
 		pages.close()
 	pages.queue_free()
-	_check(load("res://scenes/menu/main_menu.gd") != null, "main menu compiles")
 	# A controller that drops out of the roster is kept, only marked
 	# disconnected: player state keys on the RSController object, so the same
 	# id coming back must reuse it (#45, review of the local purge).
@@ -148,6 +147,7 @@ func _run() -> void:
 	_check(dropped[0] == 1, "dropped controller emits controller_disconnected once")
 	ControllerHub._handle_json(JSON.stringify({"type": "roster", "controllers": [{"id": 7, "kind": "phone", "name": "T", "player": 1, "connected": true}]}).to_utf8_buffer())
 	_check(ControllerHub.controllers.get(7) == kept and kept.connected, "returning id reuses the same controller object (#45)")
+	_check(load("res://scenes/menu/main_menu.gd") != null, "main menu compiles")
 	TutorialCases.run(_check)
 	await TutorialCases.integration(self, _check)
 	await get_tree().process_frame
