@@ -143,6 +143,7 @@ static func run(check: Callable) -> void:
 	RSProfiles._loaded = false
 	check.call(RSProfiles.tutorial_done(3, "plane") and not RSProfiles.tutorial_done(3, "archery"), "tutorial completion persists per game")
 	check.call(not RSProfiles.tutorial_done(4, "plane"), "tutorial completion isolated per profile")
+	_swing_cases(check)
 
 
 static func integration(host: Node, check: Callable) -> void:
@@ -188,3 +189,122 @@ static func integration(host: Node, check: Callable) -> void:
 	check.call(not game._tutorials.has(912) and not game.players.has(912), "disconnect removes stale lobby lesson")
 	game.queue_free()
 	await host.get_tree().process_frame
+
+
+class LeftSwingController extends RSController:
+	func left_handed() -> bool:
+		return true
+
+
+static func _swing_lesson(c: RSController) -> RSTutorial:
+	var lesson := RSTutorial.new("plane")
+	lesson.steps = RSTutorial.step_list(["SWING"])
+	# These fixtures advance demo time synthetically; they do not wait 2.4 real
+	# seconds for reset cooldown. Production detector defaults remain unchanged.
+	lesson._swing.cooldown = 0.0
+	lesson.start(c)
+	return lesson
+
+
+static func _swing_motion(lesson: RSTutorial, c: RSController, peak: float = 8.0) -> void:
+	for rate: float in [peak * 0.75, peak, peak * 0.5]:
+		_sample(c, Quaternion.IDENTITY, Vector3.UP * rate)
+		lesson.update(c, 0.02)
+
+
+static func _swing_cases(check: Callable) -> void:
+	var steps := RSTutorial.step_list(["SWING"])
+	check.call(steps.size() == 1 and steps[0]["kind"] == "swing", "manifest names resolve the generic SWING lesson")
+	var c := _controller()
+	var lesson := _swing_lesson(c)
+	_swing_motion(lesson, c)
+	check.call(not lesson.finished and not lesson.practicing and not lesson._swung, "a detected demonstration swing does not complete practice")
+	_demo(lesson, c)
+	_swing_motion(lesson, c)
+	check.call(lesson.finished, "one fresh 8 rad/s swing after practice starts completes SWING")
+	c = _controller()
+	for rate: float in [6.0, 8.0, 4.0]:
+		_sample(c, Quaternion.IDENTITY, Vector3.UP * rate)
+	lesson = _swing_lesson(c)
+	_demo(lesson, c)
+	_sample(c, Quaternion.IDENTITY, Vector3.UP * 4.0)
+	lesson.update(c, 0.02)
+	check.call(not lesson.finished, "a peak retained from before lesson/practice start cannot pass on a fresh trailing sample")
+	_swing_motion(lesson, c)
+	check.call(lesson.finished, "discarding old history leaves the next new swing usable")
+	c = _controller()
+	lesson = _swing_lesson(c)
+	_demo(lesson, c)
+	_swing_motion(lesson, c, 4.0)
+	check.call(not lesson.finished, "motion below the unchanged swing start threshold does not pass")
+	var left := LeftSwingController.new()
+	left.connected = true
+	left.kind = "phone"
+	lesson = _swing_lesson(left)
+	_demo(lesson, left)
+	_swing_motion(lesson, left)
+	check.call(lesson.finished, "left-hand mirrored input passes the same direction-independent swing lesson")
+	c = _controller()
+	lesson = _swing_lesson(c)
+	_demo(lesson, c)
+	for rate: float in [6.0, 8.0]:
+		_sample(c, Quaternion.IDENTITY, Vector3.UP * rate)
+		lesson.update(c, 0.02)
+	var epoch: int = lesson._swing.epoch()
+	c.connected = false
+	lesson.update(c, 0.02)
+	check.call(lesson._swing.epoch() == epoch + 1 and not lesson._swing.is_swinging(), "disconnect resets the tutorial detector and cancels its current swing")
+	c.connected = true
+	_sample(c, Quaternion.IDENTITY, Vector3.UP * 4.0)
+	lesson.update(c, 0.02)
+	check.call(not lesson.finished, "reconnection cannot confirm the pre-disconnect peak")
+	_swing_motion(lesson, c)
+	check.call(lesson.finished, "new motion after reconnect can complete the current practice")
+	c = _controller()
+	c.push_sample(10.0, Quaternion.IDENTITY, Vector3.ZERO, Vector3.UP * 9.8, Vector3.ZERO)
+	lesson = _swing_lesson(c)
+	_demo(lesson, c)
+	for rate: float in [6.0, 8.0]:
+		_sample(c, Quaternion.IDENTITY, Vector3.UP * rate)
+		lesson.update(c, 0.02)
+	epoch = lesson._swing.epoch()
+	c.push_sample(1.0, Quaternion.IDENTITY, Vector3.ZERO, Vector3.UP * 9.8, Vector3.ZERO)
+	lesson.update(c, 0.02)
+	check.call(lesson._swing.epoch() == epoch + 1 and not lesson.practicing and not lesson._swing.is_swinging(), "hub clock rollback resets the swing and repeats the current demonstration")
+	_demo(lesson, c)
+	_swing_motion(lesson, c)
+	check.call(lesson.finished, "practice accepts a fresh swing in the restarted hub epoch")
+	c = _controller()
+	lesson = _swing_lesson(c)
+	_demo(lesson, c)
+	_sample(c)
+	lesson.update(c, 0.02)
+	lesson._swing.swing_peaked.emit(c, {"epoch": lesson._swing.epoch() - 1, "peak_time": c.sample_time})
+	lesson.update(c, 0.01)
+	check.call(not lesson.finished, "a candidate from an old detector epoch is rejected even with fresh controller input")
+	lesson._swing.swing_peaked.emit(c, {"epoch": lesson._swing.epoch(), "peak_time": lesson._sample_at_start})
+	lesson.update(c, 0.01)
+	check.call(not lesson.finished, "a candidate exactly at practice start is not a new peak")
+	lesson._swing.swing_peaked.emit(c, {"epoch": lesson._swing.epoch(), "peak_time": c.sample_time})
+	lesson.update(c, 0.31)
+	check.call(not lesson.finished, "a matching candidate still needs the existing fresh-input gate")
+	_sample(c)
+	lesson.update(c, 0.02)
+	check.call(not lesson.finished, "a discarded stale candidate does not revive on a later fresh sample")
+	_swing_motion(lesson, c)
+	check.call(lesson.finished, "a fresh detected peak remains usable after rejected candidates")
+	c = _controller()
+	lesson = _swing_lesson(c)
+	_demo(lesson, c)
+	var cancel_ref: WeakRef = weakref(lesson._swing)
+	lesson._swing.swing_peaked.connect(func(_c: RSController, _swing: Dictionary) -> void:
+		var detector := cancel_ref.get_ref() as RSSwingDetector
+		if detector != null:
+			detector.reset()
+	)
+	_swing_motion(lesson, c)
+	check.call(not lesson.finished, "a candidate cancelled during batch processing must still match the final detector epoch")
+	var lesson_ref: WeakRef = weakref(lesson)
+	var detector_ref: WeakRef = weakref(lesson._swing)
+	lesson = null
+	check.call(lesson_ref.get_ref() == null and detector_ref.get_ref() == null, "releasing a tutorial also releases its signal-connected swing detector")
