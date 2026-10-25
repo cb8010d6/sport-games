@@ -157,6 +157,10 @@ func _clock() -> void:
 
 func _riders_at_30fps() -> void:
 	## Real riders driven by bots at a steady 30 FPS: the cap holds every frame and they ride.
+	## CI checks out the game without the character art; the clock checks above still run there.
+	if not (ResourceLoader.exists(RSSkaterRig.RIDERS[1]) and ResourceLoader.exists(RSSkierRig.SKIERS[1])):
+		print("RS_PERF_SKIP: rider models not checked out; 30 FPS rider check skipped")
+		return
 	var skate := RSSkateCourse.new()
 	var sk := RSSkater.new(skate, Color.WHITE, 1, 0)
 	add_child(sk)
