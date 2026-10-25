@@ -894,7 +894,7 @@ func draw_text(ci: CanvasItem, text: String, pos: Vector2, size: float, color: C
 		width = 2.0 * minf(pos.x - 4.0, bounds.x - pos.x - 4.0)
 	elif right:
 		width = pos.x - 4.0
-	var fs := RSUi.fit_text_size(text, size, width, pos.y - 4.0, bounds.y - 8.0, f)
+	var fs := RSUi.fit_text_size(text, size, width, pos.y - 4.0, bounds.y - 8.0, f, true)
 	var at := pos
 	if center or right:
 		at.x -= f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x * (0.5 if center else 1.0)
@@ -986,7 +986,7 @@ func _hud_draw(h: PlayerHud) -> void:
 	var tag_fs := RSUi.text_size(20 * k)
 	h.draw_string(RSUi.font_label(), Vector2(plate.position.x + 18 * k, plate.end.y - 17 * k), "P%d" % p.c.player,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, tag_fs, color_of(p).lightened(0.35))
-	var bump_fs := roundi(score_fs * bump)
+	var bump_fs := RSUi.snap_font_size(score_fs * bump)
 	var bump_w := num_font.get_string_size(score, HORIZONTAL_ALIGNMENT_LEFT, -1, bump_fs).x
 	h.draw_string(num_font, Vector2(plate.end.x - 14 * k - score_w * 0.5 - bump_w * 0.5, plate.end.y - 12 * k), score,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, bump_fs, Color.WHITE)
@@ -1041,7 +1041,7 @@ func _overlay_draw(o: Overlay) -> void:
 		# GO! on the accent plate, growing a little as it fades.
 		var a := 1.0 - phase_time / 0.8
 		var grow := 1.0 + 0.15 * RSUi.ease_out(phase_time / 0.8)
-		var fs := RSUi.text_size(130.0 * k * grow)
+		var fs := RSUi.snap_font_size(RSUi.text_size(130.0 * k * grow))
 		var go_font := RSUi.font_bold()
 		var w := go_font.get_string_size("GO!", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		_lean.bg_color = Color(RSUi.ACCENT, a)

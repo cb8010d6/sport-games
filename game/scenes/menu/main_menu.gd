@@ -433,10 +433,7 @@ func _prompt(keys: Array, action: String) -> HBoxContainer:
 		glyph.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 		glyph.custom_minimum_size = Vector2(28, 28)
 		glyph.size_flags_vertical = Control.SIZE_SHRINK_CENTER
-		var disc := StyleBoxFlat.new()
-		disc.bg_color = RSUi.TEXT
-		disc.set_corner_radius_all(14)
-		glyph.add_theme_stylebox_override("normal", disc)
+		glyph.add_theme_stylebox_override("normal", RSUi.glyph_style())
 		box.add_child(glyph)
 	var l := RSUi.label(action, 15)
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER

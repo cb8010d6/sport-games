@@ -117,9 +117,21 @@ static func apply_text_sizes(root: Node) -> void:
 		apply_text_sizes(child)
 
 
-static func fit_text_size(text: String, base: float, width: float, baseline: float, height: float, f: Font = null) -> int:
+static func snap_font_size(size: float, down := false) -> int:
+	## Fixed steps within each octave keep the raster-size ladder monotonic and idempotent.
+	## Below 64px use whole pixels; larger sizes have gaps no wider than 1/32 of the size.
+	var step := 1
+	while size >= float(step * 64):
+		step *= 2
+	var units := floori(size / float(step)) if down else roundi(size / float(step))
+	return maxi(1, units * step)
+
+
+static func fit_text_size(text: String, base: float, width: float, baseline: float, height: float, f: Font = null, snap := false) -> int:
 	## Single-line HUD text: reserve an edge margin and respect the actual font metrics.
 	var fs := text_size(base)
+	if snap:
+		fs = snap_font_size(fs)
 	if f == null:
 		f = font()
 	var width_at_size := f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
@@ -127,10 +139,12 @@ static func fit_text_size(text: String, base: float, width: float, baseline: flo
 	fit = minf(fit, baseline / maxf(f.get_ascent(fs), 1.0))
 	fit = minf(fit, (height - baseline) / maxf(f.get_descent(fs), 1.0))
 	fs = maxi(8, floori(fs * fit))
+	if snap:
+		fs = maxi(8, snap_font_size(fs, true))
 	# Font hinting rounds glyph advances; usually at most one final pixel is needed.
 	while fs > 8 and (f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x > width
 			or f.get_ascent(fs) > baseline or f.get_descent(fs) > height - baseline):
-		fs -= 1
+		fs = maxi(8, snap_font_size(fs - 1, true)) if snap else fs - 1
 	return fs
 
 
@@ -249,6 +263,15 @@ static func chip_style(tint: Color) -> StyleBoxFlat:
 	sb.content_margin_right = 14
 	sb.content_margin_top = 5
 	sb.content_margin_bottom = 5
+	return sb
+
+
+static func glyph_style() -> StyleBoxFlat:
+	## The disc behind a controller-button glyph in menu prompts: solid text colour,
+	## corners rounded to a circle at the glyph labels' 28px size.
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = TEXT
+	sb.set_corner_radius_all(14)
 	return sb
 
 
