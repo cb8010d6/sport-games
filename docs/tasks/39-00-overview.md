@@ -55,20 +55,20 @@ F5、F6、F7、F8、F9、F10 六条线之间没有依赖，可以并行。跨 is
 
 领取 F5 的卡前先看 PR #78（暂停 / 断线按键）和 #93（#57 字号量化）是否已合入：它们也改 `party_game.gd`，没合入时避开相同的函数。
 
-## 可以复用的未提交草稿
+## 可以复用的草稿
 
-之前的子 agent 在协调者本机的 worktree 里留下了未提交、未推送的草稿（基于较旧的 dev `c6c0668`，没有经过审查）。领卡前向协调者索取，只作参考，按卡里的接口重写或改造，不要整份照搬：
+之前的子 agent 留下的草稿已推到远端 `wip/39-*` 分支（基于较旧的 dev `c6c0668`，没有经过审查，不会合并）。用 `git show origin/wip/39-teams:game/core/teams.gd` 之类的命令查看，只作参考，按卡里的接口重写或改造，不要整份照搬：
 
-| worktree / 分支 | 文件 | 对应卡 |
+| 分支 | 文件 | 对应卡 |
 |---|---|---|
-| `wt/teams`（`claude/issue-39-teams`） | `game/core/teams.gd`（291 行）、`game/tests/test_teams.gd`、`teams_test_game.gd`，以及 `party_game.gd` / `party_ui.gd` / `party_views.gd` / `podium.gd` 的修改 | 39-01 ~ 39-04 |
-| `wt/ball`（`claude/issue-39-ball-swing`） | `game/core/ball_flight.gd`（844 行）、`game/tests/test_ball_flight.gd` | 39-05、39-06 |
-| `wt/race`（`claude/issue-39-race-track`） | `game/core/race_track.gd`（689 行）、`game/tests/test_race_track.gd` | 39-13、39-14 |
+| `wip/39-teams` | `game/core/teams.gd`（291 行）、`game/tests/test_teams.gd`、`teams_test_game.gd`，以及 `party_game.gd` / `party_ui.gd` / `party_views.gd` / `podium.gd` 的修改 | 39-01 ~ 39-04 |
+| `wip/39-ball` | `game/core/ball_flight.gd`（844 行）、`game/tests/test_ball_flight.gd` | 39-05、39-06 |
+| `wip/39-race` | `game/core/race_track.gd`（689 行）、`game/tests/test_race_track.gd` | 39-13、39-14 |
 
-`wt/water`、`wt/arena` 没有任何改动。草稿与卡不一致的地方以卡为准（例如草稿里模式 id 写的是 `ffa`，清单里是 `individual`）。
+水面和场馆没有草稿。草稿与卡不一致的地方以卡为准（例如草稿里模式 id 写的是 `ffa`，清单里是 `individual`）。
 
-## 需要维护者决定的
+## 维护者决定（2026-10-25）
 
-1. 派对积分按队：卡里按“全队同名次、同积分，名次按队算（两队就是第 1、2 名）”设计，和[乒乓球 D0 设计](../TABLE_TENNIS_DESIGN.md)（PR #92 已合入，玩法参数仍待维护者确认）一致。roadmap“需要你决定的”第 3 条里的“整场派对 2v2 合计积分”不在本 issue 内。
-2. `RSBallFlight` 固定步长：草稿用 240 Hz，乒乓球 D0 设计写的是 1/120 s。卡里定为常量 `HZ := 240`，改成 120 只需改常量和测试容差。
-3. 补位电脑的外观：卡里定为中性灰（`RSUi.TEXT_MUTED`），名称“电脑”，不占用档案身份。
+1. 派对积分按队：卡里按“全队同名次、同积分，名次按队算（两队就是第 1、2 名）”设计，和[乒乓球 D0 设计](../TABLE_TENNIS_DESIGN.md)（PR #92 已合入，玩法参数仍待维护者确认）一致。**同意。** roadmap“需要你决定的”第 3 条里的“整场派对 2v2 合计积分”不在本 issue 内。
+2. `RSBallFlight` 固定步长：草稿用 240 Hz，乒乓球 D0 设计写的是 1/120 s。卡里定为常量 `HZ := 240`，改成 120 只需改常量和测试容差。**定为 240 Hz**：高速小球靠更细步长加扫掠检测，乒乓球项目直接用 `RSBallFlight` 的步长，不另设 120 Hz。
+3. 补位电脑的外观：卡里定为中性灰（`RSUi.TEXT_MUTED`），名称“电脑”，不占用档案身份。**同意。**
