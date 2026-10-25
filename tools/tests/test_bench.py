@@ -98,7 +98,8 @@ class BenchTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "sample time"):
             bench.validate_report(payload, bench.Case("ski", 0, 2, 2, 1), arguments())
 
-    def run_fake(self, output, *, code=0, text="RS_BENCH_DONE: ski", payload=None, failure=None, paths=None,
+    def run_fake(self, output, *, code=0, text="RS_BENCH_DONE: ski", stderr="", engine_log=None,
+                 payload=None, failure=None, paths=None,
                  power_states=None, engine_calls=None):
         def engine(command, env, timeout):
             if engine_calls is not None:
@@ -119,7 +120,9 @@ class BenchTests(unittest.TestCase):
             path = Path(next(arg.split("=", 1)[1] for arg in command if arg.startswith("--bench-output=")))
             if payload != "missing":
                 path.write_text(json.dumps(report() if payload is None else payload), encoding="utf-8")
-            return subprocess.CompletedProcess(command, code, text, "")
+            if engine_log is not None:
+                path.with_name("engine.log").write_text(engine_log, encoding="utf-8")
+            return subprocess.CompletedProcess(command, code, text, stderr)
         with mock.patch.object(bench, "run_engine", side_effect=engine), \
              mock.patch.object(bench, "find_godot", return_value="fake-godot"), \
              mock.patch.object(bench, "source_revision", return_value={"source_commit": "a" * 40, "source_dirty": True}), \
@@ -223,6 +226,54 @@ class BenchTests(unittest.TestCase):
                 self.assertTrue(raw["errors"])
                 self.assertIsNone(summary["runs"][0]["statistics"])
                 self.assertEqual(summary["groups"][0]["target_status"], "INVALID")
+
+    def test_gameplay_crash_event_with_complete_report_is_valid(self):
+        gameplay = "[  43.4] P1 s= 637.5 v=24.6  CRASH 落地没站稳"
+        text = f"RS_BENCH_START: ski\n{gameplay}\nRS_BENCH_DONE: ski"
+        with tempfile.TemporaryDirectory() as temp:
+            output = Path(temp)
+            self.assertEqual(self.run_fake(output, text=text, engine_log=text), 0)
+            raw = json.loads((output / "ski-m0-p2-q2-r1/raw.json").read_text(encoding="utf-8"))
+            summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
+            self.assertEqual(raw["status"], "PASS")
+            self.assertEqual(raw["errors"], [])
+            self.assertEqual(raw["runner_status"], "PASS")
+            self.assertEqual(raw["samples"], report()["samples"])
+            self.assertIsNotNone(summary["runs"][0]["statistics"])
+            self.assertIn(gameplay, (output / "ski-m0-p2-q2-r1/run.log").read_text(encoding="utf-8"))
+
+    def test_engine_diagnostics_fail_even_with_gameplay_event_and_valid_report(self):
+        # Godot 4.7.2 logger/error macros and native crash-handler output (ed1daf0bf).
+        diagnostics = (
+            'SCRIPT ERROR: Parse Error: Cannot infer the type of "passed" variable because the value doesn\'t have a set type.',
+            'ERROR: Failed to load script "res://tests/bench_runner.gd" with error "Parse error".',
+            "ERROR: unrelated engine failure",
+            "SHADER ERROR: shader compilation failed",
+            'ERROR: FATAL: Condition "failed" is true.',
+            "CrashHandlerException: Program crashed",
+            "CrashHandlerException: Program crashed with signal 11",
+            "handle_crash: Program crashed with signal 11",
+            "Dumping the backtrace. Please include this when reporting the bug.",
+            "-- END OF C++ BACKTRACE --",
+            "   GDScript backtrace (most recent call first):",
+            "WARNING: 2 ObjectDB instances were leaked at exit (run with `--verbose` for details).",
+            "ERROR: 1 resources still in use at exit (run with --verbose for details).",
+        )
+        gameplay = "[  43.4] P1 s= 637.5 v=24.6  CRASH 落地没站稳"
+        for diagnostic in diagnostics:
+            for channel in ("text", "stderr", "engine_log"):
+                with self.subTest(diagnostic=diagnostic, channel=channel), tempfile.TemporaryDirectory() as temp:
+                    output = Path(temp)
+                    channels = {"text": f"{gameplay}\nRS_BENCH_DONE: ski"}
+                    channels[channel] = channels.get(channel, "") + "\n" + diagnostic
+                    self.assertEqual(self.run_fake(output, **channels), 1)
+                    raw = json.loads((output / "ski-m0-p2-q2-r1/raw.json").read_text(encoding="utf-8"))
+                    summary = json.loads((output / "summary.json").read_text(encoding="utf-8"))
+                    self.assertEqual(raw["errors"], [diagnostic.strip()])
+                    self.assertEqual(raw["status"], "FAIL")
+                    self.assertEqual(raw["runner_status"], "PASS")
+                    self.assertIsNone(summary["runs"][0]["statistics"])
+                    self.assertEqual(summary["groups"][0]["target_status"], "INVALID")
 
     def test_discovery_failure_invalidates_previous_pass(self):
         with tempfile.TemporaryDirectory() as temp:
