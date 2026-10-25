@@ -4,6 +4,7 @@ import fs from 'node:fs';
 import fsp from 'node:fs/promises';
 import path from 'node:path';
 import crypto from 'node:crypto';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 import { sanitizeJpegProcessingHistory } from './asset_metadata.mjs';
 
@@ -21,7 +22,7 @@ export function safePath(root, relative) {
   for (const part of relative.split('/')) {
     current = path.join(current, part);
     if (fs.lstatSync(current, { throwIfNoEntry: false })?.isSymbolicLink())
-      throw new Error('Asset destination contains a symlink');
+      throw new Error('Asset destination contains a symlink: ' + relative);
   }
   return full;
 }
@@ -52,11 +53,11 @@ export async function request(url, { fetcher = fetch, timeout = 300000 } = {}) {
   throw new Error('Too many upstream redirects');
 }
 
-export function validateManifest(manifest) {
+export function validateManifest(manifest, root = ROOT) {
   if (manifest.version !== 1 || !Array.isArray(manifest.files)) throw new Error('Unsupported asset manifest');
   const paths = new Set();
   for (const item of manifest.files) {
-    safePath(ROOT, item.path);
+    safePath(root, item.path);
     if (paths.has(item.path)) throw new Error('Duplicate asset destination');
     paths.add(item.path);
     if (!item.path.startsWith('game/assets/polyhaven/') || !/^[a-f\d]{64}$/.test(item.sha256) ||
@@ -68,6 +69,33 @@ export function validateManifest(manifest) {
       throw new Error('Invalid locked asset entry');
   }
   return manifest;
+}
+
+export function cachePaths(manifest, root = ROOT) {
+  const files = validateManifest(manifest, root).files;
+  for (const item of files) {
+    // Actions treats its path input as newline-separated glob patterns. Cache v1
+    // accepts only the raw formats currently locked, never source/import files.
+    if (/[\u0000-\u0020\u007f\u0085\u2028\u2029*?\[\]{}!+@()]/.test(item.path) ||
+      item.path.split('/').some(part => part.startsWith('.')) || !/\.(bin|hdr|jpg)$/.test(item.path) ||
+      fs.lstatSync(safePath(root, item.path), { throwIfNoEntry: false })?.isDirectory())
+      throw new Error('Unsafe asset cache path');
+  }
+  const tracked = execFileSync('git', ['-C', root, 'ls-files', '--cached', '-z'],
+    { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 }).split('\0').filter(Boolean);
+  // Compare case-insensitively so a Linux-produced list remains safe on Windows.
+  const candidates = [];
+  for (const item of files) {
+    const candidate = item.path.toLowerCase();
+    const overlaps = file => {
+      const name = file.toLowerCase();
+      return name === candidate || name.startsWith(candidate + '/') || candidate.startsWith(name + '/');
+    };
+    if (candidates.some(overlaps)) throw new Error('Asset cache paths overlap: ' + item.path);
+    if (tracked.some(overlaps)) throw new Error('Asset cache path overlaps a Git-tracked path: ' + item.path);
+    candidates.push(item.path);
+  }
+  return files.map(item => item.path);
 }
 
 export function resolveFile(info, selector) {
@@ -135,41 +163,50 @@ export function nodeVersionSupported(version = process.versions.node) {
   return NODE_MINIMUMS.some(([maj, min, pat]) => major === maj && (minor > min || (minor === min && patch >= pat)));
 }
 
-export async function main(args = process.argv.slice(2)) {
+export async function main(args = process.argv.slice(2), {
+  root = ROOT, fetcher = fetch, log = console.log, error = console.error
+} = {}) {
   if (!nodeVersionSupported()) {
-    console.error(`Node.js ${process.versions.node} is not a supported patched release (need 22.23.4+, 24.22.1+ or 26.12.1+; see docs/DEVELOPMENT.md).`);
+    error(`Node.js ${process.versions.node} is not a supported patched release (need 22.23.4+, 24.22.1+ or 26.12.1+; see docs/DEVELOPMENT.md).`);
     return 1;
   }
-  const options = { check: false, list: false, force: false, only: null };
+  const options = { check: false, list: false, 'cache-paths': false, force: false, only: null, fetcher };
   for (let i = 0; i < args.length; i++) {
     if (args[i] === '--help') {
-      console.log('node tools/sync_assets.mjs [--check | --list] [--only ASSET_ID] [--force]\n' +
+      log('node tools/sync_assets.mjs [--check | --list | --cache-paths] [--only ASSET_ID] [--force]\n' +
         'Downloads missing locked Poly Haven files. Existing matches are skipped.\n' +
-        '--check and --list are offline. --force replaces changed local files.');
+        '--check, --list and --cache-paths are offline. --force replaces changed local files.\n' +
+        '--cache-paths prints only safe, untracked locked paths and accepts no other options.');
       return 0;
     }
     if (args[i] === '--only') { options.only = args[++i]; if (!options.only) throw new Error('--only requires an asset ID'); }
-    else if (['--check', '--list', '--force'].includes(args[i])) options[args[i].slice(2)] = true;
+    else if (['--check', '--list', '--cache-paths', '--force'].includes(args[i])) options[args[i].slice(2)] = true;
     else throw new Error('Unknown option: ' + args[i]);
   }
-  if (options.check && options.list) throw new Error('Choose --check or --list');
-  const manifest = validateManifest(JSON.parse(await fsp.readFile(path.join(ROOT, 'tools/assets.lock.json'), 'utf8')));
+  if ([options.check, options.list, options['cache-paths']].filter(Boolean).length > 1)
+    throw new Error('Choose --check, --list or --cache-paths');
+  if (options['cache-paths'] && (options.force || options.only)) throw new Error('--cache-paths accepts no other options');
+  const manifest = validateManifest(JSON.parse(await fsp.readFile(path.join(root, 'tools/assets.lock.json'), 'utf8')), root);
   const files = manifest.files.filter(x => !options.only || x.asset === options.only);
   if (!files.length) throw new Error('No matching locked assets');
-  console.log('Powered by Poly Haven — https://polyhaven.com (CC0 assets; no endorsement).');
+  if (options['cache-paths']) {
+    log(cachePaths(manifest, root).join('\n'));
+    return 0;
+  }
+  log('Powered by Poly Haven — https://polyhaven.com (CC0 assets; no endorsement).');
   if (options.list) {
     const groups = new Map();
     for (const x of files) {
       const row = groups.get(x.asset) ?? { files: 0, bytes: 0 };
       row.files++; row.bytes += x.bytes; groups.set(x.asset, row);
     }
-    for (const [id, row] of groups) console.log(`${id}: ${row.files} files, ${(row.bytes / 1048576).toFixed(1)} MiB — https://polyhaven.com/a/${id}`);
+    for (const [id, row] of groups) log(`${id}: ${row.files} files, ${(row.bytes / 1048576).toFixed(1)} MiB — https://polyhaven.com/a/${id}`);
     return 0;
   }
   const api = new Map();
   async function resolve(item) {
     if (!api.has(item.asset)) {
-      const response = await request(`https://api.polyhaven.com/files/${item.asset}`, { timeout: 60000 });
+      const response = await request(`https://api.polyhaven.com/files/${item.asset}`, { fetcher, timeout: 60000 });
       api.set(item.asset, await response.json());
     }
     return resolveFile(api.get(item.asset), item.selector);
@@ -178,26 +215,26 @@ export async function main(args = process.argv.slice(2)) {
   for (const item of files) {
     try {
       if (options.check) {
-        const file = safePath(ROOT, item.path);
+        const file = safePath(root, item.path);
         if (!fs.existsSync(file) || await fileHash(file) !== item.sha256) throw new Error('Missing or changed');
         verified++;
       } else {
         // Low parallelism and bounded retries avoid flooding the public API.
         let result;
         for (let attempt = 0; attempt < 3; attempt++) {
-          try { result = await installAsset(item, ROOT, resolve, options); break; }
+          try { result = await installAsset(item, root, resolve, options); break; }
           catch (error) {
             if (attempt === 2 || /Local file differs|pinned|locked|Sanitized|variant/.test(error.message)) throw error;
             await new Promise(r => setTimeout(r, 1000 * (attempt + 1)));
           }
         }
         if (result === 'verified') verified++;
-        else { downloaded++; console.log('Downloaded ' + item.path); }
+        else { downloaded++; log('Downloaded ' + item.path); }
       }
-    } catch (error) { failed++; console.error(`${item.path}: ${error.message}`); }
+    } catch (failure) { failed++; error(`${item.path}: ${failure.message}`); }
   }
-  console.log(`Verified ${verified}; downloaded ${downloaded}; missing/failed ${failed}.`);
-  if (failed) console.error('See docs/ASSETS.md. No unverified replacement files were installed.');
+  log(`Verified ${verified}; downloaded ${downloaded}; missing/failed ${failed}.`);
+  if (failed) error('See docs/ASSETS.md. No unverified replacement files were installed.');
   return failed ? 1 : 0;
 }
 
