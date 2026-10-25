@@ -64,6 +64,7 @@ async def test_source_failures_leave_web_and_game_running(tmp_path, monkeypatch,
             await _wait_for(lambda: "BLE source disabled" in caplog.text and "replay source stopped" in caplog.text)
             assert not task.done()
             hub, source = hubs[0], sources[0]
+            assert hub.roster()["ble_state"] == "unavailable"
             assert all(not c.connected for c in hub.controllers.values() if c.kind == "replay")
             port = source._runner.addresses[0][1]
             async with aiohttp.ClientSession() as session:

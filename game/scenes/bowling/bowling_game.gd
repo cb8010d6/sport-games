@@ -407,6 +407,17 @@ func _player_button(p: Player, button: int, pressed: bool) -> void:
 		_release(p, _swing_speed(s.peak_rate), _twist(p))
 
 
+func _player_cancel_hold(p: Player, button: int) -> void:
+	# Paused or disconnected mid-swing: abort back to aiming, do not throw.
+	if button != RSController.BTN_B:
+		return
+	var s := _bowler(p)
+	if s.step == Step.SWING:
+		s.step = Step.AIM
+		s.step_t = 0.0
+		_hold_ball(s)
+
+
 func _start_swing(p: Player) -> void:
 	var s := _bowler(p)
 	if s.step != Step.AIM:

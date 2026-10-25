@@ -258,6 +258,9 @@ static func apply_viewport(vp: Viewport) -> void:
 		vp.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_2X, Viewport.MSAA_4X][quality]
 		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if quality < 3 else Viewport.SCREEN_SPACE_AA_SMAA
 	vp.mesh_lod_threshold = [4.0, 2.0, 1.0, 0.5][quality]
+	# Positional (omni/spot) shadow atlas: every split-screen view renders its own,
+	# so the low tiers shrink it well below the project default.
+	vp.positional_shadow_atlas_size = [1024, 2048, 4096, 4096][quality]
 	# Float buffers so the split-screen views and the window keep highlights above SDR white.
 	vp.use_hdr_2d = hdr_active()
 

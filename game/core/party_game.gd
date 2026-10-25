@@ -97,6 +97,7 @@ var _smoke_report := ""
 var _smoke_shot := ""
 var _smoke_done := false
 var _tournament_final_shown := false
+var _tournament_final_msec := 0  ## when the final podium appeared; A is ignored for 1 s (#55)
 var _tournament_exit := RSTournament.ExitGuard.new()
 var _tutorials: Dictionary = {}  ## controller id -> its active lobby lesson
 var _music: RSMusic
@@ -186,6 +187,14 @@ func _results_process(_delta: float) -> void:
 
 func _player_button(_p: Player, _button: int, _pressed: bool) -> void:
 	## Buttons during the countdown and play (A in the lobby / results is handled here).
+	pass
+
+
+func _player_cancel_hold(_p: Player, _button: int) -> void:
+	## A hold that ended without the player's intent: the pause menu opened
+	## mid-hold, or the controller disconnected while a button was down (#55).
+	## Cancel the held action (drop the draw / lower the ball) instead of
+	## completing it the way a real release would. Default: nothing is held.
 	pass
 
 
@@ -286,6 +295,7 @@ func _ready() -> void:
 	_music = RSMusic.attach(self)
 	ControllerHub.button_pressed.connect(_on_button.bind(true))
 	ControllerHub.button_released.connect(_on_button.bind(false))
+	ControllerHub.button_cancelled.connect(_on_button_cancelled)
 	ControllerHub.controller_event.connect(_on_event)
 	_tournament_exit.eligible = _exit_eligible
 	ControllerHub.controller_disconnected.connect(_exit_disconnected)
@@ -662,6 +672,12 @@ func _on_button(c: RSController, button: int, pressed: bool) -> void:
 	if ui.pause.is_open():
 		if pressed:
 			ui.pause.on_button(button)
+		else:
+			# A release inside the pause menu cancels the hold instead of
+			# completing it: the player let go without meaning to act (#55).
+			var held_p: Player = players.get(c.id)
+			if held_p != null:
+				_player_cancel_hold(held_p, button)
 		return
 	if pressed and button == RSController.BTN_C and phase in [Phase.LOBBY, Phase.RESULTS]:
 		if RSTournament.active():
@@ -689,17 +705,31 @@ func _on_button(c: RSController, button: int, pressed: bool) -> void:
 				if RSTournament.last_round():
 					if not _tournament_final_shown:
 						_tournament_final_shown = true
+						_tournament_final_msec = Time.get_ticks_msec()
 						ui.show_tournament_podium(RSTournament.standings())
 						for participant: Player in players.values():
 							send_ui(participant, {"clear": true, "title": "PARTY", "main": "FINISHED", "legends": ["MENU", "", "MENU", null]})
-					else:
+					elif Time.get_ticks_msec() - _tournament_final_msec >= 1000:
 						go_menu()
+					# else: a second A within 1 s of the podium appearing (two
+					# players pressing together) must not skip it (#55).
 				else:
-					get_tree().change_scene_to_file(RSTournament.advance())
+					var next_scene := RSTournament.advance()
+					if next_scene != "":
+						get_tree().change_scene_to_file(next_scene)
 			else:
 				_to_lobby()
 	elif phase in [Phase.COUNTDOWN, Phase.PLAY]:
 		_player_button(p, button, pressed)
+
+
+func _on_button_cancelled(c: RSController, button: int) -> void:
+	## The controller went away mid-hold: cancel, never complete (#55).
+	if benchmark_mode:
+		return
+	var p: Player = players.get(c.id)
+	if p != null:
+		_player_cancel_hold(p, button)
 
 
 func _on_event(c: RSController, ev: String) -> void:
@@ -864,7 +894,7 @@ func draw_text(ci: CanvasItem, text: String, pos: Vector2, size: float, color: C
 		width = 2.0 * minf(pos.x - 4.0, bounds.x - pos.x - 4.0)
 	elif right:
 		width = pos.x - 4.0
-	var fs := RSUi.fit_text_size(text, size, width, pos.y - 4.0, bounds.y - 8.0, f)
+	var fs := RSUi.fit_text_size(text, size, width, pos.y - 4.0, bounds.y - 8.0, f, true)
 	var at := pos
 	if center or right:
 		at.x -= f.get_string_size(text, HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x * (0.5 if center else 1.0)
@@ -956,7 +986,7 @@ func _hud_draw(h: PlayerHud) -> void:
 	var tag_fs := RSUi.text_size(20 * k)
 	h.draw_string(RSUi.font_label(), Vector2(plate.position.x + 18 * k, plate.end.y - 17 * k), "P%d" % p.c.player,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, tag_fs, color_of(p).lightened(0.35))
-	var bump_fs := roundi(score_fs * bump)
+	var bump_fs := RSUi.snap_font_size(score_fs * bump)
 	var bump_w := num_font.get_string_size(score, HORIZONTAL_ALIGNMENT_LEFT, -1, bump_fs).x
 	h.draw_string(num_font, Vector2(plate.end.x - 14 * k - score_w * 0.5 - bump_w * 0.5, plate.end.y - 12 * k), score,
 		HORIZONTAL_ALIGNMENT_LEFT, -1, bump_fs, Color.WHITE)
@@ -975,6 +1005,18 @@ func _hud_draw(h: PlayerHud) -> void:
 		y -= 46 * k
 	if not p.fake and not p.c.connected:
 		draw_pill(h, tr("手柄断线 —— 等待重连"), Vector2(sz.x * 0.5, sz.y * 0.62), 24 * k, RSUi.HIGHLIGHT)
+
+
+func _ble_match_warning() -> String:
+	## In-play diagnostics matter only when a participant's Regina is offline.
+	## Setup screens keep the source-wide warning for pairing and troubleshooting.
+	if phase == Phase.LOBBY or demo or benchmark_mode:
+		return ""
+	for id: int in players:
+		var p: Player = players[id]
+		if not p.fake and p.c.kind == "regina" and not p.c.connected:
+			return ControllerHub.ble_warning()
+	return ""
 
 
 func _overlay_draw(o: Overlay) -> void:
@@ -999,7 +1041,7 @@ func _overlay_draw(o: Overlay) -> void:
 		# GO! on the accent plate, growing a little as it fades.
 		var a := 1.0 - phase_time / 0.8
 		var grow := 1.0 + 0.15 * RSUi.ease_out(phase_time / 0.8)
-		var fs := RSUi.text_size(130.0 * k * grow)
+		var fs := RSUi.snap_font_size(RSUi.text_size(130.0 * k * grow))
 		var go_font := RSUi.font_bold()
 		var w := go_font.get_string_size("GO!", HORIZONTAL_ALIGNMENT_LEFT, -1, fs).x
 		_lean.bg_color = Color(RSUi.ACCENT, a)
@@ -1007,6 +1049,10 @@ func _overlay_draw(o: Overlay) -> void:
 		o.draw_string(go_font, Vector2(center.x - w * 0.5 - fs * 0.04, center.y + fs * 0.36), "GO!", HORIZONTAL_ALIGNMENT_LEFT, -1, fs, Color(RSUi.INK, a))
 	if phase != Phase.LOBBY and not demo and not ControllerHub.is_hub_connected():
 		draw_pill(o, tr("● 未连接 hub —— 请运行 hub/run_hub.bat"), Vector2(sz.x * 0.5, sz.y - 30 * k), 18 * k, RSUi.BAD)
+	elif phase != Phase.LOBBY and not demo:
+		var ble_warning := _ble_match_warning()
+		if not ble_warning.is_empty():
+			draw_pill(o, ble_warning, Vector2(sz.x * 0.5, sz.y - 30 * k), 18 * k, RSUi.HIGHLIGHT)
 
 
 func _take_shots() -> void:

@@ -468,6 +468,8 @@
   "标准（100%）": "Standard (100%)",
   "大（125%）": "Large (125%)",
   "界面字号　◀ %s ▶": "Text size  ◀ %s ▶",
+  "蓝牙未发现广播，请尝试关闭再打开电脑蓝牙。": "No Bluetooth broadcasts found. Try turning Bluetooth off and on on this computer.",
+  "蓝牙不可用，请检查适配器；手机手柄仍可使用。": "Bluetooth is unavailable. Check the adapter; phone controllers are still available.",
   "高尔夫": "Golf",
   "占位输入：A切换60/120/220米，按住B再松开击球，C取消。三洞一局，每洞150秒，各自同时打球；不计正式纪录。": "Placeholder input: A selects 60/120/220 m; hold and release B to shoot; C cancels. Three holes per round, 150 seconds each; players shoot simultaneously. No official records.",
   "3洞 · 标准杆12 · 占位出手": "3 holes · Par 12 · Placeholder shots",

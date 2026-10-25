@@ -245,6 +245,16 @@ func _player_button(p: Player, button: int, pressed: bool) -> void:
 		_to(s, St.RELEASE)
 
 
+func _player_cancel_hold(p: Player, button: int) -> void:
+	# Paused or disconnected while holding the ball up: lower it, no shot.
+	if button != RSController.BTN_B:
+		return
+	var s := _sh(p)
+	if s.st == St.SET:
+		_to(s, St.READY)
+		s.rig.play(RSBallerRig.Move.HOLD)
+
+
 func _round_started(list: Array) -> void:
 	_podium.reset()
 	_time_left = TIME_LIMIT

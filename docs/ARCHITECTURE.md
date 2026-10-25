@@ -130,7 +130,12 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 界面字号由 `RSSettings.text_size` 保存在同一设置文件，标准为 100%，大号为 125%。`RSUi` 保留控件、Theme 和成绩富文本的原始字号，切换时一次更新现有界面，新控件按当前设置创建；不重载比赛、不逐帧遍历节点、不重复累乘。主菜单项目列表和菜单子页滚动跟随焦点。六项目通过 `RSPartyGame.draw_text / draw_pill` 统一放大 HUD，受分屏宽度与屏幕边缘限制的单行文字按实际字体度量适配；3D 世界标签和手柄 OLED 保持原尺寸。
 
+HUD 位图字体的动画字号由 `RSUi.snap_font_size(size, down=false)` 统一量化：64px 以下使用整数，之后每个二倍区间使用固定步宽，档距不超过当前字号的 1/32；向下模式供边界适配使用。`RSUi.fit_text_size(..., snap=false)` 保持原默认行为，`RSPartyGame.draw_text` 开启量化，使初次度量、缩小适配和最终绘制都落在同一组字号上。分数弹跳和 GO! 的直接绘制也使用该策略。此策略限制光栅字号组合，不等于已经验证字体纹理内存或帧时间收益；动效观感仍需实际渲染验收。
+
+`RSSettings.apply_viewport` 为所有视口设置点光／聚光阴影图集：四档分别为 1024、2048、4096、4096。`RSHumanRig` 构建时按当前画质调整皮肤 SSS（仅高／极高）和头发、眉毛、睫毛的 alpha-to-coverage（仅原生分辨率且 MSAA 开启）。本批次不增加材质重应用接口；现有角色的材质不能保证随暂停页改画质即时更新，需重新创建角色后生效，不能将其描述为实时降级完成。
+
 - **中枢 ↔ 游戏**：只有 [protocol.md](protocol.md) 定义的 UDP 消息。新增字段要同时改协议文档、hub 和 `ControllerHub`，并保持旧字段兼容。
+- **蓝牙诊断**：roster 的可选 `ble_state` 描述 hub 的 BLE 来源，不影响手机、模拟手柄或名册逻辑。`ControllerHub.ble_warning()` 统一返回已翻译的异常提示；主菜单、玩家 / 手柄页与大厅显示 `no_adverts`、`unavailable`；比赛底部仅在本局有离线的真人 Regina 玩家时显示，纯手机 / 模拟手柄对局、已连接的 Regina、机器人与演示不会显示无关蓝牙告警。旧 hub 缺少字段时默认 `disabled`；状态恢复、hub 心跳过期或超过 3 秒未收到 roster 时隐藏提示，不沿用旧诊断。
 - **端口**：正常游戏监听 `127.0.0.1:47800`、发往 hub 的 47801，同一时间只能运行一个实例。`RS_TEST_MODE=1` 时 `ControllerHub` 绑定系统分配的临时端口、不向 hub 发任何消息，同一台电脑上可以并行跑任意多个测试实例，也不会打扰正在运行的真实 hub；测试用 `ControllerHub.listen_port()` 取得端口，向它发送合成的 hub 数据包。需要真实 hub 的双实例测试给每个实例传 `--hub-port=N`（任何模式都有效）：游戏发往 N、监听 N-1，对应 hub 用 `--hub-port N --game-port N-1` 启动。端口无效（不在 2–65535）时报错且不绑定。`tools/` 下启动游戏项目的测试脚本都设置 `RS_TEST_MODE=1`；`tools/test_hub_port.py` 在占住 47800 的情况下同时启动多个实例检查以上行为。发行包冒烟按正常模式运行、自带 hub；其中只有启动器冒烟（`release_launcher.py`）使用固定端口，`smoke_release.py` 给冻结 hub 分配随机端口，导出游戏的冒烟走测试模式。
 - **存档**：`user://*.cfg`（ConfigFile）。`RSSave.read(path)` 读原文件、`.bak`、`.tmp` 中的有效副本；`RSSave.write(path, config)` 使用版本 1 元数据、SHA-256 校验、验证后的临时文件和上一份有效备份。无版本旧档按版本 0 读取，下次成功保存时升级。未知版本只读保护，不用旧备份覆盖；所有副本损坏时返回默认配置并记录警告。备份与临时文件是现有存档的恢复副本，不新增业务存档或 autoload。Windows 替换目标文件存在短暂间隙，因此承诺可恢复写入，不承诺断电原子性或磁盘硬件损坏恢复。`override.cfg` 仍是启动时派生的渲染设置；两份设置文件无法构成跨文件事务，驱动变更保存失败时返回错误。
 - **文案**：中文原文就是 key。改中文原文等于换了 key，必须同步 `en.json`，并通过 `python tools/i18n_check.py`。
@@ -172,3 +177,9 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 `RSPartyGame` 继续独占大厅准备、阶段转换与退出处理，`RSTournament` 继续只持有内存中的原始参赛槽位与累计积分。缺席下一项的槽位保留、该项加零分；大厅至少一人在场且所有在场参赛者准备才开始。`RSPartyUi` 展示缺席计分规则与短时二次 C 的退出确认；确认状态随其他输入、阶段／回合变化或确认者断线取消。暂停冻结玩法与确认时钟。无新增协议、业务存档、autoload 或运行时依赖。
 
 退出确认的内存状态由 `RSTournament.ExitGuard` 承载，每个游戏实例独占一份；它接收调用者提供的比赛时钟、阶段和参与者校验，不持有场景、UI或SceneTree，不自行切换场景。`RSPartyGame` 负责信号、调用状态和实际退出，`RSPartyUi` 只显示提示。缺席结果槽位的计算也由 `RSTournament` 接收最终结果行完成，避免在 UI 或项目中另造积分规则。
+
+## 9. 取消未完成的按住动作（#55）
+
+`ControllerHub.button_cancelled(controller, button)` 与正常 `button_released` 分开：断线event、roster报离线、条目消失都先清零held位再按位发一次cancel，重复消息不重复取消。控制器对象保留，重连不产生迟到release。`RSPartyGame._player_cancel_hold(p, button)` 默认空实现；暂停中的release及离线cancel调用它，不能调用完成动作的普通release路径。射箭放下弓、篮球SET退回READY、保龄球SWING回AIM，均不出手或计分；只读按键掩码的项目使用默认实现。测试心跳重发最后完整roster，保留显式离线状态，空列表只用于真正的全员离线场景。
+
+总领奖台首次A显示后，真实一秒内后续A不退出，避免多人同时确认跳过；C仍走既有大赛退出确认。该输入门不改变计分、比赛时钟或机器人速度。
