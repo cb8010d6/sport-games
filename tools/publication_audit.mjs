@@ -9,6 +9,7 @@ import crypto from 'node:crypto';
 import { fileURLToPath } from 'node:url';
 import { execFileSync } from 'node:child_process';
 import { inflateSync } from 'node:zlib';
+import { policyRule } from './asset_policy.mjs';
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const args = process.argv.slice(2);
@@ -177,8 +178,8 @@ for (const p of files) {
     const b = fs.readFileSync(full);
     const lfsPointer = b.subarray(0, 60).toString().startsWith('version https://git-lfs.github.com/spec/v1');
     try { embeddedText(p, b); } catch { findings.push({ path: p, category: 'metadata-decode-review' }); }
-    const pending = policy.pending.find(r => p.startsWith(r.prefix) && (!r.extensions || r.extensions.includes(ext)));
-    const documented = policy.documented.find(r => p.startsWith(r.prefix) && (!r.extensions || r.extensions.includes(ext)));
+    const pending = policyRule(policy.pending, p);
+    const documented = policyRule(policy.documented, p);
     manifest.push({ path: p, bytes: stat.size, sha256: crypto.createHash('sha256').update(b).digest('hex'),
       materialized: !lfsPointer,
       status: pending ? 'pending-rights-review' : documented?.basis === 'maintainer-declaration' ?

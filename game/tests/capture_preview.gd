@@ -1,8 +1,8 @@
 extends Node
 ## Asset-generation harness: exports the real camera's 3D viewport, without HUD nodes.
 
-const TIMES := {"plane": 4.0, "archery": 4.5, "bowling": 3.0,
-	"skate": 4.0, "ski": 4.0, "basketball": 4.0}
+const TIMES := {"archery": 4.5, "bowling": 3.0}   ## seconds of play before the capture, per game
+const DEFAULT_TIME := 4.0
 
 
 func _ready() -> void:
@@ -15,8 +15,8 @@ func _ready() -> void:
 
 func _run() -> void:
 	var id := OS.get_environment("RS_PREVIEW_GAME")
-	var entry := RSCatalog.find_game(id)
-	if entry.is_empty() or not TIMES.has(id):
+	var entry := RSCatalog.find_game(id, true)   # a new game needs its preview before it is ready
+	if entry.is_empty():
 		get_tree().quit(1)
 		return
 	get_tree().current_scene = null
@@ -25,7 +25,7 @@ func _run() -> void:
 	get_tree().current_scene = game
 	for _i in 1800:
 		await get_tree().process_frame
-		if game.phase == RSPartyGame.Phase.PLAY and game.phase_time >= TIMES[id]:
+		if game.phase == RSPartyGame.Phase.PLAY and game.phase_time >= TIMES.get(id, DEFAULT_TIME):
 			break
 	if game.phase != RSPartyGame.Phase.PLAY or game.players.size() != 1:
 		get_tree().quit(1)

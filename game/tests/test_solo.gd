@@ -101,7 +101,7 @@ func _capture(name: String) -> void:
 func _exercise() -> Dictionary:
 	_check(RSSolo.begin("invalid", 1, 1).is_empty(), "invalid game rejected")
 	_check(RSSolo.begin(_id, 0, 1).is_empty() and RSSolo.begin(_id, 1, 3).is_empty(), "invalid slot/difficulty rejected")
-	var goals: Array = RSSolo.GOALS[_id]
+	var goals: Array = RSSolo.goals(_id)
 	_check(RSSolo.earned(_id, -1) == 0 and RSSolo.earned(_id, goals[0] - 1) == 0, "below goal boundary")
 	for i in 3:
 		_check(RSSolo.earned(_id, goals[i]) == i + 1, "inclusive challenge boundary")

@@ -40,6 +40,12 @@
       "evidence": "docs/perf/ingame-benchmark-2026-10-23/CREDITS.md"
     },
     {
+      "prefix": "docs/perf/issue-53-2026-10-25/",
+      "extensions": [".jpg"],
+      "license": "MIT AND CC0-1.0",
+      "evidence": "docs/perf/issue-53-2026-10-25/CREDITS.md"
+    },
+    {
       "prefix": "docs/screenshots/phase3-solo-",
       "license": "MIT",
       "evidence": "docs/PHASE_3_SOLO.md#界面截图"
@@ -73,6 +79,11 @@
       "prefix": "docs/screenshots/phase6-camera-",
       "license": "MIT",
       "evidence": "docs/PHASE_6_CAMERA_COMFORT.md"
+    },
+    {
+      "prefix": "game/assets/shared/",
+      "license": "CC0-1.0",
+      "evidence": "game/assets/shared/CREDITS.md"
     },
     {
       "prefix": "game/assets/polyhaven/",

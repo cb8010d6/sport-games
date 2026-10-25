@@ -27,6 +27,7 @@
 python tools/check_conventions.py          # 规范（GD-*、ARCH-*、SRC-PATH）
 python tools/i18n_check.py                 # 中英文：0 缺失、0 多余
 python -m pytest -q tools/tests            # 工具测试
+python -m ruff check --config hub/pyproject.toml hub tools   # Python lint
 cd hub && python -m pytest -q              # 中枢测试（改了 hub 时）
 node --test tools/tests/asset_sync.test.mjs
 node tools/publication_audit.mjs --privacy-only
