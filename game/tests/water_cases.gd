@@ -213,6 +213,7 @@ static func _wake(check: Callable) -> void:
 			if views >= RSSettings.SPLIT_TIER_VIEWS:
 				expected = floori(expected * 0.5)
 			check.call(budget.multimesh.instance_count == expected, "water wake: quality and split tier set fixed capacity at construction")
+			check.call(budget.multimesh.buffer.size() == expected * 16, "water wake: every capacity allocates twelve transform and four custom floats per instance")
 			budget.free()
 	RSSettings.quality = 0
 	RSSettings.views = 1
@@ -224,20 +225,34 @@ static func _wake(check: Callable) -> void:
 	check.call(wake.multimesh.instance_count == capacity and wake.multimesh.visible_instance_count == capacity, "water wake: overflow keeps a fixed instance budget")
 	var oldest := INF
 	var newest := -INF
+	var submitted := wake.multimesh.buffer
+	check.call(submitted.size() == capacity * 16, "water wake: overflow preserves the fixed bulk buffer length")
 	for i in capacity:
-		var xf := wake.multimesh.get_instance_transform(i)
+		var xf := _wake_transform(submitted, i)
 		oldest = minf(oldest, xf.origin.x)
 		newest = maxf(newest, xf.origin.x)
 		check.call(absf(xf.origin.y - surface.height_at(xf.origin.x, xf.origin.z)) < 0.000001, "water wake: every patch follows current surface height, ignoring emitted Y")
 		check.call(xf.basis.z.distance_to(RSWater.normal_at(surface.preset, xf.origin.x, xf.origin.z, 0.5)) < 0.000001 and absf(xf.basis.y.normalized().dot(xf.basis.z)) < 0.000001, "water wake: tangent plane and height share the same surface time")
+		var age := (0.5 - xf.origin.x * 0.001) / wake.lifetime
+		var custom := _wake_custom(submitted, i)
+		check.call(absf(custom.r - (1.0 + age * 2.0)) < 0.000001 and absf(custom.g - (1.0 - age) * (1.0 - age)) < 0.000001 and absf(custom.b - age) < 0.000001 and custom.a == 1.0, "water wake: submitted custom data contains width, opacity, age and strength")
+		check.call(absf(xf.basis.x.length() - custom.r) < 0.000001, "water wake: submitted patch width agrees with its scaled transform")
 	check.call(oldest == 3.0 and newest == capacity + 2, "water wake: overflow overwrites the oldest records")
-	var initial := wake.multimesh.get_instance_custom_data(0)
+	var initial := _wake_custom(submitted, 0)
+	var replaced := _wake_transform(submitted, 3)
+	var untouched := _wake_custom(submitted, 4)
+	submitted = PackedFloat32Array() # release this read reference before the next submission
+	wake.emit(Vector3(capacity + 3, -999, 0), Vector3.RIGHT, 1.0, 1.0, 0.5)
+	check.call(_wake_custom(wake.multimesh.buffer, 3) == Color(0, 0, 0, 0), "water wake: an overwritten slot is hidden until update positions its replacement")
+	check.call(_wake_transform(wake.multimesh.buffer, 3) == replaced and _wake_custom(wake.multimesh.buffer, 4) == untouched, "water wake: hiding a replacement preserves submitted transforms and other patches")
 	wake.update(2.0)
-	var aged := wake.multimesh.get_instance_custom_data(0)
+	var aged := _wake_custom(wake.multimesh.buffer, 0)
 	check.call(aged.r > initial.r and aged.g < initial.g, "water wake: patches widen and fade with age")
+	var moved := _wake_transform(wake.multimesh.buffer, 3)
+	check.call(moved.origin.x == capacity + 3 and absf(moved.origin.y - surface.height_at(moved.origin.x, moved.origin.z)) < 0.000001 and moved.basis.z.distance_to(RSWater.normal_at(surface.preset, moved.origin.x, moved.origin.z, 2.0)) < 0.000001, "water wake: the next buffer places replacements at the new surface time")
 	wake.update(10.0)
 	for i in capacity:
-		check.call(wake.multimesh.get_instance_custom_data(i).g == 0.0, "water wake: expired patches have zero opacity")
+		check.call(_wake_custom(wake.multimesh.buffer, i).g == 0.0, "water wake: expired patches have zero opacity")
 	wake.clear()
 	check.call(wake.multimesh.visible_instance_count == 0, "water wake: clear hides all instances")
 	wake.emit(Vector3.ZERO, Vector3.ZERO, 1.0, 1.0, 20.0)
@@ -246,9 +261,10 @@ static func _wake(check: Callable) -> void:
 	wake.emit(Vector3(1.2, 0, 0), Vector3.RIGHT, 1.0, 1.0, 20.2)
 	wake.update(20.2)
 	check.call(wake.multimesh.visible_instance_count == 2, "water wake: clear resets spacing and sufficiently spaced emits add records")
+	check.call(wake.multimesh.buffer.size() == capacity * 16, "water wake: clear and reuse keep the original bulk buffer length")
 	wake.lifetime = 0.0
 	wake.update(20.2)
-	check.call(wake.multimesh.get_instance_custom_data(1).g == 0.0, "water wake: a zero lifetime is immediately transparent")
+	check.call(_wake_custom(wake.multimesh.buffer, 1).g == 0.0, "water wake: a zero lifetime is immediately transparent")
 	wake.free()
 	var parent := Node3D.new()
 	RSSettings.views = 4
@@ -262,3 +278,18 @@ static func _wake(check: Callable) -> void:
 	surface.free()
 	RSSettings.quality = old_quality
 	RSSettings.views = old_views
+
+
+static func _wake_transform(data: PackedFloat32Array, slot: int) -> Transform3D:
+	# Decode the actual MultiMesh buffer, whose transform stores three rows of four.
+	var start := slot * 16
+	return Transform3D(Basis(
+		Vector3(data[start], data[start + 4], data[start + 8]),
+		Vector3(data[start + 1], data[start + 5], data[start + 9]),
+		Vector3(data[start + 2], data[start + 6], data[start + 10])
+	), Vector3(data[start + 3], data[start + 7], data[start + 11]))
+
+
+static func _wake_custom(data: PackedFloat32Array, slot: int) -> Color:
+	var start := slot * 16 + 12
+	return Color(data[start], data[start + 1], data[start + 2], data[start + 3])

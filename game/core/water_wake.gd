@@ -7,6 +7,7 @@ extends MultiMeshInstance3D
 
 const CAPACITY := [64, 128, 256, 256]
 const WAKE_SHADER: Shader = preload("res://shaders/rs_water_wake.gdshader")
+const _INSTANCE_FLOATS := 16 # 12 row-major transform values, then RGBA custom data
 
 var lifetime := 4.0
 var spacing := 0.6
@@ -21,6 +22,11 @@ var _directions := PackedVector2Array()
 var _birth := PackedFloat64Array()
 var _width := PackedFloat32Array()
 var _strength := PackedFloat32Array()
+# The renderer may retain the submitted PackedArray. Write the other field directly:
+# a local PackedArray alias would make these writes detach through copy-on-write.
+var _buffer_a := PackedFloat32Array()
+var _buffer_b := PackedFloat32Array()
+var _write_a := true
 
 
 func _init(surface: RSWaterSurface) -> void:
@@ -31,6 +37,8 @@ func _init(surface: RSWaterSurface) -> void:
 	_birth.resize(_slots)
 	_width.resize(_slots)
 	_strength.resize(_slots)
+	_buffer_a.resize(_slots * _INSTANCE_FLOATS)
+	_buffer_b.resize(_slots * _INSTANCE_FLOATS)
 	var quad := QuadMesh.new()
 	quad.size = Vector2.ONE
 	var mm := MultiMesh.new()
@@ -39,6 +47,7 @@ func _init(surface: RSWaterSurface) -> void:
 	mm.mesh = quad
 	mm.instance_count = _slots
 	mm.visible_instance_count = 0
+	mm.buffer = _buffer_b
 	multimesh = mm
 	var mat := ShaderMaterial.new()
 	mat.shader = WAKE_SHADER
@@ -64,7 +73,7 @@ func emit(pos: Vector3, dir: Vector3, width: float, strength: float, t: float) -
 	_width[_next] = width
 	_strength[_next] = intensity
 	# A replaced slot stays hidden until update has placed it on the current wave.
-	multimesh.set_instance_custom_data(_next, Color(0, 0, 0, 0))
+	_hide_slot(_next)
 	_next = (_next + 1) % _slots
 	_count = mini(_count + 1, _slots)
 	_has_last = true
@@ -86,9 +95,71 @@ func update(t: float) -> void:
 		var opacity := _strength[i] * (1.0 - age) * (1.0 - age)
 		var basis := Basis(right * width, along * maxf(spacing, 0.1) * 1.5, normal)
 		var origin := Vector3(point.x, _surface.height_at(point.x, point.y), point.y)
-		multimesh.set_instance_transform(i, Transform3D(basis, origin))
 		# r = width (m), g = opacity, b = normalized age, a = initial intensity.
-		multimesh.set_instance_custom_data(i, Color(width, opacity, age, _strength[i]))
+		_write_slot(i, Transform3D(basis, origin), Color(width, opacity, age, _strength[i]))
+	_submit_buffer()
+
+
+func _write_slot(slot: int, xf: Transform3D, custom: Color) -> void:
+	var start := slot * _INSTANCE_FLOATS
+	if _write_a:
+		_buffer_a[start] = xf.basis.x.x
+		_buffer_a[start + 1] = xf.basis.y.x
+		_buffer_a[start + 2] = xf.basis.z.x
+		_buffer_a[start + 3] = xf.origin.x
+		_buffer_a[start + 4] = xf.basis.x.y
+		_buffer_a[start + 5] = xf.basis.y.y
+		_buffer_a[start + 6] = xf.basis.z.y
+		_buffer_a[start + 7] = xf.origin.y
+		_buffer_a[start + 8] = xf.basis.x.z
+		_buffer_a[start + 9] = xf.basis.y.z
+		_buffer_a[start + 10] = xf.basis.z.z
+		_buffer_a[start + 11] = xf.origin.z
+		_buffer_a[start + 12] = custom.r
+		_buffer_a[start + 13] = custom.g
+		_buffer_a[start + 14] = custom.b
+		_buffer_a[start + 15] = custom.a
+	else:
+		_buffer_b[start] = xf.basis.x.x
+		_buffer_b[start + 1] = xf.basis.y.x
+		_buffer_b[start + 2] = xf.basis.z.x
+		_buffer_b[start + 3] = xf.origin.x
+		_buffer_b[start + 4] = xf.basis.x.y
+		_buffer_b[start + 5] = xf.basis.y.y
+		_buffer_b[start + 6] = xf.basis.z.y
+		_buffer_b[start + 7] = xf.origin.y
+		_buffer_b[start + 8] = xf.basis.x.z
+		_buffer_b[start + 9] = xf.basis.y.z
+		_buffer_b[start + 10] = xf.basis.z.z
+		_buffer_b[start + 11] = xf.origin.z
+		_buffer_b[start + 12] = custom.r
+		_buffer_b[start + 13] = custom.g
+		_buffer_b[start + 14] = custom.b
+		_buffer_b[start + 15] = custom.a
+
+
+func _hide_slot(slot: int) -> void:
+	# Preserve every other submitted patch while hiding this new/replaced record.
+	# Both arrays were allocated once in _init; never alias the submitted array.
+	for i in _slots * _INSTANCE_FLOATS:
+		if _write_a:
+			_buffer_a[i] = _buffer_b[i]
+		else:
+			_buffer_b[i] = _buffer_a[i]
+	for i in 4:
+		if _write_a:
+			_buffer_a[slot * _INSTANCE_FLOATS + 12 + i] = 0.0
+		else:
+			_buffer_b[slot * _INSTANCE_FLOATS + 12 + i] = 0.0
+	_submit_buffer()
+
+
+func _submit_buffer() -> void:
+	if _write_a:
+		multimesh.buffer = _buffer_a
+	else:
+		multimesh.buffer = _buffer_b
+	_write_a = not _write_a
 
 
 func clear() -> void:
