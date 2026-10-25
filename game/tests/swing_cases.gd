@@ -164,7 +164,7 @@ static func _reset(check: Callable) -> void:
 	check.call(events.size() == 3 and events[2]["swing"]["epoch"] == 1, "reset cooldown expires on the local monotonic clock")
 	var cancel_c := RSController.new()
 	var cancel_det := RSSwingDetector.new()
-	var cancel_ref := weakref(cancel_det)
+	var cancel_ref: WeakRef = weakref(cancel_det)
 	var cancelled := _record(cancel_det)
 	# The emitter owns this callable; a strong capture of it would form a cycle.
 	cancel_det.swing_peaked.connect(func(_c: RSController, _swing: Dictionary) -> void:
