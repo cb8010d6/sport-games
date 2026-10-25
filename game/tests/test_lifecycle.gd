@@ -13,6 +13,7 @@ var _recovery_mode := ""
 var _recovery_elapsed := 0.0
 var _checks := 0
 var _heartbeat_at := 0
+var _roster_entries: Array = []
 
 
 ## Count calls before the framework guard, so a repeated timeout finish cannot
@@ -62,9 +63,9 @@ func _ready() -> void:
 
 
 func _process(_delta: float) -> void:
-	if Time.get_ticks_msec() - _heartbeat_at >= 500:
+	if not _roster_entries.is_empty() and Time.get_ticks_msec() - _heartbeat_at >= 500:
 		_heartbeat_at = Time.get_ticks_msec()
-		_peer.put_packet(JSON.stringify({"type": "roster", "controllers": []}).to_utf8_buffer())
+		_send_roster_snapshot()
 
 
 func _check(ok: bool, label: String) -> void:
@@ -84,9 +85,14 @@ func _roster(disconnected: int = 0) -> void:
 	for slot in range(1, _count + 1):
 		entries.append({"id": 80 + slot, "player": slot, "kind": ["phone", "regina", "sim"][slot % 3],
 			"name": "Fixture P%d" % slot, "connected": slot != disconnected, "battery": 80})
-	_peer.put_packet(JSON.stringify({"type": "roster", "controllers": entries}).to_utf8_buffer())
+	_roster_entries = entries
+	_send_roster_snapshot()
 	await _frames()
 
+
+func _send_roster_snapshot() -> void:
+	# A roster is authoritative: an empty heartbeat would disconnect every player.
+	_peer.put_packet(JSON.stringify({"type": "roster", "controllers": _roster_entries}).to_utf8_buffer())
 
 func _send_input(slot: int, buttons: int) -> void:
 	var packet := PackedByteArray()
@@ -100,6 +106,10 @@ func _send_input(slot: int, buttons: int) -> void:
 
 
 func _send_event(slot: int, ev_name: String) -> void:
+	if ev_name in ["connected", "disconnected"]:
+		for entry: Dictionary in _roster_entries:
+			if int(entry["id"]) == 80 + slot:
+				entry["connected"] = ev_name == "connected"
 	_peer.put_packet(JSON.stringify({"type": "event", "controller": 80 + slot, "name": ev_name}).to_utf8_buffer())
 	await _frames()
 
@@ -450,13 +460,15 @@ func _exercise() -> void:
 			await _round_recovery(game)
 		return
 	if not _layout_only:
-		if _game_id == "archery":
-			await _archery_pause_release_check(game)
 		await _disconnect_release_check()
 		var original: RSPartyGame.Player = game.players[81]
 		original.score = 123
 		await _roster(1)
 		_check(game.players[81] == original and not original.c.connected, "playing disconnect retains slot")
+		_heartbeat_at = Time.get_ticks_msec() - 500
+		_process(0.0)
+		await _frames()
+		_check(game.players[81] == original and not original.c.connected and original.score == 123, "heartbeat preserves the authoritative offline slot and score")
 		await _roster()
 		_check(game.players[81] == original and original.c.connected and original.score == 123, "playing rejoin preserves score")
 		await _pause_check(game)
