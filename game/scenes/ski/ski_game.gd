@@ -79,6 +79,7 @@ var _podium_on := false
 var _podium_at := 0.0
 var _podium_order: Array = []
 var _lobby_snow: GPUParticles3D
+var _snow_views := -1
 var _board_lines: PackedStringArray = []
 
 
@@ -123,7 +124,8 @@ func _setup_world() -> void:
 	_podium = RSPodium.new()
 	add_child(_podium)
 	_build_podium()
-	_lobby_snow = _make_snow(1 << SNOW_LAYER)
+	_lobby_snow = RSSkiSnow.make(1 << SNOW_LAYER, RSSettings.quality)
+	add_child(_lobby_snow)
 	lobby_cam.cull_mask = 1 | (1 << SNOW_LAYER)
 	lobby_cam.far = 5000
 	lobby_cam.fov = 62
@@ -160,8 +162,9 @@ func _load_map(i: int) -> void:
 	_podium.rotation.y = _course.heading_at(podium_s)
 	var amount := float(_course.map["snowfall"])
 	for sn: GPUParticles3D in _snow_systems():
-		sn.emitting = amount > 0.0
-		sn.amount_ratio = maxf(amount, 0.01)
+		RSSkiSnow.apply(sn, amount, RSSettings.views)
+	# The first map loads before the split-screen container exists: this is still the lobby.
+	_lobby_snow.emitting = amount > 0.0 and (views == null or not views.visible)
 	_board_lines = []
 	_course.set_board(str(_course.map["en"]))
 	_lobby_s = 0.0
@@ -172,55 +175,6 @@ func _snow_systems() -> Array[GPUParticles3D]:
 	for p: Player in players.values():
 		out.append(_racer(p).snow)
 	return out
-
-
-func _make_snow(layers: int) -> GPUParticles3D:
-	## Falling snow in a box that follows a camera (only that camera sees it).
-	var flake := QuadMesh.new()
-	flake.size = Vector2(0.035, 0.035)
-	var fm := StandardMaterial3D.new()
-	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	fm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	fm.albedo_color = Color(1, 1, 1, 0.85)
-	var g := Gradient.new()
-	g.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0)])
-	var dot := GradientTexture2D.new()
-	dot.gradient = g
-	dot.fill = GradientTexture2D.FILL_RADIAL
-	dot.fill_from = Vector2(0.5, 0.5)
-	dot.fill_to = Vector2(0.5, 0.0)
-	dot.width = 32
-	dot.height = 32
-	fm.albedo_texture = dot
-	flake.material = fm
-	var ps := GPUParticles3D.new()
-	ps.amount = 2400
-	ps.lifetime = 2.6
-	ps.preprocess = 2.6
-	ps.local_coords = false
-	ps.visibility_aabb = AABB(Vector3(-30, -30, -30), Vector3(60, 60, 60))
-	var pm := ParticleProcessMaterial.new()
-	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	pm.emission_box_extents = Vector3(16, 8, 16)
-	pm.direction = Vector3(0.25, -1, 0.1)
-	pm.spread = 12.0
-	pm.initial_velocity_min = 2.0
-	pm.initial_velocity_max = 4.0
-	pm.gravity = Vector3(0.6, -1.2, 0.0)
-	pm.turbulence_enabled = true
-	pm.turbulence_noise_strength = 1.5
-	pm.turbulence_noise_scale = 4.0
-	pm.scale_min = 0.6
-	pm.scale_max = 1.6
-	ps.process_material = pm
-	ps.draw_pass_1 = flake
-	ps.layers = layers
-	ps.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	ps.top_level = true
-	ps.emitting = false
-	add_child(ps)
-	return ps
 
 
 func _oled_lobby(p: Player) -> void:
@@ -246,6 +200,13 @@ func _ambience_db() -> float:
 
 
 func _follow_snow(sn: GPUParticles3D, cam: Camera3D) -> void:
+	if _snow_views != RSSettings.views:
+		_snow_views = RSSettings.views
+		var amount := float(_course.map["snowfall"])
+		for system: GPUParticles3D in _snow_systems():
+			RSSkiSnow.apply(system, amount, _snow_views)
+		# A view-count update must not re-enable the hidden lobby camera's snowfall.
+		_lobby_snow.emitting = amount > 0.0 and (views == null or not views.visible)
 	sn.global_position = cam.global_position + (-cam.global_basis.z) * 8.0 + Vector3.UP * 4.0
 
 
@@ -264,10 +225,10 @@ func _player_added(p: Player) -> void:
 	r.sk.landed.connect(_on_landed.bind(p))
 	r.sk.net_hit.connect(_on_net.bind(p))
 	r.sk.finished_run.connect(_on_finished.bind(p))
-	r.snow = _make_snow(1 << p.c.player)
+	r.snow = RSSkiSnow.make(1 << p.c.player, RSSettings.quality)
+	add_child(r.snow)
 	var amount := float(_course.map["snowfall"])
-	r.snow.emitting = amount > 0.0
-	r.snow.amount_ratio = maxf(amount, 0.01)
+	RSSkiSnow.apply(r.snow, amount, RSSettings.views)
 
 
 func _player_removed(p: Player) -> void:
@@ -326,10 +287,12 @@ func _round_started(list: Array) -> void:
 			r.bot = RSSkiBot.new(r.sk, 91 + p.c.player * 17 + _rng.randi_range(0, 9999), bot_ability())
 		send_ui(p, {"clear": true, "title": "SKI", "main": "0", "sub": "READY", "legends": ["", "POLE", "", null]})
 		_camera(p, r, 0.0, true)
+	_lobby_snow.emitting = false
 
 
 func _to_lobby() -> void:
 	super._to_lobby()
+	_lobby_snow.emitting = float(_course.map["snowfall"]) > 0.0
 	_podium.reset()
 	_podium_on = false
 	ui.results_on_right(false)
@@ -890,6 +853,7 @@ func _podium_start() -> void:
 	_podium_on = true
 	views.visible = false
 	lobby_cam.current = true
+	_lobby_snow.emitting = float(_course.map["snowfall"]) > 0.0
 	lobby_cam.fov = 42.0
 	ui.results_on_right(true)
 	_podium_order = ranked_players()
