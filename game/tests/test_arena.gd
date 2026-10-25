@@ -171,6 +171,38 @@ func _test_lights() -> void:
 	holder.add_child(another)
 	_check((board.get_child(0) as MeshInstance3D).material_override == (another.get_child(0) as MeshInstance3D).material_override, "scoreboard: bottom panels share their emissive material")
 	grand.free()
+	_test_lights_node_bridge()
+
+
+func _test_lights_node_bridge() -> void:
+	# A plain Node interrupts Node3D transform inheritance. Read the actual in-tree
+	# world transforms rather than replaying the builder's ancestor calculation.
+	var grand := Node3D.new()
+	grand.position = Vector3(10, 0, 0)
+	add_child(grand)
+	var bridge := Node.new()
+	grand.add_child(bridge)
+	var holder := Node3D.new()
+	bridge.add_child(holder)
+	var spec := RSArenaLights.LightSpec.new()
+	spec.real_lights = 2
+	var aim := Vector3(4, 1, 10)
+	var tower := RSArenaLights.flood_tower(holder, Transform3D.IDENTITY, 8.0, 3, aim, spec)
+	var root_error := tower.global_position.length()
+	_check(_close(tower.global_transform, Transform3D.IDENTITY), "lights: plain Node bridge excludes the translated grandparent from world tower placement")
+	var aim_error := 0.0
+	for light: SpotLight3D in tower.find_children("*", "SpotLight3D", true, false):
+		var actual := (-light.global_basis.z).normalized()
+		var expected := (aim - light.global_position).normalized()
+		aim_error = maxf(aim_error, actual.distance_to(expected))
+	_check(RSArenaLights.real_light_count(tower) == 2 and aim_error < 1e-5, "lights: actual spot directions reach the world target across a plain Node bridge")
+	var grid := RSArenaLights.ceiling_grid(holder, Rect2(-2, -2, 4, 4), 6.0, 2, 2, spec)
+	_check(_close(grid.global_transform, Transform3D.IDENTITY), "lights: world ceiling array placement also stops at a plain Node bridge")
+	var center := Vector3(3, 1, -2)
+	var hanging := RSArenaLights.hanging_lamps(holder, center, Vector2(4, 4), 5.0, 4, spec)
+	_check(_close(hanging.global_transform, Transform3D(Basis.IDENTITY, center)), "lights: hanging fixture world center ignores ancestors beyond a plain Node bridge")
+	print("ARENA_NUMERIC lights_node_bridge_root_error_m=%.9f max_aim_direction_error=%.9f" % [root_error, aim_error]) # no-i18n
+	grand.free()
 
 
 func _parent_transforms() -> void:

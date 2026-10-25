@@ -82,12 +82,12 @@ static func _count_local_lights(node: Node) -> int:
 static func _world(node: Node3D) -> Transform3D:
 	var world := Transform3D.IDENTITY
 	var ancestor: Node = node
-	while ancestor != null:
-		if ancestor is Node3D:
-			var spatial := ancestor as Node3D
-			world = spatial.transform * world
-			if spatial.top_level:
-				break
+	# Godot's transform inheritance stops at a plain Node, even with spatial ancestors above it.
+	while ancestor is Node3D:
+		var spatial := ancestor as Node3D
+		world = spatial.transform * world
+		if spatial.top_level:
+			break
 		ancestor = ancestor.get_parent()
 	return world
 
