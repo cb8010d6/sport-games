@@ -76,6 +76,25 @@ func _run() -> void:
 	_check(RSTournament.standings()[0]["points"] == 30, "party totals")
 	RSTournament.clear()
 	_check(not RSTournament.active(), "party cancel")
+	var ui_game := RSPartyGame.new()
+	var party_ui := RSPartyUi.new(ui_game)
+	add_child(party_ui)
+	party_ui.show_tournament_podium([
+		{"slot": 1, "name": "P1", "points": 30},
+		{"slot": 2, "name": "P2", "points": 30},
+		{"slot": 3, "name": "P3", "points": 10},
+	])
+	var display_heights: Array = []
+	for col: Node in party_ui._results_col.get_children():
+		if col is HBoxContainer:
+			for cell: Node in col.get_children():
+				for part: Node in (cell as VBoxContainer).get_children():
+					if part is PanelContainer:
+						display_heights.append((part as PanelContainer).custom_minimum_size.y)
+	_check(display_heights == [180.0, 180.0, 95.0], "tied tournament ranks share the podium height (#57)")
+	party_ui.queue_free()
+	await get_tree().process_frame
+	ui_game.free()
 	RSAudio.set_volume(RSAudio.MUSIC, 0)
 	_check(AudioServer.is_bus_mute(AudioServer.get_bus_index(RSAudio.MUSIC)), "music mute")
 	RSSettings.volumes = [9, 0, 6, 5]
@@ -116,15 +135,19 @@ func _run() -> void:
 		pages.close()
 	pages.queue_free()
 	_check(load("res://scenes/menu/main_menu.gd") != null, "main menu compiles")
-	# The hub forgets long-disconnected controllers (#45): a controller that is in
-	# one roster and gone from the next is dropped locally, with a disconnect first.
-	var forgotten := [0]
-	ControllerHub.controller_disconnected.connect(func(_c: RSController) -> void: forgotten[0] += 1)
+	# A controller that drops out of the roster is kept, only marked
+	# disconnected: player state keys on the RSController object, so the same
+	# id coming back must reuse it (#45, review of the local purge).
+	var dropped := [0]
+	ControllerHub.controller_disconnected.connect(func(_c: RSController) -> void: dropped[0] += 1)
 	ControllerHub._handle_json(JSON.stringify({"type": "roster", "controllers": [{"id": 7, "kind": "phone", "name": "T", "player": 1, "connected": true}]}).to_utf8_buffer())
 	_check(ControllerHub.controllers.has(7), "roster adds the controller locally")
+	var kept: RSController = ControllerHub.controllers[7]
 	ControllerHub._handle_json(JSON.stringify({"type": "roster", "controllers": []}).to_utf8_buffer())
-	_check(not ControllerHub.controllers.has(7), "controller missing from the next roster is forgotten locally (#45)")
-	_check(forgotten[0] == 1, "forgotten controller emits controller_disconnected first")
+	_check(ControllerHub.controllers.get(7) == kept and not kept.connected, "controller missing from the next roster is kept, marked disconnected (#45)")
+	_check(dropped[0] == 1, "dropped controller emits controller_disconnected once")
+	ControllerHub._handle_json(JSON.stringify({"type": "roster", "controllers": [{"id": 7, "kind": "phone", "name": "T", "player": 1, "connected": true}]}).to_utf8_buffer())
+	_check(ControllerHub.controllers.get(7) == kept and kept.connected, "returning id reuses the same controller object (#45)")
 	TutorialCases.run(_check)
 	await TutorialCases.integration(self, _check)
 	await get_tree().process_frame

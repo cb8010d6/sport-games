@@ -26,7 +26,7 @@ var stationary: bool = false
 var rate_hz: float = 0.0
 var loss: float = 0.0
 var info: Dictionary = {}      ## full roster entry, for extra fields (fw, mtu, ...)
-var seen_in_roster: bool = false   ## the hub has listed this controller at least once (vs binary-packet-only)
+
 
 # --- latest motion sample -------------------------------------------------------
 var sample_time: float = 0.0   ## hub clock, seconds

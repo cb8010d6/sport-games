@@ -291,21 +291,20 @@ func _apply_roster(msg: Dictionary) -> void:
 			continue
 		var c := _ensure(int(entry.get("id", 0)))
 		present[c.id] = true
-		c.seen_in_roster = true
 		var was_connected := c.connected  # the event handler may already have emitted for this connection
 		c.apply_roster(entry)
 		if c.connected and not was_connected:
 			controller_connected.emit(c)
-	# The hub forgets controllers that have been disconnected for a long time
-	# (#45); mirror that here so stale entries do not accumulate either. Entries
-	# created only by binary packets (never listed in a roster) are left alone.
+	# A controller that drops out of the roster is only marked disconnected,
+	# never deleted: RSPartyGame keys player state to the RSController object,
+	# and the same id coming back must get the same object (a mid-game dropout
+	# keeps its score and slot). Hub-side id recycling bounds this dictionary
+	# to at most 255 entries (#45).
 	for id in controllers.keys():
 		var c := controllers[id] as RSController
-		if c.seen_in_roster and not present.has(id):
-			if c.connected:
-				c.connected = false
-				controller_disconnected.emit(c)
-			controllers.erase(id)
+		if not present.has(id) and c.connected:
+			c.connected = false
+			controller_disconnected.emit(c)
 	roster_changed.emit()
 
 
