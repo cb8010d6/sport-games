@@ -14,7 +14,7 @@ class LightSpec:
 
 
 static var _box: BoxMesh
-static var _metal: StandardMaterial3D
+static var _metal: BaseMaterial3D
 static var _glow: Dictionary = {}
 
 
