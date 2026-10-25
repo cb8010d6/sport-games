@@ -104,6 +104,42 @@ func _run() -> void:
 	RSSettings._loaded = false
 	RSSettings.load_once()
 	_check(RSSettings.volumes == [9, 0, 6, 5] and RSSettings.color_safe, "settings round trip")
+	# Quality tiers reach the positional shadow atlas and the rig materials (#57).
+	var saved_quality := RSSettings.quality
+	var saved_upscale := RSSettings.upscale
+	var probe_vp := SubViewport.new()
+	RSSettings.quality = 0
+	RSSettings.apply_viewport(probe_vp)
+	_check(probe_vp.positional_shadow_atlas_size == 1024, "lowest quality shrinks the positional shadow atlas (#57)")
+	RSSettings.quality = 3
+	RSSettings.apply_viewport(probe_vp)
+	_check(probe_vp.positional_shadow_atlas_size == 4096, "top quality keeps the full positional shadow atlas (#57)")
+	probe_vp.free()
+	var probe_rig := RSHumanRig.new()
+	var skin := StandardMaterial3D.new()
+	RSSettings.quality = 0
+	probe_rig._tune_material(skin, "body")
+	_check(not skin.subsurf_scatter_enabled, "lowest quality turns subsurface scattering off (#57)")
+	RSSettings.quality = 2
+	probe_rig._tune_material(skin, "body")
+	_check(skin.subsurf_scatter_enabled, "higher quality keeps subsurface scattering (#57)")
+	var hair := StandardMaterial3D.new()
+	RSSettings.quality = 0
+	probe_rig._tune_material(hair, "ponytail")
+	_check(hair.alpha_antialiasing_mode == BaseMaterial3D.ALPHA_ANTIALIASING_OFF, "lowest quality turns alpha-to-coverage off (#57)")
+	RSSettings.quality = 2
+	probe_rig._tune_material(hair, "ponytail")
+	_check(hair.alpha_antialiasing_mode == BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE, "higher quality keeps alpha-to-coverage (#57)")
+	probe_rig.free()
+	RSSettings.quality = saved_quality
+	RSSettings.upscale = saved_upscale
+	# Menu glyph discs come from the RSUi factory (#57).
+	var glyph := RSUi.glyph_style()
+	_check(glyph.bg_color == RSUi.TEXT and glyph.corner_radius_top_left == 14, "menu glyph style comes from RSUi (#57)")
+	# Animated HUD sizes snap to a coarse ladder (#57).
+	_check(RSPartyGame._snap_font_size(15.3) == 15, "small font sizes snap to whole pixels (#57)")
+	_check(RSPartyGame._snap_font_size(36.9) == 36 and RSPartyGame._snap_font_size(37.4) == 38, "mid font sizes snap to 2px steps (#57)")
+	_check(RSPartyGame._snap_font_size(120.0) == 119 and RSPartyGame._snap_font_size(130.0) == 128, "display font sizes snap to wide steps (#57)")
 	var hub_events := [0]
 	ControllerHub.controller_connected.connect(func(_c: RSController) -> void: hub_events[0] += 1)
 	var hub_event := func(ev: String) -> PackedByteArray:
