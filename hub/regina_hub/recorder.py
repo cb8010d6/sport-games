@@ -84,6 +84,9 @@ async def replay(hub: Hub, path: Path, loop_forever: bool = True, speed: float =
             c = controllers.get(key)
             if c is None:
                 c = hub.attach("replay", key, "REPLAY " + rec.get("n", "?"), NullTransport(), rate_hint_hz=200.0, wrap_bits=32)
+                if c is None:
+                    log.warning("replay: controller registry full, skipping input")
+                    continue
                 controllers[key] = c
             if rec["k"] == "imu":
                 items = [(s[0], (s[1], s[2], s[3]), (s[4], s[5], s[6])) for s in rec["s"]]

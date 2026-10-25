@@ -60,6 +60,8 @@ class Controller:
         self.clock = TimeMapper(wrap_bits=wrap_bits)
         self.extra: dict[str, Any] = {}
         self.predict_s = 0.0           ## orientation sent this far ahead (hides link latency)
+        self.disconnected_at: float | None = None   ## hub clock; set by Hub.detach, used for registry eviction (#45)
+        self.pack_failed = False                    ## game packet packing failed once; uplink is dropped (#45)
         self._d_since: float | None = None
         self._d_fired = False
         self._low_batt_sent = False

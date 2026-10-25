@@ -337,7 +337,10 @@ class ReginaBleSource:
             check_connected()
             if legacy:
                 controller = await self._setup_legacy(client, addr, name)
-                if closed:
+                if controller is None:
+                    close_connection()
+                    await self._disconnect(client)
+                elif closed:
                     self.hub.detach(controller)
                 else:
                     self._connected.add(addr)
@@ -348,6 +351,11 @@ class ReginaBleSource:
             transport = ReginaTransport(client)
             transport.set_rotation(self.screen_rotation)
             controller = self.hub.attach("regina", f"regina:{addr}", name, transport, rate_hint_hz=200.0, wrap_bits=32)
+            if controller is None:
+                log.warning("Regina controller refused: controller registry full")
+                close_connection()
+                await self._disconnect(client)
+                return
             controller.extra["mtu"] = client.mtu_size
             c = controller
 
@@ -409,11 +417,14 @@ class ReginaBleSource:
             close_connection()
             await self._disconnect(client)
 
-    async def _setup_legacy(self, client: Any, addr: str, name: str) -> Controller:
+    async def _setup_legacy(self, client: Any, addr: str, name: str) -> Controller | None:
         """Original Regina firmware: ~20 Hz float accel (g) + gyro (dps), no timestamps or downlink."""
         from ..controller import NullTransport
 
         controller = self.hub.attach("regina", f"regina:{addr}", name, NullTransport(), rate_hint_hz=20.0, wrap_bits=None)
+        if controller is None:
+            log.warning("Regina controller refused: controller registry full")
+            return None
         controller.extra["fw"] = "legacy"
         c = controller
         last_accel: list[tuple[float, float, float] | None] = [None]
