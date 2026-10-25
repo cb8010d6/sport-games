@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import struct
 import sys
 import unittest
@@ -26,6 +27,9 @@ class PreviewImageTests(unittest.TestCase):
     def test_committed_images_match_capture_manifest(self) -> None:
         folder = ROOT / "game/assets/previews"
         if not (folder / "manifest.json").is_file():
+            # Only the lightweight process-tool CI (RS_SPARSE_ASSETS=1) omits the art tree; elsewhere the folder is lost.
+            if os.environ.get("RS_SPARSE_ASSETS") != "1":
+                self.fail(f"{folder} has no manifest.json (RS_SPARSE_ASSETS=1 is only for sparse checkouts)")
             self.skipTest("Preview assets are absent from this sparse checkout")
         manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
         self.assertEqual(set(manifest["images"]), {"plane", "archery", "bowling", "skate", "ski", "basketball"})
