@@ -65,7 +65,7 @@ func _ready() -> void:
 func _process(_delta: float) -> void:
 	if not _roster_entries.is_empty() and Time.get_ticks_msec() - _heartbeat_at >= 500:
 		_heartbeat_at = Time.get_ticks_msec()
-		_peer.put_packet(JSON.stringify({"type": "roster", "controllers": _roster_entries}).to_utf8_buffer())
+		_send_roster_snapshot()
 
 
 func _check(ok: bool, label: String) -> void:
@@ -86,9 +86,13 @@ func _roster(disconnected: int = 0) -> void:
 		entries.append({"id": 80 + slot, "player": slot, "kind": ["phone", "regina", "sim"][slot % 3],
 			"name": "Fixture P%d" % slot, "connected": slot != disconnected, "battery": 80})
 	_roster_entries = entries
-	_peer.put_packet(JSON.stringify({"type": "roster", "controllers": _roster_entries}).to_utf8_buffer())
+	_send_roster_snapshot()
 	await _frames()
 
+
+func _send_roster_snapshot() -> void:
+	# A roster is authoritative: an empty heartbeat would disconnect every player.
+	_peer.put_packet(JSON.stringify({"type": "roster", "controllers": _roster_entries}).to_utf8_buffer())
 
 func _send_input(slot: int, buttons: int) -> void:
 	var packet := PackedByteArray()
