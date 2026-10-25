@@ -29,6 +29,7 @@ MAX_CONTROLLERS = 32            ## live + recently disconnected controllers kept
 MAX_CONTROLLER_ID = 255         ## game protocol packs controller ids as u8
 REGISTRY_IDLE_EVICT_S = 300.0   ## a disconnected controller is forgotten after 5 minutes
 ROSTER_MAX_BYTES = 60000        ## roster JSON stays below the 65507-byte UDP datagram limit
+MAX_PLAYER_PREFS = 512          ## remembered device->player preferences; LRU-evicted past this, registry keys pinned
 
 EVENT_FEEDBACK = {
     # event -> (toast text, beep freq, beep ms)
@@ -135,6 +136,8 @@ class Hub:
         # freed (the pairing tests assert a refused hello never advances it).
         self._next_id = 1
         self._players_by_key: dict[str, int] = {}
+        self._prefs_seen: dict[str, int] = {}   # key -> attach sequence, for LRU pruning of the cache above
+        self._prefs_seq = 0
         self._roster_trim_warned_at = 0.0
         self.game = GameLink(self, ("127.0.0.1", game_port))
         self.hub_port = hub_port
@@ -197,7 +200,8 @@ class Hub:
             c.player = wanted
         else:
             c.player = next((p for p in range(1, MAX_PLAYERS + 1) if p not in taken), 0)
-        self._players_by_key[key] = c.player
+        self._remember_player(key, c.player)
+        self._prune_player_prefs()
 
         self._refresh_next_id()
         log.info("controller %d attached: %s %s (player %d)", cid, kind, name, c.player)
@@ -217,6 +221,28 @@ class Hub:
         self._emit_event(c, "disconnected")
         self._roster_dirty = True
 
+    def _remember_player(self, key: str, player: int) -> None:
+        self._players_by_key[key] = player
+        self._prefs_seq += 1
+        self._prefs_seen[key] = self._prefs_seq
+
+    def _prune_player_prefs(self) -> None:
+        """Bound the device->player preference cache (#45): it outlives the
+        registry entry on purpose (a returning device gets its player number
+        back), but the key is client-controlled, so past MAX_PLAYER_PREFS the
+        least recently attached unpinned entries are forgotten. Keys still in
+        the registry are never pruned."""
+        excess = len(self._players_by_key) - MAX_PLAYER_PREFS
+        if excess <= 0:
+            return
+        by_age = sorted(
+            (k for k in self._players_by_key if k not in self._ids_by_key),
+            key=lambda k: self._prefs_seen.get(k, 0),
+        )
+        for key in by_age[:excess]:
+            del self._players_by_key[key]
+            self._prefs_seen.pop(key, None)
+
     def _refresh_next_id(self) -> None:
         used = set(self.controllers)
         self._next_id = next((i for i in range(1, MAX_CONTROLLER_ID + 1) if i not in used), MAX_CONTROLLER_ID + 1)
@@ -224,8 +250,9 @@ class Hub:
     def _evict(self, c: Controller) -> None:
         """Forget a disconnected controller entirely. The game already received its
         disconnected event at detach time; the entry simply stops appearing in the
-        roster. _players_by_key is deliberately kept, so a returning device gets
-        its old player number back."""
+        roster. _players_by_key is kept (bounded by _prune_player_prefs), so a
+        returning device gets its old player number back while its preference
+        survives in the cache."""
         self.controllers.pop(c.id, None)
         if self._ids_by_key.get(c.key) == c.id:
             del self._ids_by_key[c.key]
@@ -249,6 +276,7 @@ class Hub:
                 if len(self.controllers) < MAX_CONTROLLERS:
                     break
                 self._evict(c)
+        self._prune_player_prefs()
 
     def assign_player(self, cid: int, player: int) -> None:
         c = self.controllers.get(cid)
@@ -258,10 +286,10 @@ class Hub:
             for other in self.controllers.values():
                 if other is not c and other.player == player:
                     other.player = c.player  # swap
-                    self._players_by_key[other.key] = other.player
+                    self._remember_player(other.key, other.player)
                     other.transport.set_player(other.player)
         c.player = player
-        self._players_by_key[c.key] = player
+        self._remember_player(c.key, player)
         c.transport.set_player(player)
         self._roster_dirty = True
 

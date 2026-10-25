@@ -40,6 +40,47 @@ def test_registry_stays_bounded_over_300_connect_cycles():
     hub.on_imu(c, [(1000.0, (0.0, 0.0, 0.0), (0.0, 0.0, 9.81))])
 
 
+def test_player_pref_cache_bounded_under_churn():
+    hub = Hub()
+    for i in range(hub_mod.MAX_PLAYER_PREFS + 200):
+        c = _attach(hub, f"phone:churn-{i}")
+        assert c is not None
+        hub.detach(c)
+    assert len(hub.controllers) <= hub_mod.MAX_CONTROLLERS
+    assert len(hub._ids_by_key) <= hub_mod.MAX_CONTROLLERS
+    assert len(hub._players_by_key) <= hub_mod.MAX_PLAYER_PREFS
+    assert "phone:churn-0" not in hub._players_by_key  # least recently attached go first
+    assert f"phone:churn-{hub_mod.MAX_PLAYER_PREFS + 199}" in hub._players_by_key
+
+
+def test_player_pref_restores_player_number_within_window():
+    hub = Hub()
+    first = _attach(hub, "phone:first")
+    regular = _attach(hub, "phone:regular")
+    assert first is not None and regular is not None and regular.player != first.player
+    hub.detach(regular)
+    regular.disconnected_at = time.monotonic() - hub_mod.REGISTRY_IDLE_EVICT_S - 1.0
+    for i in range(50):  # the registry forgets "regular"; the preference stays
+        c = _attach(hub, f"phone:passer-{i}")
+        assert c is not None
+        hub.detach(c)
+    assert "phone:regular" not in hub._ids_by_key
+    again = _attach(hub, "phone:regular")
+    assert again is not None and again.player == regular.player
+
+
+def test_player_pref_pinned_while_key_in_registry():
+    hub = Hub()
+    resident = _attach(hub, "phone:resident")  # never detaches: oldest preference of all
+    assert resident is not None
+    for i in range(hub_mod.MAX_PLAYER_PREFS + 100):
+        c = _attach(hub, f"phone:churn-{i}")
+        assert c is not None
+        hub.detach(c)
+    assert hub._players_by_key.get("phone:resident") == resident.player
+    assert len(hub._players_by_key) <= hub_mod.MAX_PLAYER_PREFS
+
+
 def test_id_is_recycled_after_eviction():
     hub = Hub()
     a = _attach(hub, "phone:a")
