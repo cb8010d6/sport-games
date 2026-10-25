@@ -126,13 +126,13 @@ async def test_websocket_connection_cap():
     try:
         for _ in range(web_mod.MAX_WS_CONNECTIONS):
             session = aiohttp.ClientSession()
-            ws = await session.ws_connect(f"http://127.0.0.1:{port}/ws")
+            ws = await session.ws_connect(f"http://127.0.0.1:{port}/ws", origin=f"http://127.0.0.1:{port}")
             sessions.append(session)
             sockets.append(ws)
         extra = aiohttp.ClientSession()
         sessions.append(extra)
         with pytest.raises(aiohttp.WSServerHandshakeError) as excinfo:
-            await extra.ws_connect(f"http://127.0.0.1:{port}/ws")
+            await extra.ws_connect(f"http://127.0.0.1:{port}/ws", origin=f"http://127.0.0.1:{port}")
         assert excinfo.value.status == 503
     finally:
         for ws in sockets:
@@ -152,9 +152,10 @@ async def test_hello_refused_gracefully_when_registry_full():
     await source.start("127.0.0.1", port, None, None)
     try:
         async with aiohttp.ClientSession() as session:
-            async with session.ws_connect(f"http://127.0.0.1:{port}/ws") as ws:
+            async with session.ws_connect(f"http://127.0.0.1:{port}/ws", origin=f"http://127.0.0.1:{port}") as ws:
                 await ws.send_json({"t": "hello", "kind": "phone", "name": "Late",
-                                    "client_id": "late-device", "profile_name": "Late"})
+                                    "client_id": "late-device", "profile_name": "Late",
+                                    "token": source.pairing_token})
                 reply = await ws.receive_json(timeout=2)
                 assert reply["t"] == "error"
     finally:

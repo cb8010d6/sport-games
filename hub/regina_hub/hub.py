@@ -130,6 +130,10 @@ class Hub:
     def __init__(self, game_port: int = P.GAME_PORT, hub_port: int = P.HUB_PORT, recorder: Any = None):
         self.controllers: dict[int, Controller] = {}
         self._ids_by_key: dict[str, int] = {}
+        # The id the next attach would hand out: ids are recycled smallest-free
+        # (#45), so this is a derived hint, refreshed whenever ids are taken or
+        # freed (the pairing tests assert a refused hello never advances it).
+        self._next_id = 1
         self._players_by_key: dict[str, int] = {}
         self._roster_trim_warned_at = 0.0
         self.game = GameLink(self, ("127.0.0.1", game_port))
@@ -195,6 +199,7 @@ class Hub:
             c.player = next((p for p in range(1, MAX_PLAYERS + 1) if p not in taken), 0)
         self._players_by_key[key] = c.player
 
+        self._refresh_next_id()
         log.info("controller %d attached: %s %s (player %d)", cid, kind, name, c.player)
         transport.set_player(c.player)
         if c.ui.fields:
@@ -212,6 +217,10 @@ class Hub:
         self._emit_event(c, "disconnected")
         self._roster_dirty = True
 
+    def _refresh_next_id(self) -> None:
+        used = set(self.controllers)
+        self._next_id = next((i for i in range(1, MAX_CONTROLLER_ID + 1) if i not in used), MAX_CONTROLLER_ID + 1)
+
     def _evict(self, c: Controller) -> None:
         """Forget a disconnected controller entirely. The game already received its
         disconnected event at detach time; the entry simply stops appearing in the
@@ -220,6 +229,7 @@ class Hub:
         self.controllers.pop(c.id, None)
         if self._ids_by_key.get(c.key) == c.id:
             del self._ids_by_key[c.key]
+        self._refresh_next_id()
         log.info("controller %d forgotten: %s (disconnected)", c.id, c.key)
         self._roster_dirty = True
 

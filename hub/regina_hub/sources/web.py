@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import asyncio
+import ipaddress
 import json
 import logging
+import secrets
 import ssl
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from aiohttp import WSMsgType, web
 
@@ -129,9 +132,10 @@ def clean_profile_name(value: Any, limit: int = 20) -> str:
 class WebSource:
     def __init__(self, hub: Hub, phone_axis_map: Any = PHONE_AXIS_MAP):
         self.hub = hub
+        self.pairing_token = secrets.token_urlsafe(32)
         self._ws_count = 0
         self.remaps = {"device": make_remap(phone_axis_map), "canonical": make_remap(CANONICAL_AXIS_MAP)}
-        self.app = web.Application()
+        self.app = web.Application(middlewares=[self._local_access])
         self.app.add_routes(
             [
                 web.get("/", self._page("phone.html")),
@@ -139,10 +143,91 @@ class WebSource:
                 web.get("/ws", self._ws),
                 web.get("/api/status", self._status),
                 web.get("/api/qr", self._qr),
+                web.get("/api/pairing", self._pairing),
                 web.static("/static", STATIC_DIR),
             ]
         )
+        self.phone_app = web.Application(middlewares=[self._phone_access])
+        self.phone_app.add_routes([
+            web.get("/", self._page("phone.html")),
+            web.get("/ws", self._ws),
+            web.static("/static", STATIC_DIR),
+        ])
         self._runner: web.AppRunner | None = None
+        self._phone_runner: web.AppRunner | None = None
+
+    @staticmethod
+    def _ip(value: str) -> ipaddress.IPv4Address | ipaddress.IPv6Address:
+        parsed = ipaddress.ip_address(value)
+        return parsed.ipv4_mapped if isinstance(parsed, ipaddress.IPv6Address) and parsed.ipv4_mapped else parsed
+
+    def _request_origin(self, request: web.Request) -> tuple[str, str, int]:
+        """Trust the listener socket and IP literal, never a supplied public Host name."""
+        hosts = request.headers.getall("Host", [])
+        if len(hosts) != 1:
+            raise web.HTTPForbidden()
+        host = hosts[0]
+        if any(ch.isspace() for ch in host) or any(ch in host for ch in "/\\?#@,"):
+            raise web.HTTPForbidden()
+        try:
+            parsed = urlsplit("//" + host)
+            hostname, port = parsed.hostname, parsed.port
+            if hostname is None:
+                raise ValueError("missing host")
+            socket_name = request.transport.get_extra_info("sockname") if request.transport else None
+            if socket_name is None:
+                raise ValueError("missing listener")
+            local_ip = self._ip(socket_name[0])
+            port = port if port is not None else (443 if request.secure else 80)
+            if port != socket_name[1]:
+                raise ValueError("wrong listener port")
+            if hostname == "localhost":
+                if not local_ip.is_loopback:
+                    raise ValueError("localhost on public interface")
+            elif self._ip(hostname) != local_ip:
+                raise ValueError("wrong listener address")
+        except ValueError:
+            raise web.HTTPForbidden() from None
+        return request.scheme, hostname, port
+
+    def _same_origin(self, request: web.Request, *, required: bool) -> None:
+        expected = self._request_origin(request)
+        origins = request.headers.getall("Origin", [])
+        if not origins and not required:
+            return
+        if len(origins) != 1:
+            raise web.HTTPForbidden()
+        origin = origins[0]
+        try:
+            parsed = urlsplit(origin)
+            if parsed.scheme not in ("http", "https") or not parsed.hostname or parsed.username or parsed.password:
+                raise ValueError("invalid origin")
+            if parsed.path or parsed.query or parsed.fragment or any(ch.isspace() for ch in origin):
+                raise ValueError("invalid origin")
+            port = parsed.port if parsed.port is not None else (443 if parsed.scheme == "https" else 80)
+            if (parsed.scheme, parsed.hostname, port) != expected:
+                raise ValueError("cross origin")
+        except ValueError:
+            raise web.HTTPForbidden() from None
+
+    @web.middleware
+    async def _local_access(self, request: web.Request, handler: Any) -> web.StreamResponse:
+        try:
+            if not request.remote or not self._ip(request.remote).is_loopback:
+                raise ValueError("non-loopback peer")
+        except ValueError:
+            raise web.HTTPForbidden() from None
+        self._same_origin(request, required=False)
+        response = await handler(request)
+        if request.path.startswith("/api/"):
+            response.headers["Cache-Control"] = "no-store"
+            response.headers["X-Content-Type-Options"] = "nosniff"
+        return response
+
+    @web.middleware
+    async def _phone_access(self, request: web.Request, handler: Any) -> web.StreamResponse:
+        self._request_origin(request)
+        return await handler(request)
 
     def _page(self, name: str):
         async def handler(_req: web.Request) -> web.StreamResponse:
@@ -156,20 +241,33 @@ class WebSource:
     async def _qr(self, _req: web.Request) -> web.Response:
         return web.json_response(self.hub.qr or {})
 
-    async def start(self, http_host: str, http_port: int, https_port: int | None, ssl_ctx: ssl.SSLContext | None) -> None:
-        self._runner = web.AppRunner(self.app, access_log=None)
-        await self._runner.setup()
-        await web.TCPSite(self._runner, http_host, http_port).start()
-        log.info("simulator: http://%s:%d/sim", http_host, http_port)
-        if https_port is not None and ssl_ctx is not None:
-            await web.TCPSite(self._runner, "0.0.0.0", https_port, ssl_context=ssl_ctx).start()
-            log.info("phone controller: https://<lan-ip>:%d/", https_port)
+    async def _pairing(self, _req: web.Request) -> web.Response:
+        return web.json_response({"token": self.pairing_token}, headers={"Cache-Control": "no-store", "X-Content-Type-Options": "nosniff"})
+
+    async def start(self, http_host: str, http_port: int, https_port: int | None, ssl_ctx: ssl.SSLContext | None,
+                    https_host: str = "0.0.0.0") -> None:
+        try:
+            self._runner = web.AppRunner(self.app, access_log=None)
+            await self._runner.setup()
+            await web.TCPSite(self._runner, http_host, http_port).start()
+            log.info("simulator: http://%s:%d/sim", http_host, http_port)
+            if https_port is not None and ssl_ctx is not None:
+                self._phone_runner = web.AppRunner(self.phone_app, access_log=None)
+                await self._phone_runner.setup()
+                await web.TCPSite(self._phone_runner, https_host, https_port, ssl_context=ssl_ctx).start()
+                log.info("phone controller: https://<lan-ip>:%d/", https_port)
+        except BaseException:
+            await self.stop()
+            raise
 
     async def stop(self) -> None:
+        if self._phone_runner is not None:
+            await self._phone_runner.cleanup()
         if self._runner is not None:
             await self._runner.cleanup()
 
     async def _ws(self, request: web.Request) -> web.StreamResponse:
+        self._same_origin(request, required=True)
         if self._ws_count >= MAX_WS_CONNECTIONS:
             log.warning("websocket refused: %d connections already open", self._ws_count)
             return web.Response(status=503, text="too many controller connections")
@@ -201,6 +299,10 @@ class WebSource:
                     continue
                 t = data.get("t")
                 if t == "hello" and controller is None:
+                    token = data.get("token")
+                    if not isinstance(token, str) or not token.isascii() or not secrets.compare_digest(token, self.pairing_token):
+                        await ws.close(code=1008, message=b"pairing required")
+                        break
                     kind = "sim" if data.get("kind") == "sim" else "phone"
                     client_id = str(data.get("client_id") or id(ws))[:64]
                     name = clean_profile_name(str(data.get("name") or kind), limit=32) or kind
