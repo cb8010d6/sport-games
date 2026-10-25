@@ -830,6 +830,8 @@ func _keep_clip(s: Shooter) -> void:
 
 
 func finish_round() -> void:
+	if _result_committed:
+		return  # a second call must not reset the replay/podium state below (#57)
 	var longest := 0.0
 	for p: Player in players.values():
 		var s := _sh(p)

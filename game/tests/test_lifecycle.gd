@@ -171,6 +171,10 @@ func _exercise() -> void:
 				break
 			await _frames(1)
 		_check(game.ui.results_panel.visible, "results appear after replay and podium")
+		var podium_on: Variant = game.get("_podium_on")
+		if podium_on != null:
+			game.finish_round()
+			_check(game.get("_podium_on") == podium_on, "finish_round again in results keeps podium state (#57)")
 		await _tap(1, RSController.BTN_A)
 		_check(game.phase == RSPartyGame.Phase.LOBBY and not game.players[81].ready, "results A returns to unready lobby")
 	else:

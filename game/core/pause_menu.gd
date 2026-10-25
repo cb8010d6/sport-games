@@ -126,6 +126,7 @@ func close() -> void:
 	if not settings_only:
 		for p: RSPartyGame.Player in game.players.values():
 			p.oled_key = ""
+			p.oled_sent = ""
 
 
 func back() -> void:
