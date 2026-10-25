@@ -111,8 +111,9 @@ func _pause_check(game: RSPartyGame) -> void:
 	_check(game._clock > clock, "resume advances game clock")
 
 
-## #55: a release that happens while the pause menu is open must still reach
-## the game; archery is the sharpest case (a lost release leaves the bow drawn).
+## #55: a hold that ends inside the pause menu -- or by disconnecting -- is
+## cancelled, not completed: archery must put the bow down without loosing
+## an arrow, and the player must be able to draw again afterwards.
 func _archery_pause_release_check(game: RSPartyGame) -> void:
 	var p: RSPartyGame.Player = game.players[81]
 	for _i in 900:
@@ -121,27 +122,36 @@ func _archery_pause_release_check(game: RSPartyGame) -> void:
 		await _frames(1)
 	await _send_input(1, RSController.BTN_A)
 	_check(bool(game.call("_archer", p).get("drawing")), "archery: holding A draws the bow")
+	var arrows_left: int = int(game.call("_archer", p).get("arrows_left"))
+	var arrows_out: int = (game.call("_archer", p).get("arrows") as Array).size()
 	await _tap(2, RSController.BTN_D)
 	_check(game.ui.pause.is_open() and get_tree().paused, "archery: D pauses while drawing")
 	await _send_input(1, 0)
 	await _tap(2, RSController.BTN_A)
 	_check(not game.ui.pause.is_open() and not get_tree().paused, "archery: A resumes through pause menu")
-	_check(not bool(game.call("_archer", p).get("drawing")), "archery: A released during pause is not lost (#55)")
+	_check(not bool(game.call("_archer", p).get("drawing")), "archery: A released during pause cancels the draw (#55)")
+	_check(int(game.call("_archer", p).get("arrows_left")) == arrows_left and (game.call("_archer", p).get("arrows") as Array).size() == arrows_out, "archery: cancelling the draw looses no arrow (#55)")
+	await _send_input(1, RSController.BTN_A)
+	_check(bool(game.call("_archer", p).get("drawing")), "archery: A can draw again after the cancel")
+	await _send_event(1, "disconnected")
+	_check(not bool(game.call("_archer", p).get("drawing")), "archery: disconnect mid-draw cancels the draw (#55)")
+	_check(int(game.call("_archer", p).get("arrows_left")) == arrows_left and (game.call("_archer", p).get("arrows") as Array).size() == arrows_out, "archery: disconnect mid-draw looses no arrow (#55)")
+	await _send_event(1, "connected")
 
 
-## #55: disconnecting while a button is held synthesizes its release once.
+## #55: disconnecting while a button is held reports the hold as cancelled once.
 func _disconnect_release_check() -> void:
-	var releases := [0]
+	var cancels := [0]
 	var counter := func(c: RSController, button: int) -> void:
 		if c.id == 82 and button == RSController.BTN_B:
-			releases[0] += 1
-	ControllerHub.button_released.connect(counter)
+			cancels[0] += 1
+	ControllerHub.button_cancelled.connect(counter)
 	await _send_input(2, RSController.BTN_B)
 	await _send_event(2, "disconnected")
-	_check(releases[0] == 1, "disconnect synthesizes the held button's release exactly once (#55)")
+	_check(cancels[0] == 1, "disconnect cancels the held button exactly once (#55)")
 	await _send_event(2, "disconnected")
-	_check(releases[0] == 1, "repeated disconnect does not release twice (#55)")
-	ControllerHub.button_released.disconnect(counter)
+	_check(cancels[0] == 1, "repeated disconnect does not cancel twice (#55)")
+	ControllerHub.button_cancelled.disconnect(counter)
 	await _send_event(2, "connected")
 
 
@@ -162,6 +172,8 @@ func _exercise() -> void:
 	_check(game.players.size() == _count, "UDP roster joins every player")
 	if game.players.size() != _count:
 		return
+	if not _layout_only and _game_id in ["basketball", "ski"]:
+		await _quality_after_map_switch_check(game)
 	if not _layout_only:
 		await _tap(1, RSController.BTN_A)
 		_check(game.players[81].ready, "UDP A readies player")
@@ -211,6 +223,10 @@ func _exercise() -> void:
 				break
 			await _frames(1)
 		_check(game.ui.results_panel.visible, "results appear after replay and podium")
+		var podium_on: Variant = game.get("_podium_on")
+		if podium_on != null:
+			game.finish_round()
+			_check(game.get("_podium_on") == podium_on, "finish_round again in results keeps podium state (#57)")
 		await _tap(1, RSController.BTN_A)
 		_check(game.phase == RSPartyGame.Phase.LOBBY and not game.players[81].ready, "results A returns to unready lobby")
 	else:
@@ -229,6 +245,33 @@ func _exercise() -> void:
 		get_tree().current_scene = null
 		menu.queue_free()
 	await _frames(3)
+
+
+func _quality_after_map_switch_check(game: RSPartyGame) -> void:
+	## Issue #54: a world built by a lobby map switch starts from scene values, so the
+	## quality gates must be re-applied to it. At low quality the switched map's SSR
+	## and glow stay off and its sun keeps an ordinary shadow edge (no PCSS).
+	var previous := RSSettings.quality
+	RSSettings.quality = 0
+	var target := posmod(game.map_index + 1, game._maps().size())
+	game.pick_map(1)
+	for _i in 600:
+		if game.map_index == target and game._pending_map < 0:
+			break
+		await _frames(1)
+	_check(game.map_index == target, "lobby map switch completes at low quality")
+	await _frames(3)  # let the replaced world leave the tree before inspecting this one
+	var worlds := game.find_children("*", "WorldEnvironment", true, false)
+	_check(not worlds.is_empty(), "switched map has a world environment")
+	for we: WorldEnvironment in worlds:
+		_check(not we.environment.ssr_enabled, "low quality keeps SSR off after a map switch")
+		_check(not we.environment.glow_enabled, "low quality keeps glow off after a map switch")
+	var suns := game.find_children("*", "DirectionalLight3D", true, false)
+	_check(not suns.is_empty(), "switched map has a sun")
+	for sun: DirectionalLight3D in suns:
+		_check(sun.light_angular_distance == 0.0, "low quality keeps PCSS off after a map switch")
+	RSSettings.quality = previous
+	RSSettings.apply_world(game)
 
 
 func _run() -> void:

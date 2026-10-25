@@ -76,6 +76,25 @@ func _run() -> void:
 	_check(RSTournament.standings()[0]["points"] == 30, "party totals")
 	RSTournament.clear()
 	_check(not RSTournament.active(), "party cancel")
+	var ui_game := RSPartyGame.new()
+	var party_ui := RSPartyUi.new(ui_game)
+	add_child(party_ui)
+	party_ui.show_tournament_podium([
+		{"slot": 1, "name": "P1", "points": 30},
+		{"slot": 2, "name": "P2", "points": 30},
+		{"slot": 3, "name": "P3", "points": 10},
+	])
+	var display_heights: Array = []
+	for col: Node in party_ui._results_col.get_children():
+		if col is HBoxContainer:
+			for cell: Node in col.get_children():
+				for part: Node in (cell as VBoxContainer).get_children():
+					if part is PanelContainer:
+						display_heights.append((part as PanelContainer).custom_minimum_size.y)
+	_check(display_heights == [180.0, 180.0, 95.0], "tied tournament ranks share the podium height (#57)")
+	party_ui.queue_free()
+	await get_tree().process_frame
+	ui_game.free()
 	RSAudio.set_volume(RSAudio.MUSIC, 0)
 	_check(AudioServer.is_bus_mute(AudioServer.get_bus_index(RSAudio.MUSIC)), "music mute")
 	RSSettings.volumes = [9, 0, 6, 5]
@@ -95,6 +114,17 @@ func _run() -> void:
 	ControllerHub._handle_json(hub_event.call("disconnected"))
 	ControllerHub._handle_json(hub_event.call("connected"))
 	_check(hub_events[0] == 2, "reconnect emits controller_connected again (#50)")
+	# #55: disconnecting mid-hold cancels the button (never a plain release),
+	# exactly once, and clears the held state.
+	var cancels := [0]
+	var plain_releases := [0]
+	ControllerHub.button_cancelled.connect(func(_c: RSController, _b: int) -> void: cancels[0] += 1)
+	ControllerHub.button_released.connect(func(_c: RSController, _b: int) -> void: plain_releases[0] += 1)
+	ControllerHub.controllers[9].buttons = RSController.BTN_A
+	ControllerHub._handle_json(hub_event.call("disconnected"))
+	ControllerHub._handle_json(hub_event.call("disconnected"))
+	_check(cancels[0] == 1 and plain_releases[0] == 0, "disconnect mid-hold cancels the button once, without a release (#55)")
+	_check(ControllerHub.controllers[9].buttons == 0, "disconnect clears the held buttons (#55)")
 	ControllerHub.controllers.erase(9)
 	var pause := RSPauseMenu.new(self, true)
 	add_child(pause)
