@@ -162,6 +162,8 @@ func _session_tests() -> void:
 	get_tree().paused = false
 	if DisplayServer.get_name() == "headless":
 		_check(session.begin(get_tree(), 1, Vector2i(1600, 900)) == ERR_UNAVAILABLE, "headless cannot begin rendered session")
+		_check(session.begin(get_tree(), 1, Vector2i(2560, 1440)) == ERR_UNAVAILABLE, "1440p passes resolution validation (#57)")
+		_check(RSBenchmarkMenu.RESOLUTIONS.has(Vector2i(2560, 1440)), "benchmark menu offers 1440p (#57)")
 	else:
 		_check(session.begin(get_tree(), 0, Vector2i(1920, 1080)) == OK, "real session begins")
 		_check(RSSettings.quality == 0 and RSSettings.upscale == 0 and Engine.max_fps == 0, "temporary benchmark settings applied")
