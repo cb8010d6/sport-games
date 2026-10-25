@@ -164,13 +164,21 @@ static func _reset(check: Callable) -> void:
 	check.call(events.size() == 3 and events[2]["swing"]["epoch"] == 1, "reset cooldown expires on the local monotonic clock")
 	var cancel_c := RSController.new()
 	var cancel_det := RSSwingDetector.new()
+	var cancel_ref := weakref(cancel_det)
 	var cancelled := _record(cancel_det)
-	cancel_det.swing_peaked.connect(func(_c: RSController, _swing: Dictionary) -> void: cancel_det.reset())
+	# The emitter owns this callable; a strong capture of it would form a cycle.
+	cancel_det.swing_peaked.connect(func(_c: RSController, _swing: Dictionary) -> void:
+		var detector := cancel_ref.get_ref() as RSSwingDetector
+		if detector != null:
+			detector.reset()
+	)
 	_sample(cancel_det, cancel_c, 80.0, 6.0)
 	_sample(cancel_det, cancel_c, 80.02, 10.0)
 	_sample(cancel_det, cancel_c, 80.04, 0.0)
 	_sample(cancel_det, cancel_c, 80.12, 0.0)
 	check.call(cancelled.size() == 2 and not cancel_det.is_swinging() and cancel_det.epoch() == 1, "reset from a peak consumer prevents the cancelled swing from finishing")
+	cancel_det = null
+	check.call(cancel_ref.get_ref() == null, "peak cancellation callback does not retain its detector after the owner releases it")
 
 
 static func _backlog(check: Callable) -> void:
