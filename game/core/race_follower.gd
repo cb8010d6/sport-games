@@ -63,12 +63,12 @@ static func speed_profile(race_track: RSRaceTrack, vmax: float, lat_accel: float
 	# On a ring, the global minimum is an unchanged anchor. One complete sweep
 	# in each direction propagates every limit, including the last->first edge.
 	if brake > 0.0:
-		for k in range(1, n + 1) if race_track.closed else range(1, n):
+		for k: int in range(1, n + 1) if race_track.closed else range(1, n):
 			var i := posmod(slowest - k, n) if race_track.closed else n - 1 - k
 			var next := (i + 1) % n
 			result[i] = minf(result[i], sqrt(result[next] * result[next] + 2.0 * brake * ds))
 	if accel > 0.0:
-		for k in range(1, n + 1) if race_track.closed else range(1, n):
+		for k: int in range(1, n + 1) if race_track.closed else range(1, n):
 			var i := (slowest + k) % n if race_track.closed else k
 			var previous := posmod(i - 1, n)
 			result[i] = minf(result[i], sqrt(result[previous] * result[previous] + 2.0 * accel * ds))
