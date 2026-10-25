@@ -392,19 +392,66 @@ func _results_reentry_checks(game: Variant) -> void:
 
 
 ## #55: disconnecting while a button is held reports the hold as cancelled once.
-func _disconnect_release_check() -> void:
+func _disconnect_release_check(game: Variant) -> void:
+	var button := RSController.BTN_A if _game_id == "archery" else RSController.BTN_B
 	var cancels := [0]
-	var counter := func(c: RSController, button: int) -> void:
-		if c.id == 82 and button == RSController.BTN_B:
+	var releases := [0]
+	var counter := func(c: RSController, b: int) -> void:
+		if c.id == 82 and b == button:
 			cancels[0] += 1
+	var release_counter := func(c: RSController, b: int) -> void:
+		if c.id == 82 and b == button:
+			releases[0] += 1
 	ControllerHub.button_cancelled.connect(counter)
-	await _send_input(2, RSController.BTN_B)
-	await _send_event(2, "disconnected")
-	_check(cancels[0] == 1, "disconnect cancels the held button exactly once (#55)")
-	await _send_event(2, "disconnected")
-	_check(cancels[0] == 1, "repeated disconnect does not cancel twice (#55)")
+	ControllerHub.button_released.connect(release_counter)
+	for route: String in ["event", "offline", "missing"]:
+		if _game_id == "archery":
+			for _i in 900:
+				if int(game._stage) == 1:
+					break
+				await _frames(1)
+		await _send_input(2, button)
+		var p: RSPartyGame.Player = game.players[82]
+		var score := p.score
+		var snapshot: Array = []
+		if _game_id == "archery":
+			var state: Variant = game._archer(p)
+			_check(state.drawing, "archery really draws before " + route)
+			snapshot = [state.arrows_left, state.arrows.size(), state.hits.size()]
+		elif _game_id == "basketball":
+			_check(game._sh(p).st == game.St.SET, "basketball really raises the ball before " + route)
+			snapshot = [game._sh(p).flying.size()]
+		elif _game_id == "bowling":
+			_check(game._bowler(p).step == game.Step.SWING, "bowling really swings before " + route)
+			snapshot = [game._bowler(p).rolls.size()]
+		var previous := cancels[0]
+		for _repeat in 2:
+			if route == "event":
+				await _send_event(2, "disconnected")
+			elif route == "offline":
+				await _roster(2)
+			else:
+				var remaining: Array = []
+				for entry: Dictionary in _roster_entries:
+					if int(entry["id"]) != 82:
+						remaining.append(entry)
+				_roster_entries = remaining
+				_send_roster_snapshot()
+				await _frames()
+		_check(cancels[0] == previous + 1 and p.c.buttons == 0, route + " cancels a held button once")
+		if _game_id == "archery":
+			var state: Variant = game._archer(p)
+			_check(not state.drawing and [state.arrows_left, state.arrows.size(), state.hits.size()] == snapshot, route + " lowers the bow without shooting or consuming an arrow")
+		elif _game_id == "basketball":
+			_check(game._sh(p).st == game.St.READY and [game._sh(p).flying.size()] == snapshot, route + " lowers the basketball without a shot")
+		elif _game_id == "bowling":
+			_check(game._bowler(p).step == game.Step.AIM and [game._bowler(p).rolls.size()] == snapshot, route + " aborts the swing without a throw")
+		_check(p.score == score, route + " cancellation preserves score")
+		await _roster()
+		await _send_input(2, 0)
+		_check(releases[0] == 0, route + " reconnect creates no late release")
 	ControllerHub.button_cancelled.disconnect(counter)
-	await _send_event(2, "connected")
+	ControllerHub.button_released.disconnect(release_counter)
 
 
 func _exercise() -> void:
@@ -460,7 +507,7 @@ func _exercise() -> void:
 			await _round_recovery(game)
 		return
 	if not _layout_only:
-		await _disconnect_release_check()
+		await _disconnect_release_check(game)
 		var original: RSPartyGame.Player = game.players[81]
 		original.score = 123
 		await _roster(1)

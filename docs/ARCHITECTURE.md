@@ -172,3 +172,9 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 `RSPartyGame` 继续独占大厅准备、阶段转换与退出处理，`RSTournament` 继续只持有内存中的原始参赛槽位与累计积分。缺席下一项的槽位保留、该项加零分；大厅至少一人在场且所有在场参赛者准备才开始。`RSPartyUi` 展示缺席计分规则与短时二次 C 的退出确认；确认状态随其他输入、阶段／回合变化或确认者断线取消。暂停冻结玩法与确认时钟。无新增协议、业务存档、autoload 或运行时依赖。
 
 退出确认的内存状态由 `RSTournament.ExitGuard` 承载，每个游戏实例独占一份；它接收调用者提供的比赛时钟、阶段和参与者校验，不持有场景、UI或SceneTree，不自行切换场景。`RSPartyGame` 负责信号、调用状态和实际退出，`RSPartyUi` 只显示提示。缺席结果槽位的计算也由 `RSTournament` 接收最终结果行完成，避免在 UI 或项目中另造积分规则。
+
+## 9. 取消未完成的按住动作（#55）
+
+`ControllerHub.button_cancelled(controller, button)` 与正常 `button_released` 分开：断线event、roster报离线、条目消失都先清零held位再按位发一次cancel，重复消息不重复取消。控制器对象保留，重连不产生迟到release。`RSPartyGame._player_cancel_hold(p, button)` 默认空实现；暂停中的release及离线cancel调用它，不能调用完成动作的普通release路径。射箭放下弓、篮球SET退回READY、保龄球SWING回AIM，均不出手或计分；只读按键掩码的项目使用默认实现。测试心跳重发最后完整roster，保留显式离线状态，空列表只用于真正的全员离线场景。
+
+总领奖台首次A显示后，真实一秒内后续A不退出，避免多人同时确认跳过；C仍走既有大赛退出确认。该输入门不改变计分、比赛时钟或机器人速度。

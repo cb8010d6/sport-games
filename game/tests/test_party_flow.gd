@@ -84,6 +84,8 @@ func _process(_delta: float) -> void:
 	if RSTournament.last_round():
 		game._on_button((list[0] as RSPartyGame.Player).c, RSController.BTN_A, true)
 		_failed = _failed or not game._tournament_final_shown
+		game._on_button((list[-1] as RSPartyGame.Player).c, RSController.BTN_A, true)
+		_check(get_tree().current_scene == game and game._tournament_final_shown and RSTournament.active(), "simultaneous second A preserves the final podium (#55)")
 		_finish.call_deferred()
 	else:
 		game._on_button((list[0] as RSPartyGame.Player).c, RSController.BTN_A, true)
