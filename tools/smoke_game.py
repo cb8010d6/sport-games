@@ -12,8 +12,10 @@ from contextlib import contextmanager
 from pathlib import Path
 
 if __package__:
+    from . import catalog
     from .engine_process import run_engine
 else:
+    import catalog
     from engine_process import run_engine
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -125,9 +127,8 @@ def smoke_game(executable: Path, project: Path | None = None) -> None:
     command = [str(executable.resolve()), "--headless", "--fixed-fps", "60", "--quit-after", "600"]
     if project:
         command += ["--path", str(project.resolve())]
-    import catalog  # every game module (hidden ones too) and its maps; see tools/catalog.py
     cases = [("menu/main_menu", 0, 0)]
-    for game in catalog.game_ids(include_hidden=True):   # basketball also checks its split-screen
+    for game in catalog.game_ids(include_hidden=True):   # every module and map; basketball also split-screen
         cases += [(f"{game}/{game}_game", index, players) for index in range(catalog.map_count(game))
                   for players in ([1, 2, 4] if game == "basketball" else [1])]
     for scene, index, players in cases:
