@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import io
+import os
 import struct
 import tempfile
 import unittest
@@ -128,4 +129,8 @@ class TextureImportTests(unittest.TestCase):
         self.assertEqual(textures.main(["--report", str(path)]), 1)
 
     def test_repository_texture_imports_follow_rules(self) -> None:
-        self.assertEqual(textures.main(["--check"]), 0)
+        # Process-tool CI deliberately checks out fonts only; full checkouts must
+        # exercise both real asset directories, including partially missing trees.
+        if os.environ.get("RS_SPARSE_ASSETS") == "1" and all(not path.exists() for path in textures.DEFAULT_PATHS):
+            self.skipTest("Texture assets are absent from this sparse checkout")
+        self.assertEqual(textures.main(["--check"]), 0, self.output.getvalue())
