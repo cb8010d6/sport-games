@@ -31,8 +31,8 @@ async def test_malformed_messages_preserve_connection_and_game_forwarding():
     datagrams = []
     hub.game.send = datagrams.append
     async with TestServer(source.app) as server, aiohttp.ClientSession() as session:
-        async with session.ws_connect(server.make_url("/ws")) as ws:
-            await ws.send_json({"t": "hello", "kind": "sim", "client_id": "validation"})
+        async with session.ws_connect(server.make_url("/ws"), origin=str(server.make_url("/" )).rstrip("/")) as ws:
+            await ws.send_json({"t": "hello", "kind": "sim", "client_id": "validation", "token": source.pairing_token})
             welcome = await ws.receive_json(timeout=2)
             assert welcome["t"] == "welcome"
             controller = hub.controllers[welcome["id"]]
@@ -92,8 +92,8 @@ async def test_timestamp_spikes_do_not_poison_following_samples():
     datagrams = []
     hub.game.send = datagrams.append
     async with TestServer(source.app) as server, aiohttp.ClientSession() as session:
-        async with session.ws_connect(server.make_url("/ws")) as ws:
-            await ws.send_json({"t": "hello", "kind": "sim", "client_id": "clock"})
+        async with session.ws_connect(server.make_url("/ws"), origin=str(server.make_url("/" )).rstrip("/")) as ws:
+            await ws.send_json({"t": "hello", "kind": "sim", "client_id": "clock", "token": source.pairing_token})
             welcome = await ws.receive_json(timeout=2)
             controller = hub.controllers[welcome["id"]]
             await ws.send_json({"t": "m", "frame": "canonical", "s": [

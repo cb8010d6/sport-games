@@ -123,6 +123,8 @@ func _exercise() -> void:
 	_check(game.players.size() == _count, "UDP roster joins every player")
 	if game.players.size() != _count:
 		return
+	if not _layout_only and _game_id in ["basketball", "ski"]:
+		await _quality_after_map_switch_check(game)
 	if not _layout_only:
 		await _tap(1, RSController.BTN_A)
 		_check(game.players[81].ready, "UDP A readies player")
@@ -169,6 +171,10 @@ func _exercise() -> void:
 				break
 			await _frames(1)
 		_check(game.ui.results_panel.visible, "results appear after replay and podium")
+		var podium_on: Variant = game.get("_podium_on")
+		if podium_on != null:
+			game.finish_round()
+			_check(game.get("_podium_on") == podium_on, "finish_round again in results keeps podium state (#57)")
 		await _tap(1, RSController.BTN_A)
 		_check(game.phase == RSPartyGame.Phase.LOBBY and not game.players[81].ready, "results A returns to unready lobby")
 	else:
@@ -187,6 +193,33 @@ func _exercise() -> void:
 		get_tree().current_scene = null
 		menu.queue_free()
 	await _frames(3)
+
+
+func _quality_after_map_switch_check(game: RSPartyGame) -> void:
+	## Issue #54: a world built by a lobby map switch starts from scene values, so the
+	## quality gates must be re-applied to it. At low quality the switched map's SSR
+	## and glow stay off and its sun keeps an ordinary shadow edge (no PCSS).
+	var previous := RSSettings.quality
+	RSSettings.quality = 0
+	var target := posmod(game.map_index + 1, game._maps().size())
+	game.pick_map(1)
+	for _i in 600:
+		if game.map_index == target and game._pending_map < 0:
+			break
+		await _frames(1)
+	_check(game.map_index == target, "lobby map switch completes at low quality")
+	await _frames(3)  # let the replaced world leave the tree before inspecting this one
+	var worlds := game.find_children("*", "WorldEnvironment", true, false)
+	_check(not worlds.is_empty(), "switched map has a world environment")
+	for we: WorldEnvironment in worlds:
+		_check(not we.environment.ssr_enabled, "low quality keeps SSR off after a map switch")
+		_check(not we.environment.glow_enabled, "low quality keeps glow off after a map switch")
+	var suns := game.find_children("*", "DirectionalLight3D", true, false)
+	_check(not suns.is_empty(), "switched map has a sun")
+	for sun: DirectionalLight3D in suns:
+		_check(sun.light_angular_distance == 0.0, "low quality keeps PCSS off after a map switch")
+	RSSettings.quality = previous
+	RSSettings.apply_world(game)
 
 
 func _run() -> void:
