@@ -9,15 +9,19 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 FORBIDDEN = {".certs", ".git", ".venv", "__pycache__", "node_modules"}
 PRIVATE_SUFFIXES = {".pem", ".key", ".p12", ".pfx", ".jsonl", ".log"}
+# Every bundled OFL font ships its full license text beside the other notices (OFL 1.1 condition 2).
+FONT_LICENSES = sorted((ROOT / "game/assets/fonts").glob("OFL-*.txt"))
+REQUIRED = ["SportGames.exe", "game/SportGames.exe", "game/SportGames.pck", "hub/sport-hub.exe", "hub/config.json", "licenses/LICENSE",
+            "licenses/FONTS.md", "BUILD_INFO.json"] + ["licenses/" + f.name for f in FONT_LICENSES]
 
 
 def validate_package(root: Path) -> list[Path]:
-    for required in ["SportGames.exe", "game/SportGames.exe", "game/SportGames.pck", "hub/sport-hub.exe", "hub/config.json", "licenses/LICENSE", "BUILD_INFO.json"]:
+    for required in REQUIRED:
         if not (root / required).is_file():
             raise RuntimeError("Incomplete package: " + required)
     files = sorted(p for p in root.rglob("*") if p.is_file())
     for file in files:
-        if file.is_symlink() or set(file.relative_to(root).parts) & FORBIDDEN or file.suffix.lower() in PRIVATE_SUFFIXES or ".pck-" in file.name.lower():
+        if file.is_symlink() or set(file.relative_to(root).parts) & FORBIDDEN or any(s.lower() in PRIVATE_SUFFIXES for s in file.suffixes) or ".pck-" in file.name.lower():
             raise RuntimeError("Private or unsupported file in release: " + file.relative_to(root).as_posix())
     return files
 

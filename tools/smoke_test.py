@@ -20,9 +20,10 @@ import tempfile
 import time
 from pathlib import Path
 
+import catalog
 from test_game import ROOT, find_godot, run_engine, silence_native_crash_dialogs
 
-GAMES = ("plane", "archery", "bowling", "skate", "ski", "basketball")
+GAMES = catalog.game_ids()   # the menu games (tools/catalog.py)
 
 
 def engine_errors(log: str) -> tuple[list[str], list[str]]:
@@ -160,7 +161,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--godot")
     parser.add_argument("--players", type=int, choices=(1, 2, 3, 4), default=2)
-    parser.add_argument("--games", nargs="+", choices=GAMES, default=list(GAMES))
+    parser.add_argument("--games", nargs="+", choices=catalog.game_ids(include_hidden=True), default=list(GAMES))
     maps = parser.add_mutually_exclusive_group()
     maps.add_argument("--all-maps", action="store_true")
     maps.add_argument("--map", type=int, default=0, dest="map_index")
@@ -179,7 +180,7 @@ def main() -> int:
     godot = find_godot(args.godot)
     games = list(dict.fromkeys(args.games))
     with tempfile.TemporaryDirectory(prefix="rs-catalog-") as temp:
-        env = dict(os.environ, APPDATA=temp, XDG_DATA_HOME=temp, XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp)
+        env = dict(os.environ, RS_TEST_MODE="1", APPDATA=temp, XDG_DATA_HOME=temp, XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp)
         try:
             cases = discover_cases(godot, env, output, games)
         except (ValueError, OSError, subprocess.TimeoutExpired) as exc:
@@ -201,7 +202,7 @@ def main() -> int:
         report.unlink(missing_ok=True)
         shot.unlink(missing_ok=True)
         with tempfile.TemporaryDirectory(prefix="rs-smoke-") as temp:
-            env = dict(os.environ, APPDATA=temp, XDG_DATA_HOME=temp, XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp)
+            env = dict(os.environ, RS_TEST_MODE="1", APPDATA=temp, XDG_DATA_HOME=temp, XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp)
             user = Path(temp) / ("Godot/app_userdata/Regina Sports" if os.name == "nt" else "godot/app_userdata/Regina Sports")
             user.mkdir(parents=True, exist_ok=True)
             (user / "settings.cfg").write_text(f'[general]\nlanguage={int(args.language == "en")}\n[display]\nquality=0\n', encoding="utf-8")

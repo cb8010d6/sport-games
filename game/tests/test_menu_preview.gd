@@ -55,19 +55,20 @@ func _button(button: int) -> void:
 
 
 func _selected(index: int, source: String) -> void:
-	var entry: Dictionary = _menu.GAMES[index]
+	var entry: Dictionary = _menu.entries[index]
 	var card: RSGamePreview = _menu._preview
 	_check(_menu._index == index, source + " selects index")
 	_check(card.visible and card.game_id == entry["id"], source + " selects preview")
-	_check(card._title.text == tr(entry["name"]), source + " translates title")
+	_check(_menu._info_title.text == tr(entry["name"]), source + " translates title")
 	_check(_menu._desc.text.begins_with(tr(entry["desc"])), source + " updates description")
-	_check(card._image.texture != null and card._image.texture.resource_path.ends_with("/%s.jpg" % entry["id"]), source + " matches texture")
-	_check(card._image.texture.get_size() == Vector2(1600, 900), source + " native image dimensions")
+	_check(card.texture != null and card.texture.resource_path.ends_with("/%s.jpg" % entry["id"]), source + " matches texture")
+	_check(card.texture.get_size() == Vector2(1600, 900), source + " native image dimensions")
 	var screen := Rect2(Vector2.ZERO, Vector2(1600, 900))
-	_check(screen.encloses(card.get_global_rect()), source + " preview stays on screen")
-	_check(not card.get_global_rect().intersects(_menu._menu_grid.get_global_rect()), source + " preview clears buttons")
-	_check(card.get_global_rect().encloses(card._image.get_global_rect()), source + " image stays inside card")
-	_check(card._title.get_theme_font("font").get_string_size(card._title.text, HORIZONTAL_ALIGNMENT_LEFT, -1, 32).x <= card._title.size.x, source + " title fits")
+	_check(card.get_global_rect().is_equal_approx(screen), source + " preview fills the screen")
+	var info: Rect2 = _menu._info.get_global_rect()
+	_check(screen.encloses(info), source + " title plate stays on screen")
+	_check(not info.intersects(_menu._menu_grid.get_global_rect()), source + " title plate clears buttons")
+	_check(_menu._info_title.get_global_rect().end.x <= info.end.x + 1.0, source + " title fits")
 
 
 func _capture(id: String) -> void:
@@ -80,6 +81,23 @@ func _capture(id: String) -> void:
 	_check(picture.save_png(output.path_join(id + ".png")) == OK, "screenshot save")
 
 
+func _ble_diagnostics() -> void:
+	for state: String in ["no_adverts", "unavailable"]:
+		_udp.put_packet(JSON.stringify({"type": "roster", "controllers": [], "ble_state": state}).to_utf8_buffer())
+		await _frames()
+		var warning := ControllerHub.ble_warning()
+		_check(not warning.is_empty() and _menu._status.text == warning, state + " main-menu diagnostic")
+		await _capture("ble_" + state + "_menu")
+		_menu._pages.open("players")
+		await _frames()
+		await _capture("ble_" + state + "_players")
+		_menu._pages.close()
+		await _frames()
+	_udp.put_packet(JSON.stringify({"type": "roster", "controllers": [], "ble_state": "scanning"}).to_utf8_buffer())
+	await _frames()
+	_check(ControllerHub.ble_warning().is_empty(), "BLE recovery removes the diagnostic")
+
+
 func _run() -> void:
 	# Headless windows do not apply the display-server --resolution flag.
 	get_tree().root.size = Vector2i(1600, 900)
@@ -90,8 +108,8 @@ func _run() -> void:
 	get_tree().current_scene = _menu
 	await _frames(12)
 	_selected(0, "initial focus")
-	await _key(KEY_RIGHT)
-	_selected(1, "keyboard right")
+	await _key(KEY_DOWN)
+	_selected(1, "keyboard down")
 	var hover := InputEventMouseMotion.new()
 	hover.position = _menu._buttons[2].get_global_rect().get_center()
 	get_viewport().push_input(hover)
@@ -102,31 +120,31 @@ func _run() -> void:
 	hover.position = Vector2(1580, 880)
 	get_viewport().push_input(hover)
 	await _frames()
-	_udp.set_dest_address("127.0.0.1", ControllerHub.LISTEN_PORT)
+	_udp.set_dest_address("127.0.0.1", ControllerHub.listen_port())
 	await _button(RSController.BTN_B)
 	_selected(3, "UDP next")
 	await _button(RSController.BTN_C)
 	_selected(2, "UDP previous")
-	for index in RSCatalog.GAMES.size():
+	for index in RSCatalog.games().size():
 		_menu._buttons[index].grab_focus()
 		await _frames()
 		_selected(index, "catalog %d" % index)
-		await _capture(RSCatalog.GAMES[index]["id"])
-	_check(_menu._preview._textures.size() == 6, "one cached texture per sport")
+		await _capture(RSCatalog.games()[index]["id"])
+	_check(_menu._preview._textures.size() == RSCatalog.games().size(), "one cached texture per sport")
 	_check(_menu.find_children("*", "RSPartyGame", true, false).is_empty(), "menu does not instantiate sport games")
 	_menu._preview.show_game({"id": "missing-preview-test", "name": ""})
 	_check(not _menu._preview.visible, "missing art hides preview")
 	_menu._restore_focus()
 	_check(_menu._preview.visible, "focus restores after missing art")
-	for index in range(RSCatalog.GAMES.size(), _menu.GAMES.size()):
+	for index in range(RSCatalog.games().size(), _menu.entries.size()):
 		_menu._buttons[index].grab_focus()
 		await _frames()
 		_check(not _menu._preview.visible, "non-sport hides preview %d" % index)
-		if _menu.GAMES[index].has("page"):
+		if _menu.entries[index].has("page"):
 			_menu._open(index)
 			await _frames()
 			_check(not _menu._preview.visible and not _menu._menu_grid.visible, "modal hides menu")
-			if _menu.GAMES[index]["page"] == "settings":
+			if _menu.entries[index]["page"] == "settings":
 				_menu._settings.close()
 			else:
 				_menu._pages.close()
@@ -135,7 +153,8 @@ func _run() -> void:
 	await _button(RSController.BTN_B)
 	_selected(0, "UDP wrap forward")
 	await _button(RSController.BTN_C)
-	_check(_menu._index == _menu.GAMES.size() - 1 and not _menu._preview.visible, "UDP wrap backward")
+	_check(_menu._index == _menu.entries.size() - 1 and not _menu._preview.visible, "UDP wrap backward")
+	await _ble_diagnostics()
 	_udp.close()
 	for audio: AudioStreamPlayer in _menu.find_children("*", "AudioStreamPlayer", true, false):
 		audio.stop()

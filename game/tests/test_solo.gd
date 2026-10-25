@@ -9,6 +9,7 @@ var _id := "plane"
 var _level := 1
 var _slot := 1
 var _heartbeat := 0
+var _roster_entries: Array = []
 var _captures := ""
 var _layout := false
 
@@ -23,14 +24,14 @@ func _ready() -> void:
 	_slot = [1, 3, 4][_level]
 	_captures = OS.get_environment("RS_SOLO_CAPTURE")
 	_layout = not _captures.is_empty()
-	_peer.set_dest_address("127.0.0.1", ControllerHub.LISTEN_PORT)
+	_peer.set_dest_address("127.0.0.1", ControllerHub.listen_port())
 	_run.call_deferred()
 
 
 func _process(_delta: float) -> void:
-	if Time.get_ticks_msec() - _heartbeat >= 500:
+	if not _roster_entries.is_empty() and Time.get_ticks_msec() - _heartbeat >= 500:
 		_heartbeat = Time.get_ticks_msec()
-		_peer.put_packet(JSON.stringify({"type": "roster", "controllers": []}).to_utf8_buffer())
+		_peer.put_packet(JSON.stringify({"type": "roster", "controllers": _roster_entries}).to_utf8_buffer())
 
 
 func _check(ok: bool, label: String) -> void:
@@ -50,7 +51,8 @@ func _roster(connected: bool) -> void:
 	for slot in range(1, 5):
 		entries.append({"id": 80 + slot, "player": slot, "kind": "phone", "name": "Fixture P%d" % slot,
 			"connected": connected if slot == _slot else true, "battery": 80})
-	_peer.put_packet(JSON.stringify({"type": "roster", "controllers": entries}).to_utf8_buffer())
+	_roster_entries = entries
+	_peer.put_packet(JSON.stringify({"type": "roster", "controllers": _roster_entries}).to_utf8_buffer())
 	await _frames()
 
 
@@ -101,7 +103,7 @@ func _capture(name: String) -> void:
 func _exercise() -> Dictionary:
 	_check(RSSolo.begin("invalid", 1, 1).is_empty(), "invalid game rejected")
 	_check(RSSolo.begin(_id, 0, 1).is_empty() and RSSolo.begin(_id, 1, 3).is_empty(), "invalid slot/difficulty rejected")
-	var goals: Array = RSSolo.GOALS[_id]
+	var goals: Array = RSSolo.goals(_id)
 	_check(RSSolo.earned(_id, -1) == 0 and RSSolo.earned(_id, goals[0] - 1) == 0, "below goal boundary")
 	for i in 3:
 		_check(RSSolo.earned(_id, goals[i]) == i + 1, "inclusive challenge boundary")

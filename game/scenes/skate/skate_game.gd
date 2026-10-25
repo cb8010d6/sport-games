@@ -413,6 +413,7 @@ func _fmt(n: int) -> String:
 
 func _camera(p: Player, r: Rider, dt: float, snap: bool) -> void:
 	var sk := r.sk
+	var at := sk.draw_pos   # drawn (smoothed) position, as the rider mesh
 	var fwd := Vector3(-sin(sk.heading), 0.0, -cos(sk.heading))
 	if sk.mode == RSSkater.Mode.AIR and Vector2(sk.vel.x, sk.vel.z).length() > 0.5:
 		fwd = Vector3(sk.vel.x, 0.0, sk.vel.z).normalized()
@@ -420,15 +421,15 @@ func _camera(p: Player, r: Rider, dt: float, snap: bool) -> void:
 	r.cam_fwd = fwd if snap else r.cam_fwd.lerp(fwd, 1.0 - exp(-dt * 3.0)).normalized()
 	var spd := sk.current_speed()
 	var dist := 4.6 + clampf(spd - 8.0, 0.0, 6.0) * 0.16
-	var want := sk.pos - r.cam_fwd * dist + Vector3.UP * 1.9
-	var look := sk.pos + r.cam_fwd * 3.2 + Vector3.UP * 0.9
+	var want := at - r.cam_fwd * dist + Vector3.UP * 1.9
+	var look := at + r.cam_fwd * 3.2 + Vector3.UP * 0.9
 	if sk.mode == RSSkater.Mode.BAIL:
-		want = r.cam_pos.lerp(sk.pos - r.cam_fwd * 5.5 + Vector3.UP * 2.6, 0.02)
-		look = sk.pos + Vector3.UP * 0.5
+		want = r.cam_pos.lerp(at - r.cam_fwd * 5.5 + Vector3.UP * 2.6, 0.02)
+		look = at + Vector3.UP * 0.5
 	elif sk.finished and spd < 2.0:
 		r.orbit += dt * 0.35
-		want = sk.pos + Vector3(sin(r.orbit) * 4.0, 1.7, cos(r.orbit) * 4.0)
-		look = sk.pos + Vector3.UP * 0.9
+		want = at + Vector3(sin(r.orbit) * 4.0, 1.7, cos(r.orbit) * 4.0)
+		look = at + Vector3.UP * 0.9
 	want.x = clampf(want.x, -RSSkateCourse.BOUND + 0.6, RSSkateCourse.BOUND - 0.6)
 	want.y = maxf(want.y, _course.top(want.x, -want.z) + 0.8)
 	if snap:
@@ -450,10 +451,10 @@ func _camera(p: Player, r: Rider, dt: float, snap: bool) -> void:
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
 		# Intro: from high over the start, looking down the street to the sea, swooping in
 		# behind the rider.
-		var p0 := sk.pos + Vector3(0.0, 26.0, 36.0)
-		var p1 := sk.pos + Vector3(5.0 * signf(sk.pos.x + 0.01), 5.0, 13.0)
+		var p0 := at + Vector3(0.0, 26.0, 36.0)
+		var p1 := at + Vector3(5.0 * signf(at.x + 0.01), 5.0, 13.0)
 		RSIntro.apply(p.cam, phase_time, INTRO, p0, p1, r.cam_pos,
-			sk.pos + Vector3(0.0, -8.0, -120.0), r.cam_look, 50.0, 66.0)
+			at + Vector3(0.0, -8.0, -120.0), r.cam_look, 50.0, 66.0)
 
 
 # ------------------------------------------------------------------- hints / OLED ----
@@ -534,12 +535,13 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 	for i in 5:
 		var box := Rect2(Vector2(20 + i * 31, 66) * k, Vector2(27, 27) * k)
 		var got: bool = sk.letters[i]
-		h.draw_rect(box, col if got else Color(0, 0, 0, 0.35))
+		draw_box(h, box, col if got else Color(0.02, 0.03, 0.05, 0.7), RSUi.RADIUS)
 		draw_text(h, LETTERS[i], box.position + Vector2(13.5, 21) * k, 19 * k, Color.WHITE if got else Color(1, 1, 1, 0.35), true)
 
 	# Run progress: everyone's position on the way to the finish.
 	var bar := Rect2(Vector2(sz.x - 250 * k, 30 * k), Vector2(220 * k, 8 * k))
-	h.draw_rect(bar, Color(0, 0, 0, 0.35))
+	h.draw_style_box(_pill, Rect2(bar.position - Vector2(16, 16) * k, bar.size + Vector2(32 * k, 56 * k)))
+	draw_box(h, bar, Color(1, 1, 1, 0.25), 0)
 	for q: Player in players.values():
 		var f := clampf(_rider(q).sk.s() / RSSkateCourse.FINISH_S, 0.0, 1.0)
 		var at := bar.position + Vector2(bar.size.x * f, bar.size.y * 0.5)
@@ -564,7 +566,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 
 	# Balance meter above the rider while grinding or in a manual.
 	if sk.mode in [RSSkater.Mode.GRIND, RSSkater.Mode.MANUAL]:
-		var head := sk.pos + Vector3.UP * 2.35
+		var head := sk.draw_pos + Vector3.UP * 2.35
 		if not p.cam.is_position_behind(head):
 			_draw_balance(h, p.cam.unproject_position(head), 58 * k, sk.needle, k)
 
@@ -576,19 +578,19 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 			names.append(str(e["name"]))
 		draw_text(h, _trick_line(names), Vector2(sz.x * 0.5, y - 40 * k), 21 * k, Color.WHITE, true)
 		var pulse := 1.0 + 0.04 * sin(_clock * 12.0)
-		draw_text(h, "%s × %d" % [_fmt(sk.combo_base()), sk.combo.size()], Vector2(sz.x * 0.5, y), 38 * k * pulse, GOLD, true)
+		draw_text(h, "%s × %d" % [_fmt(sk.combo_base()), sk.combo.size()], Vector2(sz.x * 0.5, y), 38 * k * pulse, GOLD, true, false, RSUi.font_bold())
 	elif _clock - r.banked_t < 1.6:
 		var a := clampf(1.6 - (_clock - r.banked_t), 0.0, 1.0)
 		var c1 := Color(1.0, 0.7, 0.35, a) if r.banked_sketchy else Color(GOLD, a)
 		draw_text(h, r.banked_names, Vector2(sz.x * 0.5, y - 40 * k), 19 * k, Color(1, 1, 1, a * 0.85), true)
-		draw_text(h, (tr("勉强落地  +%s") if r.banked_sketchy else "+%s") % _fmt(r.banked_pts), Vector2(sz.x * 0.5, y), 44 * k, c1, true)
+		draw_text(h, (tr("勉强落地  +%s") if r.banked_sketchy else "+%s") % _fmt(r.banked_pts), Vector2(sz.x * 0.5, y), 44 * k, c1, true, false, RSUi.font_bold())
 
 	if r.hint_t > 0.0 and not sk.finished:
 		var a := clampf(r.hint_t, 0.0, 1.0)
 		draw_pill(h, r.hint, Vector2(sz.x * 0.5, sz.y * 0.2), 17 * k, Color(1, 1, 1, a))
 
 	if sk.finished:
-		draw_text(h, tr("完成！第 %d 名") % r.place if players.size() > 1 else tr("完成！"), Vector2(sz.x * 0.5, sz.y * 0.3), 46 * k, GOLD, true)
+		draw_text(h, tr("完成！第 %d 名") % r.place if players.size() > 1 else tr("完成！"), Vector2(sz.x * 0.5, sz.y * 0.3), 46 * k, GOLD, true, false, RSUi.font_bold())
 		var waiting := false
 		for q: Player in players.values():
 			waiting = waiting or not _rider(q).sk.finished
@@ -616,9 +618,7 @@ func _draw_balance(h: Control, at: Vector2, radius: float, needle: float, k: flo
 func _draw_overlay(o: Overlay, k: float) -> void:
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
 		var a := RSIntro.fade(phase_time, INTRO)
-		draw_text(o, tr("海滨大坡"), Vector2(o.size.x * 0.5, o.size.y * 0.4), 84 * k, Color(1, 1, 1, a), true)
-		draw_text(o, tr("SEASIDE DOWNHILL  ·  %d 米滑到海边") % roundi(RSSkateCourse.FINISH_S - RSSkateCourse.START_S),
-			Vector2(o.size.x * 0.5, o.size.y * 0.4 + 56 * k), 24 * k, Color(1, 0.9, 0.6, a), true)
+		draw_title_card(o, tr("海滨大坡"), tr("SEASIDE DOWNHILL  ·  %d 米滑到海边") % roundi(RSSkateCourse.FINISH_S - RSSkateCourse.START_S), a, k)
 	elif phase == Phase.COUNTDOWN:
 		draw_text(o, tr("倾斜手柄转向，快速往上一抬就能起跳"), Vector2(o.size.x * 0.5, o.size.y * 0.45 + 60 * k), 26 * k, Color(0.92, 0.95, 1.0), true)
 	elif phase == Phase.PLAY:
@@ -655,6 +655,8 @@ func _keep_clip(r: Rider) -> void:
 
 
 func finish_round() -> void:
+	if _result_committed:
+		return  # a second call must not reset the replay/podium state below (#57)
 	var longest := 0.0
 	for p: Player in players.values():
 		var r := _rider(p)
@@ -744,9 +746,9 @@ func _draw_replay(h: PlayerHud, p: Player, k: float) -> void:
 		return
 	if fmod(_clock, 1.0) < 0.6:
 		h.draw_circle(Vector2(sz.x - 150 * k, bar * 0.5), 7 * k, Color(1.0, 0.25, 0.2))
-	draw_text(h, "REPLAY", Vector2(sz.x - 136 * k, bar * 0.5 + 8 * k), 22 * k, Color.WHITE)
+	draw_text(h, tr("回放"), Vector2(sz.x - 136 * k, bar * 0.5 + 8 * k), 22 * k, Color.WHITE)
 	draw_text(h, tr("最佳连招  ") + r.clip_names, Vector2(sz.x * 0.5, sz.y - bar - 44 * k), 22 * k, Color.WHITE, true)
-	draw_text(h, "+" + _fmt(r.clip_pts), Vector2(sz.x * 0.5, sz.y - bar - 8 * k), 40 * k, GOLD, true)
+	draw_text(h, "+" + _fmt(r.clip_pts), Vector2(sz.x * 0.5, sz.y - bar - 8 * k), 40 * k, GOLD, true, false, RSUi.font_bold())
 
 
 # ------------------------------------------------------------------------- podium ----

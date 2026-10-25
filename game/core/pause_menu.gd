@@ -14,6 +14,7 @@ extends Control
 signal restart_requested
 signal menu_requested
 signal tutorial_requested
+signal benchmark_requested
 
 var game: Node                  ## a party game, or the main menu's settings host
 var settings_only := false
@@ -24,7 +25,7 @@ const PAGES := {
 	"main": ["resume", "restart", "tutorial", "display", "sound", "accessibility", "language", "menu"],
 	"display": ["fps", "quality", "upscale", "window", "hdr", "back"],
 	"sound": ["vol_master", "vol_music", "vol_sfx", "vol_ambience", "back"],
-	"settings": ["display", "sound", "accessibility", "language", "resume"],
+	"settings": ["display", "sound", "accessibility", "benchmark", "language", "resume"],
 	"accessibility": ["camera_shake", "color_safe", "text_size", "back"],
 }
 const VALUES := ["fps", "quality", "upscale", "window", "hdr", "language", "color_safe", "camera_shake", "text_size", "vol_master", "vol_music", "vol_sfx", "vol_ambience"]
@@ -35,6 +36,7 @@ var _rows: Array[Button] = []
 var _index := 0
 var _saved_ui: Dictionary = {}   ## controller id -> its OLED state before the menu opened
 var _col: VBoxContainer
+var _panel: PanelContainer
 var _title: Label
 var _hint: Label
 var _normal: StyleBoxFlat
@@ -59,24 +61,22 @@ func _ready() -> void:
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", RSUi.panel_style(24, Color(0.07, 0.09, 0.14, 0.96)))
+	_panel = panel
+	panel.add_theme_stylebox_override("panel", RSUi.modal_style())
 	panel.custom_minimum_size = Vector2(520, 0)
 	center.add_child(panel)
 	_col = VBoxContainer.new()
 	_col.add_theme_constant_override("separation", 10)
 	panel.add_child(_col)
 	_title = RSUi.label("", 40)
+	_title.add_theme_font_override("font", RSUi.font_bold())
 	_col.add_child(_title)
 	_col.add_child(RSUi.label("Regina Sports" if settings_only else game._game_name(), 17, RSUi.TEXT_MUTED))
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 6)
 	_col.add_child(gap)
-	_normal = RSUi.panel_style(14, Color(1, 1, 1, 0.04))
-	_normal.set_content_margin_all(14)
-	_focus = RSUi.panel_style(14, Color(1, 1, 1, 0.16))
-	_focus.set_content_margin_all(14)
-	_focus.set_border_width_all(3)
-	_focus.border_color = Color.WHITE
+	_normal = RSUi.button_style("normal")
+	_focus = RSUi.button_style("focus")
 	_hint = RSUi.label(tr("手柄：B / C 上下选，A 确定或切换，D 返回 / 关闭\n键盘：方向键 + 回车，← / → 改设置，Esc 返回 / 关闭"), 15, RSUi.TEXT_MUTED)
 	_col.add_child(_hint)
 	_show_page(_home_page(), 0)
@@ -90,6 +90,11 @@ func is_open() -> bool:
 	return visible
 
 
+func focus_benchmark() -> void:
+	if settings_only:
+		_show_page("settings", (PAGES["settings"] as Array).find("benchmark"))
+
+
 func open() -> void:
 	if visible:
 		return
@@ -99,6 +104,7 @@ func open() -> void:
 	for c: RSController in ControllerHub.connected_controllers():
 		_saved_ui[c.id] = c.ui_state.duplicate(true)
 	_show_page(_home_page(), 0)
+	RSUi.pop_in(_panel)
 	RSSfx.play(self, "ding", -10.0, 0.9)
 
 
@@ -120,6 +126,7 @@ func close() -> void:
 	if not settings_only:
 		for p: RSPartyGame.Player in game.players.values():
 			p.oled_key = ""
+			p.oled_sent = ""
 
 
 func back() -> void:
@@ -217,6 +224,10 @@ func _choose(i: int) -> void:
 			if can_tutorial:
 				close()
 				tutorial_requested.emit()
+		"benchmark":
+			if settings_only:
+				close()
+				benchmark_requested.emit()
 		"display", "sound", "accessibility":
 			_show_page(_items()[i], 0)
 			RSSfx.play(self, "beep", -18.0, 1.6)
@@ -286,6 +297,8 @@ func _label(item: String) -> String:
 			return tr("声音　▸")
 		"accessibility":
 			return tr("无障碍　▸")
+		"benchmark":
+			return tr("性能测试　▸")
 		"back":
 			return tr("◀ 返回")
 		"fps":
@@ -332,6 +345,8 @@ func _oled_label(item: String) -> Array:
 			return ["SOUND", ">"]
 		"accessibility":
 			return ["ACCESS", ">"]
+		"benchmark":
+			return ["BENCHMARK", ">"]
 		"back":
 			return ["BACK", ""]
 		"fps":
@@ -339,7 +354,7 @@ func _oled_label(item: String) -> Array:
 		"quality":
 			return ["QUALITY", ["LOW", "MID", "HIGH", "ULTRA"][RSSettings.quality]]
 		"upscale":
-			return ["UPSCALE", ["NATIVE", "FSR Q", "FSR B", "FSR P", "FSR UP"][RSSettings.upscale]]
+			return ["UPSCALE", ["NATIVE", "FSR AA", "FSR Q", "FSR B", "FSR P", "FSR UP"][RSSettings.upscale]]
 		"window":
 			return ["WINDOW", ["WINDOW", "FULL", "EXCL"][RSSettings.window]]
 		"hdr":

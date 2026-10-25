@@ -115,6 +115,21 @@ see [capture provenance](../game/assets/previews/CREDITS.md), the retained captu
 and SHA-256 manifest. UI evidence in `docs/screenshots/phase5-menu-*.png` additionally
 contains the project MIT menu. The combined scene exports are recorded as MIT AND CC0-1.0.
 
+`docs/screenshots/bowling-b1-*.png` are unmodified 1600×900 captures of the actual
+bowling scene and its existing MIT HUD, with isolated synthetic players. The pre-B1
+scene uses project procedural geometry; B1 additionally reuses the already documented
+Poly Haven CC0 plywood, metal, plaster, tile and rooftop-night HDRI assets. No external
+image, model, font or recording is introduced by these captures. They are recorded as
+MIT AND CC0-1.0; the [B1 evidence](BOWLING_B1_ENVIRONMENT.md#原生画面与来源) distinguishes
+high-quality before/after captures from medium-quality bilingual acceptance captures.
+
+## UI fonts
+
+`game/assets/fonts/` bundles Noto Sans SC (a subset of the variable font) and three Barlow
+Condensed styles from google/fonts, both under the SIL Open Font License 1.1. The license texts
+ship beside the fonts; source commit, subset method and Reserved Font Name notes are in the
+[font credits](../game/assets/fonts/CREDITS.md).
+
 ## Runtime and build dependencies
 
 Godot is an external MIT-licensed engine; see <https://godotengine.org/license/>.

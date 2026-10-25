@@ -24,7 +24,7 @@ static func draw_hud(game: RSBasketballGame, h: RSPartyGame.PlayerHud, p: RSPart
 	var w := group * RSBasketballGame.RACKS
 	var x0 := sz.x * 0.5 - w * 0.5
 	var y := sz.y - 30.0 * k
-	game._pill.set_corner_radius_all(int(14 * k))
+	game._pill.set_corner_radius_all(RSUi.RADIUS)
 	h.draw_style_box(game._pill, Rect2(Vector2(x0 - 12 * k, y - 20 * k), Vector2(w + 10 * k, 40 * k)))
 	for r in RSBasketballGame.RACKS:
 		for b in RSBasketballGame.BALLS:
@@ -85,7 +85,7 @@ static func draw_hud(game: RSBasketballGame, h: RSPartyGame.PlayerHud, p: RSPart
 		var a := clampf((1.3 - fa) / 0.4, 0.0, 1.0)
 		var grow := 1.0 + 0.25 * maxf(0.0, 1.0 - fa * 6.0)
 		# Keep verdicts below the shared rising score popups, including large text.
-		game.draw_text(h, s.flash, Vector2(sz.x * 0.5, sz.y * 0.52), 46 * k * grow, Color(s.flash_col, a), true)
+		game.draw_text(h, s.flash, Vector2(sz.x * 0.5, sz.y * 0.54), 46 * k * grow, Color(s.flash_col, a), true)
 
 	if s.st == RSBasketballGame.St.SET and not p.fake:
 		game.draw_text(h, game.tr("甩手腕 + 松开 B 出手"), Vector2(sz.x * 0.5, sz.y - 66 * k), 20 * k, Color(1, 1, 1, 0.8), true)
@@ -101,9 +101,7 @@ static func draw_overlay(game: RSBasketballGame, o: RSPartyGame.Overlay, k: floa
 	var m := game._court.map
 	if game.phase == RSBasketballGame.Phase.COUNTDOWN and game.phase_time < RSBasketballGame.INTRO:
 		var a := RSIntro.fade(game.phase_time, RSBasketballGame.INTRO)
-		game.draw_text(o, game.tr(str(m["name"])), Vector2(o.size.x * 0.5, o.size.y * 0.4), 84 * k, Color(1, 1, 1, a), true)
-		game.draw_text(o, game.tr("%s  ·  三分大赛  ·  5 架 × 5 球  ·  %d 秒") % [m["en"], int(RSBasketballGame.TIME_LIMIT)],
-			Vector2(o.size.x * 0.5, o.size.y * 0.4 + 56 * k), 24 * k, Color(1, 0.9, 0.6, a), true)
+		game.draw_title_card(o, game.tr(str(m["name"])), game.tr("%s  ·  三分大赛  ·  5 架 × 5 球  ·  %d 秒") % [m["en"], int(RSBasketballGame.TIME_LIMIT)], a, k)
 	elif game.phase == RSBasketballGame.Phase.COUNTDOWN:
 		game.draw_text(o, game.tr("按住 B 举球，往上甩手腕 + 松开 B 出手"), Vector2(o.size.x * 0.5, o.size.y * 0.45 + 60 * k), 26 * k, Color(0.92, 0.95, 1.0), true)
 	elif game.phase == RSBasketballGame.Phase.PLAY:
@@ -125,6 +123,6 @@ static func draw_replay(game: RSBasketballGame, h: RSPartyGame.PlayerHud, p: RSP
 		return
 	if fmod(game._clock, 1.0) < 0.6:
 		h.draw_circle(Vector2(sz.x - 150 * k, bar * 0.5), 7 * k, Color(1.0, 0.25, 0.2))
-	game.draw_text(h, "REPLAY", Vector2(sz.x - 136 * k, bar * 0.5 + 8 * k), 22 * k, Color.WHITE)
+	game.draw_text(h, game.tr("回放"), Vector2(sz.x - 136 * k, bar * 0.5 + 8 * k), 22 * k, Color.WHITE)
 	game.draw_text(h, game.tr("最佳一投  ") + s.clip_name, Vector2(sz.x * 0.5, sz.y - bar - 44 * k), 22 * k, Color.WHITE, true)
 	game.draw_text(h, "+%d" % s.clip_pts, Vector2(sz.x * 0.5, sz.y - bar - 8 * k), 40 * k, RSBasketballGame.GOLD, true)

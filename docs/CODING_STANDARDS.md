@@ -41,6 +41,7 @@
 - **ARCH-ARGS**：命令行参数只在 `party_game.gd`、`main_menu.gd` 解析；项目用 `_parse_arg()`。
 - **ARCH-HAPTIC**：震动用 `haptic(p, name)`；**ARCH-AUDIO**：声音用 `RSSfx`，不要自己创建 AudioStreamPlayer。
 - **ARCH-QUIT**：退出游戏用 `RSExit.quit(get_tree(), code)`，调用后直接 `return`；不要直接 `get_tree().quit()`。测试脚本可以直接退出。
+- 界面外观来自 `RSUi`：根节点设置 `theme = RSUi.theme()`，颜色用 `RSUi` 的常量，面板和按钮用 `modal_style()`、`card_style()`、`button_style()`，主要操作按钮设 `theme_type_variation = &"RSPrimary"`。不要为单个控件新写颜色值或 `StyleBoxFlat`。说明见 [UI_THEME.md](UI_THEME.md)。
 - 场景内容在代码里构建，`.tscn` 只放根节点和脚本（现有做法，避免多人改同一个 `.tscn` 产生冲突）。
 - 不新增 autoload；不用 `get_node("/root/...")` 这类绝对节点路径。
 

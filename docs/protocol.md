@@ -85,6 +85,12 @@ Regina 手柄 ──BLE──┐
 | `0x06` | u8 旋转 0–3 | 屏幕方向（LovyanGFX 约定，1/3 为竖屏）。hub 在连接时按 `config.json` 的 `regina_screen_rotation` 下发，固件存进 NVS（固件 0.2 起） |
 | `0x10` | 界面 TLV（见 2.5） | 更新 OLED 界面 |
 
+hub 的连接、订阅通知、读取和单次写入各限时 10 秒，断开清理限时 5 秒；一台设备设置失败不会阻塞其他设备或下一轮扫描。扫描上下文（含启动 / 停止）总限时 23 秒，正常扫描 3 秒，间隔 2 秒（已有就绪连接时为 8 秒），最多并行设置 4 台候选设备。连续 5 轮成功扫描都没有任何广播、且没有就绪连接时报告 `no_adverts`；看到其他蓝牙设备但匹配不到 Regina 不算此故障。扫描异常报告 `unavailable`，后续成功扫描或连接就绪恢复正常状态。相同类别的诊断警告每 60 秒至多一次。
+
+最多保留 64 台候选设备，按首次等待顺序跨轮次调度；30 秒没再看到广播的候选失效，失败设备至少等待 10 秒再试，避免前排故障设备占满并发名额。成功连接后清除失败退避，正常掉线可以重新加入队列。
+
+多人或公共场合可在 hub 配置中设置 `regina_allow` 白名单（设备名或地址）；启动日志只报告是否启用及条目数。
+
 ### 2.5 界面 TLV（OLED 128×64）
 
 格式是 `操作码 0x10` 后面接若干个 `tag u8, len u8, data[len]`。没有出现的字段保持不变；字符串长度为 0 表示清空该字段。**P0 阶段只支持 ASCII 字符**。
@@ -101,15 +107,31 @@ Regina 手柄 ──BLE──┐
 
 竖屏（默认，64×128）实际能显示的长度：标题 10 字符；主文字 3 字符以内用最大字号，7 字符以内用中字号，最多 10 字符；副文字 10 字符；按键提示 8 字符；toast 7 字符以内用大字，最多两行、每行 10 字符。横屏下标题 14 字符、按键提示 9 字符。
 
+hub 按屏幕方向截断 ASCII 文本：竖屏标题 / 主文字 / 副文字 / 进度标签各 10 字符，按键提示 8 字符；横屏标题 14 字符，主文字 / 副文字 / 进度标签各 20 字符，按键提示 9 字符；toast 最多 20 字符。每次 ATT 写入（含 `0x10`）不超过 `min(MTU − 3, 256)` 字节，256 是固件接收缓冲区上限。hub 只在完整 TLV 之间分成多个独立的 `0x10` 命令，`clear` 只放首包；单个字段仍超出空包容量时进一步截短文本，例如 MTU 23 下 toast 最多 15 字符。固件无需片段重组，字段更新也不保证同时呈现。
+
+BLE 下行队列有界，拥塞时合并最新完整 OLED、玩家编号和旋转状态，只淘汰瞬时反馈。写入失败或超时会限频警告，1 秒后重试最新持久状态，避免多包更新中途失败后永久缺字。
+
+完整状态合并不代表每次都清屏：只有显式 `clear` 或持久字段部分写入失败后的重新同步才发送清屏 TLV。普通进度条等更新不取消正在显示的 toast，只有 toast 的消息也不切换固件默认状态页。
+
 ## 3. 手机网页 / 模拟手柄 ⇄ hub（WebSocket，JSON）
 
-- 手机：`wss://<电脑局域网 IP>:47843/ws`，页面地址是 `https://<电脑局域网 IP>:47843/`
+- 手机：`wss://<电脑局域网 IP>:47843/ws`，扫码页面地址是 `https://<电脑局域网 IP>:47843/#k=<本次启动令牌>`
 - 模拟手柄：`ws://127.0.0.1:47802/ws`，页面地址是 `http://127.0.0.1:47802/sim`
+
+每次启动 hub 都生成新的随机配对令牌（256 bit）。游戏中的二维码 URL 通过 fragment `#k` 携带它；fragment 不随 HTTP 请求发送，客户端只在 WebSocket 的 `hello.token` 中提交。不要分享二维码或完整 URL。手机删掉 `#k`、使用旧启动的令牌或仅伪造已配对的 `client_id` 均不能加入；有效令牌随同一页面的重连继续提交。令牌不存入 localStorage，也不打印到日志或终端二维码中。
+
+每个 WebSocket 握手必须带与实际监听地址、端口及协议相同的 `Origin`；缺失、`null`、跨源或重复 Origin 返回 403。Host 只接受实际监听 IP（回环监听也接受 `localhost`），不信任任意 DNS 名称或代理转发头。手机 HTTPS 监听只开放 `/`、`/static/*`、`/ws`，`/sim` 和 `/api/*` 不在该监听上提供。
+
+同一 hub 最多同时保留 16 个 WebSocket 连接；超限连接在升级后以 1013 关闭。注册表没有可回收位置时，有效 `hello` 收到 `hub full` 错误后同样以 1013 关闭。
+
+本机 HTTP 监听还要求客户端来自回环地址。模拟器从同源的 `GET /api/pairing` 获取 `{ "token": "..." }`；该接口不允许 CORS、禁止缓存，并校验请求的 Host 和可选 Origin。原有 `/api/status`、`/api/qr` 同样仅限本机。原生测试客户端也必须从本机取得令牌并显式设置正确 Origin，不能绕过配对。无效 `hello` 在分配控制器 ID 或玩家槽前以 WebSocket 1008 关闭。
+
+`--https-host`（或配置 `https_host`）可将手机监听绑定到指定网卡，默认 `0.0.0.0`。证书只要求覆盖选用的手机 IP 与本机回环名称；无关网卡变化不重签，新增选用 IP 时保留私钥并扩展 SAN。重签后浏览器仍可能要求重新信任。
 
 客户端 → hub：
 
 ```jsonc
-{"t":"hello","kind":"phone","name":"iPhone","client_id":"随机持久 ID","profile_name":"Example Player"}  // kind 取 phone 或 sim
+{"t":"hello","kind":"phone","name":"iPhone","client_id":"随机持久 ID","profile_name":"Example Player","token":"从本次二维码或本机接口取得的令牌"}  // kind 取 phone 或 sim；name 是设备名，hub 会去掉控制字符、截断到 32 字符
 {"t":"profile","name":"Example Player"} // 可选：修改玩家昵称，去控制字符、首尾空格，最多 20 字符
 {"t":"m","frame":"device","s":[[ts_ms, gx,gy,gz, ax,ay,az], ...]}
 //  frame 为 device：手机坐标系（x 向右，y 指向屏幕顶端，z 垂直屏幕向外）
@@ -117,12 +139,17 @@ Regina 手柄 ──BLE──┐
 //  陀螺仪单位 rad/s；加速度单位 m/s²，含重力，静止时测到的是向上的 +g
 {"t":"in","b":按键位,"d":[小旋钮,大旋钮],"an":[模拟量0,模拟量1]}
 {"t":"st","battery":87,"charging":false}  // battery 可以为 null
+{"t":"ping","c":123}                     // 保活/测延迟；c 任意，hub 在 pong 里原样带回
+{"t":"recenter"}                          // 归零当前手柄（hub 按本连接的手柄 id 执行）
+{"t":"calibrate"}                         // 重新校准当前手柄零偏
 ```
 
 hub → 客户端：
 
 ```jsonc
 {"t":"welcome","id":3,"player":2}
+{"t":"error","reason":"hub full"}           // hello 被拒：控制器注册表已满，hub 随即以 1013 关闭连接
+{"t":"pong","c":123}                        // 对 ping 的回复
 {"t":"profile","name":"Example Player"} // 昵称修改确认；设备 name 与重连 ID 不变
 {"t":"player","player":2}
 {"t":"ui", ...与第 4 节 ui 对象相同...}
@@ -133,7 +160,9 @@ hub → 客户端：
 
 ## 4. hub ⇄ 游戏（本机 UDP）
 
-hub 发到 `127.0.0.1:47800`（游戏监听这个端口）；游戏发到 `127.0.0.1:47801`（hub 监听这个端口）。
+hub 发到 `127.0.0.1:47800`（游戏监听这个端口）；游戏发到 `127.0.0.1:47801`（hub 监听这个端口）。测试模式和 `--hub-port` 的端口规则见 [ARCHITECTURE.md](ARCHITECTURE.md) 第 4 节。
+
+手柄 id 是 u8（出现在下面的二进制包和 JSON 的 `controller` 字段中）。hub 按设备标识分配 1–255 中最小的空闲 id（Regina 按 MAC 地址、手机 / 模拟手柄按 `client_id`）。注册表最多保留 32 个在线或近期断开的条目；断开超过 5 分钟或需要腾出位置时，优先遗忘断开最久的条目并回收 id。同一设备仅在条目仍在注册表时保证沿用原 id。玩家编号偏好独立保留，最多 512 项，淘汰最近最少使用且不在注册表内的 key；重连时偏好槽位仍空闲才恢复原编号。
 
 ### 4.1 hub → 游戏，二进制高频数据
 
@@ -157,14 +186,29 @@ hub 发到 `127.0.0.1:47800`（游戏监听这个端口）；游戏发到 `127.0
 
 ```jsonc
 {"type":"roster","controllers":[{"id":1,"kind":"regina","name":"Regina-3F2A","player":1,
-  "connected":true,"battery":87,"charging":false,"calibrated":true,"stationary":true,
+  "connected":true,"battery":87,"charging":false,"calibrated":true,"calibrating":false,"stationary":true,
   "rate_hz":199.6,"loss":0.0}],
- "phone_url":"https://<电脑局域网IP>:47843/"}
+ "phone_url":"https://<电脑局域网IP>:47843/","ble_state":"scanning"}
+// 条目还可能带来源相关的可选键：Regina（BLE）有 "mtu"、"fw"、"imu_ok"、"imu_irq"，随状态包更新。
 // 手机 / 模拟手柄条目可带 profile_name（可选、纯文本、最多 20 字符），用于更新对应 P1–P4 档案。
 {"type":"qr","url":"https://...","rows":["1110...","..."]}   // 二维码矩阵，1 为黑块
 {"type":"event","controller":1,"name":"recentered"}
 // name 可能是 connected / disconnected / recentered / calibrated / calibrate_failed / low_battery
 ```
+
+roster 是完整列表；已有 id 消失或 `connected:false` 时，游戏保留控制器对象并标记离线，同一 id 再出现时复用对象。序列化预算为 60000 字节：超限先省略离线条目，仍超限则保留所有在线 id 的简表（`id`、`kind`、`name`、`player`、`connected`、`profile_name`），收紧名称长度并省略额外状态；URL 本身超限时将 `phone_url` 置为 null。裁剪不会通过删除在线 id 腾出空间。
+
+`ble_state` 是 roster 顶层的可选 BLE 来源状态，旧 hub 缺少此字段时视为 `disabled`；旧游戏可忽略此字段。它不改变控制器条目或手机 / 模拟手柄的可用性，不新增消息类型。
+
+| 值 | 含义 |
+|---|---|
+| `disabled` | 未启用 BLE（例如 `--no-ble`） |
+| `scanning` | BLE 扫描正常，尚无就绪的 Regina 连接 |
+| `connected` | 至少一个 Regina 控制器连接已就绪 |
+| `no_adverts` | 连续多轮扫描未发现任何蓝牙广播（不是仅未找到 Regina） |
+| `unavailable` | BLE 依赖、适配器或扫描后端不可用 |
+
+游戏通过 `ControllerHub.ble_warning()` 在主菜单、玩家 / 手柄页和大厅显示后两种异常的可翻译建议。恢复为其他状态时立即隐藏；hub 心跳过期，或超过 3 秒未收到 roster 时也隐藏，避免显示陈旧诊断。未知状态按 `disabled` 处理。
 
 ### 4.3 游戏 → hub，JSON 指令
 
@@ -176,6 +220,7 @@ hub 发到 `127.0.0.1:47800`（游戏监听这个端口）；游戏发到 `127.0
 {"cmd":"beep","controller":1,"freq":2000,"ms":80}
 {"cmd":"vibrate","controller":1,"ms":60}             // 震一下
 {"cmd":"vibrate","controller":1,"pattern":[40,60,70]} // 开、停、开…（毫秒），最多 16 段、共 3 秒
+{"cmd":"qr"}                                     // 请 hub 把当前二维码（type:"qr" 消息）补发给游戏
 {"cmd":"ui","controller":1,"ui":{"clear":true,"title":"ARCHERY","main":"","sub":"",
   "bar":{"pct":75,"label":"POWER"},"legends":["DRAW","BACK","",""],
   "toast":{"ms":800,"text":"HIT!"}}}
@@ -185,5 +230,5 @@ hub 发到 `127.0.0.1:47800`（游戏监听这个端口）；游戏发到 `127.0
 
 - **一键归零**：任意手柄**长按 D 键 1 秒**，hub 就把它当前的指向设为正前方（只重置水平方向，俯仰和横滚保持真实值），然后弹出提示、响一声，并向游戏发送 `recentered` 事件。
 - **自动零偏校准**：hub 检测到手柄静止约 0.5 秒后，持续修正陀螺仪零偏；刚连接时，第一次静止满 1 秒会完成初始校准，并发送 `calibrated` 事件。
-- **玩家编号**：新手柄连接时，自动分配最小的空闲编号（1–4）。同一个手柄断线重连后会保留原来的编号（Regina 按 MAC 地址识别，手机按 `client_id` 识别）。
+- **玩家编号**：新手柄连接时，自动分配最小的空闲编号（1–4）。同一个手柄断线重连时，在偏好仍被保留且槽位空闲的情况下恢复原编号。
 - **低电量**：电量低于 15% 且没在充电时，发送一次 `low_battery` 事件，并在手柄屏幕上弹出提示。

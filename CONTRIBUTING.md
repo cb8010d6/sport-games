@@ -12,6 +12,9 @@
    生成成品随普通 Git 克隆；不使用 Git LFS。详见 [素材说明](docs/ASSETS.md)。
 2. 使用 Godot 4.7.2 打开 `game/project.godot`。Python 中枢的安装和固件依赖见
    [开发说明](docs/DEVELOPMENT.md)。
+   Windows 推荐使用 python.org 安装包；Store 版 Python 的 AppX 激活可能让子进程脱离作业对象，进程清理测试因此使用系统原生替身，不跳过孤儿进程断言。
+   测试先在 12 秒启动预算内等待三代进程 ready 握手并确认 wrapper 已退出，总超时为 14 秒，保证至少 2 秒孤儿窗口；
+   后代由 PID 和创建时间检查存活，30 秒看门狗限制意外泄漏。正常与注入 4 秒慢启动都必须通过真实清理及去 ownership 负对照。
 3. 从 `dev` 建立功能分支，PR 目标选择 `dev`。`main` 用于通过验证的发布版本；维护者通过 PR 将 `dev` 合入 `main`。
 4. 每个 PR 聚焦一个问题；先描述现象、预期行为和修改原因。较大的玩法和协议改动请先开 Issue 讨论。
 
@@ -22,7 +25,7 @@
   涉及多人界面时检查 2 人和 4 人分屏。
   自动无界面检查可运行 `python tools/smoke_game.py <Godot可执行文件> --project game`，它不替代画面和手柄实测。
 - 体感修改：说明测试用手机还是 Regina；检查短挥动、长按、断线与重连。
-- 所有修改：执行 `python tools/check_conventions.py`。
+- 所有修改：执行 `python tools/check_conventions.py` 和 `python -m ruff check --config hub/pyproject.toml hub tools`（CI 也会跑）。
 - 文案修改：执行 `python tools/i18n_check.py`，检查中英文。
 - 安装 Node.js 后可执行 `node tools/publication_audit.mjs --strict --write audit-output`；
   这是开发检查，不是游戏的运行依赖。也应执行 `node --test tools/tests/asset_sync.test.mjs`。

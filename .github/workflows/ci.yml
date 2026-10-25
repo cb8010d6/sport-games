@@ -4,30 +4,46 @@ on:
   pull_request:
 permissions:
   contents: read
+# A new push to a PR or feature branch cancels its stale run; every dev/main push gets its own group and always finishes.
+concurrency:
+  group: ci-${{ (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main') && github.run_id || github.ref }}
+  cancel-in-progress: true
 jobs:
   engine-runner:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       matrix:
         os: [ubuntu-latest, windows-latest]
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
+          # Release tooling tests require the bundled font license notices.
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /*
-            !/game/assets/
+            !/game/assets/*
+            /game/assets/fonts/
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
         with:
           python-version: '3.12'
       - run: python -m pip install --require-hashes -r hub/requirements-dev.txt
       - name: Test process cleanup, native failure, reports and release tooling
+        # This checkout omits game/assets on purpose; asset manifest tests may skip only here.
+        env:
+          RS_SPARSE_ASSETS: '1'
         run: python -m pytest -q tools/tests
   hub:
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 15
     strategy:
       matrix:
+        os: [ubuntu-latest]
         python: ['3.11', '3.12']
+        # The hub ships only on Windows: SIO_UDP_CONNRESET, the Proactor loop and GameLink threads run here.
+        include:
+          - os: windows-latest
+            python: '3.12'
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -38,9 +54,12 @@ jobs:
       - run: python -m pytest -q
         working-directory: hub
       - run: python -m ruff check --config hub/pyproject.toml hub tools
-      - run: python -m pytest -q tools/tests
+      # engine-runner (windows-latest) already runs tools/tests on Windows.
+      - if: runner.os != 'Windows'
+        run: python -m pytest -q tools/tests
   privacy:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
       - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
@@ -53,12 +72,14 @@ jobs:
       - run: node tools/publication_audit.mjs --privacy-only
       # docs/CODING_STANDARDS.md rules (standard library only, no setup needed).
       - run: python3 tools/check_conventions.py
+      - run: python3 tools/i18n_check.py
   game-shell:
     runs-on: ubuntu-latest
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
-          # Keep the controller model preloaded by bowling; omit the large art tree.
+          # Keep the controller model preloaded by bowling and the bundled UI fonts; omit the large art tree.
           sparse-checkout-cone-mode: false
           sparse-checkout: |
             /*
@@ -67,6 +88,7 @@ jobs:
             !/game/assets/models/*
             /game/assets/models/regina.glb
             /game/assets/models/regina.glb.import
+            /game/assets/fonts/
             /game/assets/music/
             /game/assets/previews/
       - uses: actions/setup-python@6d4fd22b20465ccc0f7354476588e8df7c9ca0e0 # v7.1.0
@@ -104,11 +126,17 @@ jobs:
           if-no-files-found: warn
       - name: Test music buses, fades, pause and scene lifecycle
         run: python tools/test_music.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
-      - run: python tools/i18n_check.py
       - name: Test per-player hand preferences, mirrored motion and tutorials
         run: python tools/test_left_hand.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --ui-only
+      - name: Test parallel instances and ControllerHub ports
+        run: python tools/test_hub_port.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
       - name: Test bilingual menu previews and input navigation
-        run: python tools/test_menu_preview.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
+        run: xvfb-run -a python tools/test_menu_preview.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --screenshots
+      - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        if: always()
+        with:
+          name: menu-and-ble-diagnostics
+          path: audit-output/menu-previews
       - name: Test camera accessibility settings and reload
         run: python tools/test_camera_comfort.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --ui-only
       - name: Test shared podium ranks, geometry and results framing
@@ -119,3 +147,14 @@ jobs:
         run: python tools/test_intro.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --math-only
       - name: Test bilingual text sizes, live menus and reload
         run: python tools/test_text_size.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --ui-only
+      - name: Test shared material roots and prop kit keys
+        # Sparse checkout without the synced Poly Haven models: prefab files are not checked here.
+        env:
+          RS_SPARSE_ASSETS: '1'
+        run: python tools/test_assets.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
+      - name: Test skate/ski sub-step cap, course lookups and split-screen shadow tier
+        run: python tools/test_perf.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64
+      - name: Test menu layout in 16:10 and 21:9 windows
+        run: |
+          python tools/test_text_size.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --ui-only --resolution 1280x800
+          python tools/test_text_size.py --godot tools/godot/Godot_v4.7.2-stable_linux.x86_64 --ui-only --resolution 2560x1080

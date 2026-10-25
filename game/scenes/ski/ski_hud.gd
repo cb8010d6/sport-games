@@ -7,7 +7,7 @@ extends RefCounted
 static func draw_stats(game: RSPartyGame, h: RSPartyGame.PlayerHud, sk: RSSkier, gate_count: int, run_time: String, k: float, gold: Color) -> void:
 	var sz := h.size
 	var pale := Color(0.92, 0.95, 1.0)
-	game._pill.set_corner_radius_all(int(10 * k))
+	game._pill.set_corner_radius_all(RSUi.RADIUS)
 	var gt := game.tr("旗门 %d/%d") % [sk.gates_hit, gate_count]
 	if sk.gates_missed > 0:
 		gt += game.tr("  漏 %d") % sk.gates_missed

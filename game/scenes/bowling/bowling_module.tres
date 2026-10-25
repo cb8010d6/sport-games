@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="RSGameModule" format=3]
+
+[ext_resource type="Script" path="res://core/game_module.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "bowling"
+name = "保龄球"
+oled = "BOWLING"
+scene = "res://scenes/bowling/bowling_game.tscn"
+desc = "按住 B 挥臂、松开出球，挥得越快球越快，松手时拧手腕打出弧线。每局 5 格，1–4 人各打各的球道。"
+maps_script = ""
+lessons = PackedStringArray("TILT_RIGHT", "THROW")
+solo_goals = PackedInt32Array(30, 60, 100)
+players = Vector2i(1, 4)
+mode = "individual"
+ambience = ""
+preview = "res://assets/previews/bowling.jpg"
+ready = true
+order = 30
