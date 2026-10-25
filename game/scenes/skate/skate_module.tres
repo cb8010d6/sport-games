@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="RSGameModule" format=3]
+
+[ext_resource type="Script" path="res://core/game_module.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "skate"
+name = "滑板"
+oled = "SKATE"
+scene = "res://scenes/skate/skate_game.tscn"
+desc = "顺着海边的下坡街道滑到终点：起跳、翻板、转体、抓板，跳上栏杆磨杆，地上 Manual，连招越长分越高。1–4 人分屏同时滑。"
+maps_script = ""
+lessons = PackedStringArray("TILT_RIGHT", "JUMP", "GRAB")
+solo_goals = PackedInt32Array(3000, 10000, 25000)
+players = Vector2i(1, 4)
+mode = "individual"
+ambience = ""
+preview = "res://assets/previews/skate.jpg"
+ready = true
+order = 40
