@@ -229,8 +229,32 @@ func _test_hall() -> void:
 		RSSettings.apply_world(root)
 		_check(env.ssao_enabled and env.glow_enabled and env.ssr_enabled and bool(env.get_meta("ssao_enabled")), "hall: high quality restores the original environment effects")
 	grand.free()
+	_test_hall_node_bridge()
 	RSSettings.quality = old_quality
 	RSSettings._loaded = old_loaded
+
+
+func _test_hall_node_bridge() -> void:
+	# A plain Node breaks spatial inheritance; verify actual in-tree positions so
+	# the test cannot repeat the builder's incorrect ancestor multiplication.
+	var grand := Node3D.new()
+	grand.position = Vector3(10, 0, 0)
+	add_child(grand)
+	var bridge := Node.new()
+	grand.add_child(bridge)
+	var holder := Node3D.new()
+	bridge.add_child(holder)
+	var root := RSArenaHall.build(holder, Transform3D.IDENTITY, Vector3(24, 9, 36), RSArenaHall.preset_gym())
+	var root_error := root.global_position.length()
+	_check(_close(root.global_transform, Transform3D.IDENTITY), "hall: plain Node bridge excludes the translated grandparent from the world floor origin")
+	var grid := root.get_node("Lights") as Node3D # no-i18n
+	var grid_error := grid.global_position.length()
+	_check(_close(grid.global_transform, Transform3D.IDENTITY), "hall: ceiling fixture world placement follows the requested room origin across a plain Node bridge")
+	var first_head := grid.get_child(0) as Node3D
+	var head_error := first_head.global_position.distance_to(Vector3(-7.2, 8.65, -9.6))
+	_check(grid.get_child_count() == 12 and RSArenaLights.real_light_count(grid) == 2 and head_error < 1e-5, "hall: actual ceiling head position and light budget remain correct across a plain Node bridge")
+	print("ARENA_NUMERIC hall_node_bridge_root_error_m=%.9f grid_error_m=%.9f first_head_error_m=%.9f" % [root_error, grid_error, head_error]) # no-i18n
+	grand.free()
 
 
 func _parent_transforms() -> void:
