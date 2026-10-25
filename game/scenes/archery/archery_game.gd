@@ -76,6 +76,19 @@ var _lobby_t := 0.0
 var _arrow_mesh: Array = []       ## [mesh, material, transform] parts of an arrow
 
 
+func _ready() -> void:
+	super._ready()
+	# Until #78 supplies the framework cancel hook, the existing pause menu
+	# signal cancels the draw before its OLED state is saved for restoration.
+	ui.pause.visibility_changed.connect(_cancel_paused_draws)
+
+
+func _cancel_paused_draws() -> void:
+	if ui.pause.is_open():
+		for p: Player in players.values():
+			_player_cancel_hold(p, RSController.BTN_A)
+
+
 func _game_name() -> String:
 	return tr("射箭")
 
@@ -539,6 +552,17 @@ func _player_button(p: Player, button: int, pressed: bool) -> void:
 		_start_draw(p)
 	else:
 		_release(p)
+
+
+func _player_cancel_hold(p: Player, button: int) -> void:
+	# Paused or disconnected mid-draw: put the bow down, do not loose the arrow.
+	if button != RSController.BTN_A:
+		return
+	var s := _archer(p)
+	if s.drawing:
+		s.drawing = false
+		s.draw_t = 0.0
+		send_ui(p, {"bar": null})
 
 
 func _start_draw(p: Player) -> void:
