@@ -113,7 +113,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 | 材质、道具 | `RSPbr.surface / standard`，`RSProps.place`（MultiMesh 批量） | 每个物体一个材质、一个节点 |
 | 人物 | `RSHumanRig` 子类（MPFB 角色，FK / IK 姿态） | 另做一套骨骼控制 |
 | 领奖台 | `RSPodium.configure(steps, footprint, extra, spacing, font, buried)` 在场景加载时建模；`present(scores)`、`rank(i)`、`cheer(i)`、`spot(i)`、`apply_camera(...)` 共用名次、台面、世界坐标站位和推进镜头；`fit_left(camera)` 为右侧成绩留出空间，`reset()` 隐藏并清除上一局名次 | 三个项目重复搭建台阶、计算名次与镜头公式 |
-| 存档 | 只在 `core` 里读写 `user://`（ARCH-SAVE）：`RSSettings`（settings.cfg），PR #2 合并后还有 `RSProfiles`（profiles.cfg）、`RSRecords`（records.cfg）、`RSTournament`（内存中的派对赛） | 项目自己写文件 |
+| 存档 | 只在 `core` 里读写 `user://`（ARCH-SAVE）：`RSSettings`（settings.cfg），还有 `RSProfiles`（profiles.cfg）、`RSRecords`（records.cfg）、`RSTournament`（内存中的派对赛） | 项目自己写文件 |
 
 ## 4. 数据与接口
 
@@ -131,7 +131,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 界面字号由 `RSSettings.text_size` 保存在同一设置文件，标准为 100%，大号为 125%。`RSUi` 保留控件、Theme 和成绩富文本的原始字号，切换时一次更新现有界面，新控件按当前设置创建；不重载比赛、不逐帧遍历节点、不重复累乘。主菜单项目列表和菜单子页滚动跟随焦点。六项目通过 `RSPartyGame.draw_text / draw_pill` 统一放大 HUD，受分屏宽度与屏幕边缘限制的单行文字按实际字体度量适配；3D 世界标签和手柄 OLED 保持原尺寸。
 
 - **中枢 ↔ 游戏**：只有 [protocol.md](protocol.md) 定义的 UDP 消息。新增字段要同时改协议文档、hub 和 `ControllerHub`，并保持旧字段兼容。
-- **端口**：正常游戏监听 `127.0.0.1:47800`、发往 hub 的 47801，同一时间只能运行一个实例。`RS_TEST_MODE=1` 时 `ControllerHub` 绑定系统分配的临时端口、不向 hub 发任何消息，同一台电脑上可以并行跑任意多个测试实例，也不会打扰正在运行的真实 hub；测试用 `ControllerHub.listen_port()` 取得端口，向它发送合成的 hub 数据包。需要真实 hub 的双实例测试给每个实例传 `--hub-port=N`（任何模式都有效）：游戏发往 N、监听 N-1，对应 hub 用 `--hub-port N --game-port N-1` 启动。端口无效（不在 2–65535）时报错且不绑定。`tools/` 下启动游戏项目的测试脚本都设置 `RS_TEST_MODE=1`；`tools/test_hub_port.py` 在占住 47800 的情况下同时启动多个实例检查以上行为。发行包冒烟（`smoke_release.py`、`release_launcher.py`）按正常模式运行，自带 hub，仍使用固定端口。
+- **端口**：正常游戏监听 `127.0.0.1:47800`、发往 hub 的 47801，同一时间只能运行一个实例。`RS_TEST_MODE=1` 时 `ControllerHub` 绑定系统分配的临时端口、不向 hub 发任何消息，同一台电脑上可以并行跑任意多个测试实例，也不会打扰正在运行的真实 hub；测试用 `ControllerHub.listen_port()` 取得端口，向它发送合成的 hub 数据包。需要真实 hub 的双实例测试给每个实例传 `--hub-port=N`（任何模式都有效）：游戏发往 N、监听 N-1，对应 hub 用 `--hub-port N --game-port N-1` 启动。端口无效（不在 2–65535）时报错且不绑定。`tools/` 下启动游戏项目的测试脚本都设置 `RS_TEST_MODE=1`；`tools/test_hub_port.py` 在占住 47800 的情况下同时启动多个实例检查以上行为。发行包冒烟按正常模式运行、自带 hub；其中只有启动器冒烟（`release_launcher.py`）使用固定端口，`smoke_release.py` 给冻结 hub 分配随机端口，导出游戏的冒烟走测试模式。
 - **存档**：`user://*.cfg`（ConfigFile）。`RSSave.read(path)` 读原文件、`.bak`、`.tmp` 中的有效副本；`RSSave.write(path, config)` 使用版本 1 元数据、SHA-256 校验、验证后的临时文件和上一份有效备份。无版本旧档按版本 0 读取，下次成功保存时升级。未知版本只读保护，不用旧备份覆盖；所有副本损坏时返回默认配置并记录警告。备份与临时文件是现有存档的恢复副本，不新增业务存档或 autoload。Windows 替换目标文件存在短暂间隙，因此承诺可恢复写入，不承诺断电原子性或磁盘硬件损坏恢复。`override.cfg` 仍是启动时派生的渲染设置；两份设置文件无法构成跨文件事务，驱动变更保存失败时返回错误。
 - **文案**：中文原文就是 key。改中文原文等于换了 key，必须同步 `en.json`，并通过 `python tools/i18n_check.py`。
 - **素材**：`res://assets/...`。新增素材必须记录来源和许可（[ASSETS.md](ASSETS.md)、[THIRD_PARTY.md](THIRD_PARTY.md)）。Poly Haven 原图不进 Git，由 `tools/sync_assets.mjs` 下载并按 `tools/assets.lock.json` 校验。
