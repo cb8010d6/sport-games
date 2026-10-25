@@ -19,9 +19,12 @@ func _ready() -> void:
 	_presets()
 	_hits()
 	_predictions()
+	_prediction_limits()
 	_net_predictions()
 	_time_queries()
+	_time_query_bounces()
 	_aiming()
+	_finite_table_aim()
 	print("RS_BALL_FLIGHT_TESTS: %d checks, %d failures" % [_checks, _failures]) # no-i18n
 	get_tree().quit(0 if _failures == 0 else 1)
 
@@ -42,7 +45,7 @@ func _vacuum() -> RSBallFlight.Ball:
 
 func _listen(f: RSBallFlight) -> void:
 	_events.clear()
-	var reference := weakref(f)
+	var reference: WeakRef = weakref(f)
 	f.contacted.connect(func(kind: int, id: StringName, point: Vector3, speed: float) -> void:
 		var current := reference.get_ref() as RSBallFlight
 		if current == null:
@@ -447,10 +450,36 @@ func _predictions() -> void:
 			chronological = chronological and four.bounce_times[i] > four.bounce_times[i - 1]
 	_check(chronological, "same-step contacts preserve fractional chronological order")
 	_check(corridor.predict(RSBallFlight.STEP, 1).bounces.size() == 1, "prediction records only the requested bounce prefix")
-	var reference := weakref(corridor)
+	var reference: WeakRef = weakref(corridor)
 	_listen(corridor)
 	corridor = null
 	_check(reference.get_ref() == null, "contact recording fixture does not retain a flight through its signal")
+
+
+func _prediction_limits() -> void:
+	var f := RSBallFlight.new(_vacuum())
+	f.add_plane(&"floor", RSBallFlight.surface_floor(), Vector3.ZERO) # no-i18n
+	f.set_state(Vector3(0, 0.034, 0), Vector3.DOWN)
+	var saved := f.snapshot().to_byte_array()
+	var short := f.predict(0.0001)
+	_check(not short.landed() and short.bounce_times.is_empty() and short.bounce_ids.is_empty() and short.bounce_velocities.is_empty(), "prediction excludes a floor contact after its sub-step horizon")
+	_check(short.end_time > 0.0 and short.end_time <= 0.0001 and short.end_velocity.y < 0.0, "prediction end state stays before the out-of-window rebound")
+	var within := f.predict(0.0006)
+	_check(within.landed() and within.land_time() > 0.0001 and within.land_time() <= 0.0006, "prediction includes a floor contact inside a sub-step horizon")
+	_check(within.end_time <= 0.0006, "prediction never reports an end time after max_time")
+	_check(f.snapshot().to_byte_array() == saved, "clipped predictions preserve the original snapshot")
+	f = RSBallFlight.new(_vacuum())
+	f.add_net(&"net", RSBallFlight.surface_net(), Vector3.ZERO, Vector3.BACK, 2.0, 1.0, 0.0) # no-i18n
+	f.set_state(Vector3(0, 1.5, -0.05), Vector3(0, 0, 30))
+	short = f.predict(0.0001)
+	_check(not short.net_crossed and not short.net_hit and short.net_time == -1.0, "prediction excludes a net crossing after its horizon")
+	within = f.predict(0.002)
+	_check(within.net_crossed and within.net_time <= 0.002 and within.end_time <= 0.002, "prediction includes an in-window net crossing without advancing past the horizon")
+	f.set_state(Vector3(0, 0.5, -0.05), Vector3(0, 0, 30))
+	short = f.predict(0.0001)
+	_check(not short.net_hit and short.net_time == -1.0, "prediction excludes a net touch after its horizon")
+	within = f.predict(0.001)
+	_check(within.net_hit and within.net_time > 0.0001 and within.net_time <= 0.001, "prediction retains a net touch inside its horizon")
 
 
 func _net_predictions() -> void:
@@ -499,6 +528,32 @@ func _time_queries() -> void:
 	_check(f.snapshot().to_byte_array() == saved, "all time queries and probes preserve original snapshot")
 
 
+func _time_query_bounces() -> void:
+	var elastic := RSBallFlight.Surface.new(1.0, 0.0)
+	var corridor := RSBallFlight.new(_vacuum())
+	corridor.add_plane(&"left", elastic, Vector3(-0.04, 0, 0), Vector3.RIGHT) # no-i18n
+	corridor.add_plane(&"right", elastic, Vector3(0.04, 0, 0), Vector3.LEFT) # no-i18n
+	corridor.set_state(Vector3(0, 1, 0), Vector3(100, 0, 0))
+	_listen(corridor)
+	var saved := corridor.snapshot().to_byte_array()
+	var plane := corridor.time_to_plane(Vector3(0.003, 0, 0), Vector3.RIGHT, RSBallFlight.STEP)
+	_check(plane > 0.0 and absf(plane - 0.00003) < 1e-7, "plane query finds the first crossing before same-step bounces return to the starting side")
+	_check(corridor.time_to_plane(Vector3(0.003, 0, 0), Vector3.RIGHT, 0.00002) == -1.0, "plane query excludes a crossing after its sub-step horizon")
+	_check(corridor.snapshot().to_byte_array() == saved and _events.is_empty(), "bouncing plane queries preserve live state and emit no live contacts")
+	var vertical := RSBallFlight.new(_vacuum())
+	vertical.add_plane(&"bottom", elastic, Vector3(0, 0.96, 0), Vector3.UP) # no-i18n
+	vertical.add_plane(&"top", elastic, Vector3(0, 1.04, 0), Vector3.DOWN) # no-i18n
+	vertical.set_state(Vector3(0, 1, 0), Vector3(0, 100, 0))
+	_listen(vertical)
+	saved = vertical.snapshot().to_byte_array()
+	var rise := vertical.time_to_height(1.003, RSBallFlight.STEP, false)
+	var fall := vertical.time_to_height(0.997, RSBallFlight.STEP, true)
+	_check(rise > 0.0 and absf(rise - 0.00003) < 1e-7, "ascending height query sees a crossing hidden by a same-step ceiling rebound")
+	_check(fall > rise and absf(fall - 0.00016) < 1e-7, "descending height query uses the post-rebound segment rather than the whole-step chord")
+	_check(vertical.time_to_height(1.003, 0.00002, false) == -1.0, "height query excludes a crossing after its sub-step horizon")
+	_check(vertical.snapshot().to_byte_array() == saved and _events.is_empty(), "bouncing height queries preserve live state and emit no live contacts")
+
+
 func _aiming() -> void:
 	var tennis := RSBallFlight.new(RSBallFlight.ball_tennis())
 	tennis.add_plane(&"court", RSBallFlight.surface_hard_court(), Vector3.ZERO) # no-i18n
@@ -524,6 +579,19 @@ func _aiming() -> void:
 	var shot := tennis.copy()
 	shot.set_state(from, low)
 	_check(shot.predict().net_hit, "original world still contains net for subsequent flight prediction")
+
+
+func _finite_table_aim() -> void:
+	var table := RSBallFlight.new(RSBallFlight.ball_table_tennis())
+	table.add_plane(&"table", RSBallFlight.surface_table(), Vector3(0, 0.76, 0), Vector3.UP, RSBallFlight.TABLE_SIZE * 0.5) # no-i18n
+	var from := Vector3(0, 1.1, -3)
+	var target := Vector3(0, 0.76, -1.35)
+	var saved := table.snapshot().to_byte_array()
+	var launch := table.aim(from, target, 7.0)
+	_check(launch != Vector3.ZERO and absf(launch.length() - 7.0) < 1e-5, "aim reaches a finite table edge even when its first trial misses the table")
+	_aim_landing(table, from, target, launch, Vector3.ZERO)
+	_check(table.aim(from, Vector3(0, 0.76, -1.6), 7.0) == Vector3.ZERO, "aim rejects a landing target outside the finite table")
+	_check(table.snapshot().to_byte_array() == saved, "finite table aim preserves the original snapshot")
 
 
 func _aim_targets(f: RSBallFlight, from: Vector3, targets: Array[Vector3], speed: float, spin: Vector3) -> void:
