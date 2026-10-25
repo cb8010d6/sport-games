@@ -32,11 +32,20 @@ async def check_websocket(url: str) -> None:
                 raise RuntimeError("Frozen hub did not welcome a controller")
 
 
+def check_ble_backend(hub: Path) -> None:
+    """The network smoke runs with --no-ble; this proves the WinRT BLE backend was bundled (no scan, no adapter needed)."""
+    result = subprocess.run([str(hub), "--ble-selftest"], cwd=hub.parent, capture_output=True, text=True, timeout=60)
+    print(result.stdout.strip() or result.stderr.strip(), flush=True)
+    if result.returncode != 0:
+        raise RuntimeError(f"Frozen hub BLE self-test failed ({result.returncode}): {result.stdout}{result.stderr}")
+
+
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("package", type=Path)
     args = parser.parse_args()
     root = args.package.resolve()
+    check_ble_backend(root / "hub/sport-hub.exe")
     http, https = free_port(), free_port()
     with tempfile.TemporaryDirectory(prefix="sport-games-smoke-") as temporary:
         data = Path(temporary)
@@ -68,7 +77,7 @@ def main() -> None:
         environment = {**os.environ, "SPORT_GAMES_DATA_DIR": str(data / "launcher")}
         subprocess.run([str(root / "SportGames.exe"), "--smoke-test"], cwd=root, env=environment, check=True, timeout=120)
         smoke_game(root / "game/SportGames.exe")
-    print("Frozen hub HTTP, trusted local HTTPS, WebSocket, launcher and exported-game startup passed.")
+    print("Frozen hub BLE backend, HTTP, trusted local HTTPS, WebSocket, launcher and exported-game startup passed.")
 
 
 if __name__ == "__main__":

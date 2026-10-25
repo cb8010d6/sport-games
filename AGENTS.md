@@ -24,6 +24,7 @@
 python tools/check_conventions.py
 python tools/i18n_check.py
 python -m pytest -q tools/tests
+python -m ruff check --config hub/pyproject.toml hub tools
 cd hub && python -m pytest -q
 node --test tools/tests/asset_sync.test.mjs
 ```
