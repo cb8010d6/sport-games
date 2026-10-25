@@ -28,6 +28,8 @@ func _run() -> void:
 	_clock()
 	await _riders_at_30fps()
 	_split_shadow_tier()
+	for i in 3:   # let freed riders' rendering resources go before quitting
+		await get_tree().process_frame
 	print("RS_PERF_TESTS: %d checks, %d failures" % [_checks, _failures])
 	get_tree().quit(1 if _failures else 0)
 
@@ -180,11 +182,12 @@ func _riders_at_30fps() -> void:
 	_check(sr.s() > 25.0, "the skier rides down the slope at 30 FPS (s = %.1f)" % sr.s())
 	_check(sk.draw_pos.distance_to(sk.pos) < 1.0 and sr.draw_pos.distance_to(sr.pos) < 1.0, "riders are drawn next to their simulated position")
 	print("RS_PERF_RIDERS: skater + skier step at 30 FPS: %.1f us per frame" % spent)
-	sk.queue_free()
-	sr.queue_free()
+	sk.free()
+	sr.free()
 	skate.free()
 	ski.free()
-	await get_tree().process_frame
+	for i in 3:
+		await get_tree().process_frame
 
 
 # ------------------------------------------------------------- split shadow tier ----
