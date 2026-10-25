@@ -92,9 +92,9 @@ static func _preset(check: Callable, p: RSWater.Preset) -> void:
 			var slope_z := (RSWater.height_at(p, world.x, world.y + e, t) - RSWater.height_at(p, world.x, world.y - e, t)) / (2.0 * e)
 			max_normal_error = maxf(max_normal_error, normal.distance_to(Vector3(-slope_x, 1.0, -slope_z).normalized()))
 			max_step = maxf(max_step, absf(RSWater.height_at(p, world.x, world.y, t + 1.0 / 120.0) - height))
-	check.call(max_error < 0.02, "water: 100 displaced rest points invert within 2 cm at three times: %g m" % max_error)
-	check.call(max_normal_error < 0.001, "water: analytic normals match independent world-height finite differences: %g" % max_normal_error)
-	check.call(max_step < 0.05, "water: a 1/120 s game-clock step changes height by less than 5 cm: %g m" % max_step)
+	check.call(max_error < 0.02, "water: 100 displaced rest points invert within 2 cm at three times: %.8f m" % max_error)
+	check.call(max_normal_error < 0.001, "water: analytic normals match independent world-height finite differences: %.8f" % max_normal_error)
+	check.call(max_step < 0.05, "water: a 1/120 s game-clock step changes height by less than 5 cm: %.8f m" % max_step)
 	_material(check, p)
 
 
