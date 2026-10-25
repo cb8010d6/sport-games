@@ -115,14 +115,35 @@ func _parent_transforms() -> void:
 	var mm := _seats(root).multimesh
 	var actual_root := grand.transform * parent.transform * root.transform
 	_check(_close(actual_root, xform), "bleacher root keeps its world xform under transformed parents")
-	var aligned := expected.size() == mm.instance_count
-	for i in expected.size():
-		aligned = aligned and _close(actual_root * mm.get_instance_transform(i), expected[i])
+	# Dummy rendering cannot read individual instances; inspect the real submitted buffer.
+	var buffer := mm.buffer
+	var stored := buffer.size() == mm.instance_count * 12
+	_check(stored, "MultiMesh retains all twelve transform floats for every seat")
+	var aligned := stored and expected.size() == mm.instance_count
+	var max_position_error := 0.0
+	var max_basis_error := 0.0
+	if stored:
+		_check(_close(_buffer_transform(buffer, 0), Transform3D(Basis.IDENTITY, Vector3(-1, 0.4, -0.4))), "first stored seat preserves position and unit axes without mesh-size scaling")
+		for i: int in expected.size():
+			var actual := actual_root * _buffer_transform(buffer, i)
+			aligned = aligned and _close(actual, expected[i])
+			max_position_error = maxf(max_position_error, actual.origin.distance_to(expected[i].origin))
+			for axis: int in 3:
+				max_basis_error = maxf(max_basis_error, (actual.basis[axis] - expected[i].basis[axis]).length())
 	_check(aligned, "MultiMesh seat positions and orientations equal public world seat transforms")
+	print("ARENA_NUMERIC stored_seats=%d max_position_error_m=%.9f max_basis_error=%.9f" % [mm.instance_count, max_position_error, max_basis_error]) # no-i18n
 	parent.top_level = true
 	var detached := RSArena.bleacher(parent, xform, spec)
 	_check(_close(parent.transform * detached.transform, xform), "top-level parent stops inherited transforms")
 	grand.free()
+
+
+func _buffer_transform(buffer: PackedFloat32Array, index: int) -> Transform3D:
+	var o: int = index * 12
+	return Transform3D(Basis(Vector3(buffer[o], buffer[o + 4], buffer[o + 8]),
+			Vector3(buffer[o + 1], buffer[o + 5], buffer[o + 9]),
+			Vector3(buffer[o + 2], buffer[o + 6], buffer[o + 10])),
+			Vector3(buffer[o + 3], buffer[o + 7], buffer[o + 11]))
 
 
 func _paths_and_ads() -> void:
