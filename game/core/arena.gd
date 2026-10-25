@@ -143,7 +143,7 @@ static func _ad_material(atlas: Texture2D) -> StandardMaterial3D:
 		var material := StandardMaterial3D.new()
 		material.albedo_texture = atlas
 		material.roughness = 0.8
-		material.texture_repeat = BaseMaterial3D.TEXTURE_REPEAT_DISABLED
+		material.texture_repeat = false
 		_advertising[atlas] = material
 	return _advertising[atlas]
 
@@ -225,8 +225,18 @@ static func bleacher(parent: Node3D, xform: Transform3D, spec: Bleacher) -> Node
 	mm.mesh = _chair(spec)
 	var seats := seat_transforms(Transform3D.IDENTITY, spec)
 	mm.instance_count = seats.size()
-	for i in seats.size():
-		mm.set_instance_transform(i, seats[i])
+	# Submit the actual row-major 3x4 instance buffer once. The headless backend stores
+	# bulk buffers, but its individual transform setter/getter are unimplemented stubs.
+	var buffer := PackedFloat32Array()
+	buffer.resize(seats.size() * 12)
+	for i: int in seats.size():
+		var seat: Transform3D = seats[i]
+		var offset: int = i * 12
+		for row: int in 3:
+			for column: int in 3:
+				buffer[offset + row * 4 + column] = seat.basis[column][row]
+			buffer[offset + row * 4 + 3] = seat.origin[row]
+	mm.buffer = buffer
 	var chairs := MultiMeshInstance3D.new()
 	chairs.name = &"Seats" # no-i18n
 	chairs.multimesh = mm
