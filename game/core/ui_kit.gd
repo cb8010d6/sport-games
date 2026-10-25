@@ -252,6 +252,15 @@ static func chip_style(tint: Color) -> StyleBoxFlat:
 	return sb
 
 
+static func glyph_style() -> StyleBoxFlat:
+	## The disc behind a controller-button glyph in menu prompts: solid text colour,
+	## corners rounded to a circle at the glyph labels' 28px size.
+	var sb := StyleBoxFlat.new()
+	sb.bg_color = TEXT
+	sb.set_corner_radius_all(14)
+	return sb
+
+
 static func button_style(state: String) -> StyleBoxFlat:
 	## "normal", "hover", "pressed", "disabled" or "focus". Hover and focus are the same solid
 	## accent bar (dark text, see _style), so a pointer and a controller select alike; Godot draws

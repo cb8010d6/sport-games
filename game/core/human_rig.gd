@@ -89,10 +89,14 @@ func rest_point(bone_name: String) -> Vector3:
 
 func _tune_material(m: StandardMaterial3D, part: String) -> void:
 	## The glTF import makes every material alpha-blended; only hair, brows and lashes are.
+	RSSettings.load_once()
 	if part.contains("eyebrow") or part.contains("eyelash") or _is_hair(part):
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 		m.alpha_scissor_threshold = 0.35
-		m.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE
+		if RSSettings.upscale == 0 and RSSettings.quality >= 1:
+			# Alpha-to-coverage only does anything while MSAA is in effect, and
+			# apply_viewport turns MSAA off at the lowest tier and under FSR.
+			m.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE
 		m.alpha_antialiasing_edge = 0.3
 		m.cull_mode = BaseMaterial3D.CULL_DISABLED
 		m.roughness = 0.55
@@ -105,7 +109,10 @@ func _tune_material(m: StandardMaterial3D, part: String) -> void:
 		m.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
 	if part.contains("body"):
 		m.roughness = 0.52
-		m.subsurf_scatter_enabled = true
+		# Subsurface scattering costs per pixel on every character; keep it for the
+		# top two quality tiers. Materials are tuned once at build time, so a menu
+		# quality change only reaches rigs built afterwards.
+		m.subsurf_scatter_enabled = RSSettings.quality >= 2
 		m.subsurf_scatter_strength = 0.35
 		m.subsurf_scatter_skin_mode = true
 	elif part.contains("low-poly"):
