@@ -275,6 +275,7 @@ func _handle_json(pkt: PackedByteArray) -> void:
 					controller_connected.emit(c)
 			elif ev == "disconnected":
 				c.connected = false
+				_cancel_held_buttons(c)
 				controller_disconnected.emit(c)
 			controller_event.emit(c, ev)
 		"qr":
