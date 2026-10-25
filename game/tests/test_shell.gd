@@ -130,6 +130,7 @@ func _run() -> void:
 	RSSettings.quality = 2
 	probe_rig._tune_material(hair, "ponytail")
 	_check(hair.alpha_antialiasing_mode == BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE, "higher quality keeps alpha-to-coverage (#57)")
+	probe_rig.body.free()  # the rig's body node is a member, not a child: free it too
 	probe_rig.free()
 	RSSettings.quality = saved_quality
 	RSSettings.upscale = saved_upscale
