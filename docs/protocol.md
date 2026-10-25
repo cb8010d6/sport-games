@@ -103,13 +103,21 @@ Regina 手柄 ──BLE──┐
 
 ## 3. 手机网页 / 模拟手柄 ⇄ hub（WebSocket，JSON）
 
-- 手机：`wss://<电脑局域网 IP>:47843/ws`，页面地址是 `https://<电脑局域网 IP>:47843/`
+- 手机：`wss://<电脑局域网 IP>:47843/ws`，扫码页面地址是 `https://<电脑局域网 IP>:47843/#k=<本次启动令牌>`
 - 模拟手柄：`ws://127.0.0.1:47802/ws`，页面地址是 `http://127.0.0.1:47802/sim`
+
+每次启动 hub 都生成新的随机配对令牌（256 bit）。游戏中的二维码 URL 通过 fragment `#k` 携带它；fragment 不随 HTTP 请求发送，客户端只在 WebSocket 的 `hello.token` 中提交。不要分享二维码或完整 URL。手机删掉 `#k`、使用旧启动的令牌或仅伪造已配对的 `client_id` 均不能加入；有效令牌随同一页面的重连继续提交。令牌不存入 localStorage，也不打印到日志或终端二维码中。
+
+每个 WebSocket 握手必须带与实际监听地址、端口及协议相同的 `Origin`；缺失、`null`、跨源或重复 Origin 返回 403。Host 只接受实际监听 IP（回环监听也接受 `localhost`），不信任任意 DNS 名称或代理转发头。手机 HTTPS 监听只开放 `/`、`/static/*`、`/ws`，`/sim` 和 `/api/*` 不在该监听上提供。
+
+本机 HTTP 监听还要求客户端来自回环地址。模拟器从同源的 `GET /api/pairing` 获取 `{ "token": "..." }`；该接口不允许 CORS、禁止缓存，并校验请求的 Host 和可选 Origin。原有 `/api/status`、`/api/qr` 同样仅限本机。原生测试客户端也必须从本机取得令牌并显式设置正确 Origin，不能绕过配对。无效 `hello` 在分配控制器 ID 或玩家槽前以 WebSocket 1008 关闭。
+
+`--https-host`（或配置 `https_host`）可将手机监听绑定到指定网卡，默认 `0.0.0.0`。证书只要求覆盖选用的手机 IP 与本机回环名称；无关网卡变化不重签，新增选用 IP 时保留私钥并扩展 SAN。重签后浏览器仍可能要求重新信任。
 
 客户端 → hub：
 
 ```jsonc
-{"t":"hello","kind":"phone","name":"iPhone","client_id":"随机持久 ID","profile_name":"Example Player"}  // kind 取 phone 或 sim；name 是设备名，hub 会去掉控制字符、截断到 32 字符
+{"t":"hello","kind":"phone","name":"iPhone","client_id":"随机持久 ID","profile_name":"Example Player","token":"从本次二维码或本机接口取得的令牌"}  // kind 取 phone 或 sim；name 是设备名，hub 会去掉控制字符、截断到 32 字符
 {"t":"profile","name":"Example Player"} // 可选：修改玩家昵称，去控制字符、首尾空格，最多 20 字符
 {"t":"m","frame":"device","s":[[ts_ms, gx,gy,gz, ax,ay,az], ...]}
 //  frame 为 device：手机坐标系（x 向右，y 指向屏幕顶端，z 垂直屏幕向外）
