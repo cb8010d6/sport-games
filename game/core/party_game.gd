@@ -744,6 +744,8 @@ func _apply_pending_map() -> void:
 		map_index = m
 		_last_map[get_script().resource_path] = m
 		_load_map(m)
+		# The new map's environment and sun carry scene values; re-apply the quality gates (#54).
+		RSSettings.apply_world(self)
 	_update_map_card()
 
 
