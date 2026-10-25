@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://nkpo3ltsslvj"
-path="res://.godot/imported/skier1_young_lightskinned_female_diffuse.png-f1649d801a3d39b2488d1979fc2cab0e.ctex"
+path.s3tc="res://.godot/imported/skier1_young_lightskinned_female_diffuse.png-f1649d801a3d39b2488d1979fc2cab0e.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "5a8baaf7122c5c4041a282276ed90af4"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/characters/skier1_young_lightskinned_female_diffuse.png"
-dest_files=["res://.godot/imported/skier1_young_lightskinned_female_diffuse.png-f1649d801a3d39b2488d1979fc2cab0e.ctex"]
+dest_files=["res://.godot/imported/skier1_young_lightskinned_female_diffuse.png-f1649d801a3d39b2488d1979fc2cab0e.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +40,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=2048
 detect_3d/compress_to=1

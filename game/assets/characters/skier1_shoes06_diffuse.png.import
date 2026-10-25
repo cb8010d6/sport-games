@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bxarguybjsl87"
-path="res://.godot/imported/skier1_shoes06_diffuse.png-920105b22ed43ee7ec981b31774659cc.ctex"
+path.s3tc="res://.godot/imported/skier1_shoes06_diffuse.png-920105b22ed43ee7ec981b31774659cc.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "8f52e969798c2923250ca597206be5b9"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/characters/skier1_shoes06_diffuse.png"
-dest_files=["res://.godot/imported/skier1_shoes06_diffuse.png-920105b22ed43ee7ec981b31774659cc.ctex"]
+dest_files=["res://.godot/imported/skier1_shoes06_diffuse.png-920105b22ed43ee7ec981b31774659cc.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +40,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=2048
 detect_3d/compress_to=1
