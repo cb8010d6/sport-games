@@ -22,6 +22,7 @@ const STAIR_TREAD := 0.6
 const HDRI := "res://assets/polyhaven/hdris/kloppenheim_06_puresky/kloppenheim_06_puresky_4k.hdr"
 ## Toward the sun: the HDRI's sun bearing (ahead-right), raised so light reaches the street.
 const TO_SUN := Vector3(0.61, 0.52, -0.78)
+const PIECE_BUCKET := 4.0     ## metres of s per bucket of the piece lookup (surface / top)
 
 
 class Piece:
@@ -110,6 +111,9 @@ var _sections: Array[Array] = []        ## [s0, s1, surface name]
 var _rng := RandomNumberGenerator.new()
 var _st: Dictionary = {}                ## material name -> SurfaceTool while building
 var _mats: Dictionary = {}
+var _buckets: Array[PackedInt32Array] = []   ## piece indices per PIECE_BUCKET of s
+var _bucket_s0 := 0.0
+var _bucketed := -1                          ## pieces.size() when _buckets was built
 
 
 func _init() -> void:
@@ -125,18 +129,58 @@ func H(s: float) -> float:
 	var n := _ps.size()
 	if s <= _ps[0]:
 		return _py[0]
-	for i in range(1, n):
-		if s <= _ps[i]:
-			return lerpf(_py[i - 1], _py[i], (s - _ps[i - 1]) / (_ps[i] - _ps[i - 1]))
+	var i := _knot(s)
+	if i < n:
+		return lerpf(_py[i - 1], _py[i], (s - _ps[i - 1]) / (_ps[i] - _ps[i - 1]))
 	return _py[n - 1]
 
 
 func road_slope(s: float) -> float:
 	## dH/ds.
-	for i in range(1, _ps.size()):
-		if s <= _ps[i]:
-			return (_py[i] - _py[i - 1]) / (_ps[i] - _ps[i - 1])
+	var i := _knot(s)
+	if i < _ps.size():
+		return (_py[i] - _py[i - 1]) / (_ps[i] - _ps[i - 1])
 	return 0.0
+
+
+func _knot(s: float) -> int:
+	## The first profile knot i >= 1 with s <= _ps[i] (_ps.size() past the end). bsearch
+	## compares in float32, so step to the exact answer from there.
+	var n := _ps.size()
+	var i := maxi(_ps.bsearch(s), 1)
+	while i > 1 and s <= _ps[i - 1]:
+		i -= 1
+	while i < n and s > _ps[i]:
+		i += 1
+	return i
+
+
+func _near(s: float) -> PackedInt32Array:
+	## Indices (ascending) of the pieces whose s range can contain s: one bucket per
+	## PIECE_BUCKET metres, built on first use and again if pieces were added.
+	if _bucketed != pieces.size():
+		_bucket_pieces()
+	var b := floori((s - _bucket_s0) / PIECE_BUCKET)
+	return _buckets[b] if b >= 0 and b < _buckets.size() else PackedInt32Array()
+
+
+func _bucket_pieces() -> void:
+	_bucketed = pieces.size()
+	_buckets.clear()
+	if pieces.is_empty():
+		return
+	_bucket_s0 = pieces[0].s0
+	var s1 := pieces[0].s1
+	for p in pieces:
+		_bucket_s0 = minf(_bucket_s0, p.s0)
+		s1 = maxf(s1, p.s1)
+	_buckets.resize(floori((s1 - _bucket_s0) / PIECE_BUCKET) + 1)
+	for i in pieces.size():
+		var p := pieces[i]
+		for b in range(floori((p.s0 - _bucket_s0) / PIECE_BUCKET), floori((p.s1 - _bucket_s0) / PIECE_BUCKET) + 1):
+			var cell := _buckets[b]
+			cell.append(i)
+			_buckets[b] = cell
 
 
 func stairs_at(s: float) -> bool:
@@ -167,15 +211,16 @@ func surface(x: float, s: float, y_max: float) -> Vector3:
 	## Highest walkable surface at (x, s) that is not above y_max:
 	## (height, slope dh/ds, piece index or -1).
 	var base := H(s)
-	var best := Vector3(base, road_slope(s), -1.0)
+	var rs := road_slope(s)
+	var best := Vector3(base, rs, -1.0)
 	if absf(x) > HALF_W and not stairs_at(s):
 		best.x += CURB
-	for i in pieces.size():
+	for i in _near(s):
 		var p := pieces[i]
 		if p.contains(x, s):
 			var y := base + p.rel(s)
 			if y <= y_max and y > best.x:
-				best = Vector3(y, road_slope(s) + p.slope(s), float(i))
+				best = Vector3(y, rs + p.slope(s), float(i))
 	return best
 
 
@@ -183,7 +228,8 @@ func top(x: float, s: float) -> float:
 	## Highest surface at (x, s), however high (for wall checks).
 	var base := H(s)
 	var best := base + (CURB if absf(x) > HALF_W and not stairs_at(s) else 0.0)
-	for p in pieces:
+	for i in _near(s):
+		var p := pieces[i]
 		if p.contains(x, s):
 			best = maxf(best, base + p.rel(s))
 	return best

@@ -51,6 +51,8 @@ var player_layer := 1
 
 var pos := Vector3.ZERO        ## wheel contact point, world
 var vel := Vector3.ZERO        ## in the air
+var draw_pos := Vector3.ZERO   ## where the rider is drawn: pos, smoothed between sub-steps
+var clock := RSFixedStep.new() ## sub-step clock (fixed 120 Hz, capped per frame)
 var speed := 0.0               ## on the ground, along heading
 var heading := 0.0             ## direction of travel, rad about +Y, 0 = downhill (-Z)
 var mode := Mode.RIDE
@@ -68,6 +70,7 @@ var gain_db := 0.0             ## the game turns riders down when there are seve
 
 var _rng := RandomNumberGenerator.new()
 var _popped := false
+var _frac := 1.0               ## share of this frame's controller turn per sub-step
 var _takeoff := Vector2.ZERO   ## (x, s) where the board left the ground
 var _flip_total := 0
 var _flip_done := 0
@@ -136,6 +139,8 @@ func quiet() -> void:
 
 func place(x: float, s: float) -> void:
 	pos = course.world(x, s)
+	draw_pos = pos
+	clock.reset(pos)
 	vel = Vector3.ZERO
 	speed = 0.0
 	heading = 0.0
@@ -196,11 +201,17 @@ func step(dt: float, c: RSMotionControls, racing: bool) -> void:
 	_last_c = c
 	if racing:
 		run_time += dt
-		var n := maxi(1, ceili(dt / (1.0 / 120.0)))
-		var h := dt / n
 		_events(c)
+		var n := clock.advance(dt)
+		_frac = 1.0 / n if n > 0 else 1.0
+		if n == 0 and mode == Mode.AIR:
+			spin += c.yaw_delta * SPIN_GAIN   # this frame's turn, with no sub-step to carry it
 		for i in n:
-			_sub(h, c)
+			var before := pos
+			_sub(clock.h, c)
+			if i == n - 1:
+				clock.push(before, pos)
+	draw_pos = clock.draw(pos)
 	_visuals(dt, c)
 
 
@@ -466,7 +477,7 @@ func _air(dt: float, c: RSMotionControls) -> void:
 	var hv := Vector2(vel.x, vel.z).rotated(c.steer * 0.45 * dt)
 	vel.x = hv.x
 	vel.z = hv.y
-	spin += c.yaw_delta * SPIN_GAIN * (dt / maxf(_frame_dt(), dt))
+	spin += c.yaw_delta * SPIN_GAIN * _frac
 	# Flips: one board rotation every FLIP_TIME, renamed as they stack up.
 	if _flip_done < _flip_total:
 		_flip_t += dt
@@ -522,10 +533,6 @@ func _air(dt: float, c: RSMotionControls) -> void:
 	var surf := course.surface(pos.x, ns, pos.y + 0.12)
 	if pos.y <= surf.x and vel.y <= 0.5:
 		_land(surf)
-
-
-func _frame_dt() -> float:
-	return get_process_delta_time() if is_inside_tree() else 1.0 / 60.0
 
 
 func _flip_named() -> void:
@@ -842,7 +849,7 @@ func _visuals(dt: float, c: RSMotionControls) -> void:
 	var z := -(fwd - up * fwd.dot(up)).normalized()
 	var x := up.cross(z).normalized()
 	var stair_shake := Vector3(0, 0.02 * sin(run_time * 60.0), 0) if mode == Mode.RIDE and course.stairs_at(ss) else Vector3.ZERO
-	rig.global_transform = Transform3D(Basis(x, up, z).orthonormalized(), pos + stair_shake)
+	rig.global_transform = Transform3D(Basis(x, up, z).orthonormalized(), draw_pos + stair_shake)
 
 	var target := spin + (PI if fakie else 0.0)
 	_rig_yaw = lerp_angle(_rig_yaw, target, 1.0 - exp(-dt * 22.0))
@@ -1002,20 +1009,21 @@ func _soft_dot() -> GradientTexture2D:
 
 
 func _update_fx(_dt: float) -> void:
+	var p := draw_pos
 	var grinding := mode == Mode.GRIND
 	_sparks.emitting = grinding
 	if grinding:
 		var back := -(_rail.dir * _rail_dir)
-		_sparks.global_transform = Transform3D(Basis.looking_at(-back, Vector3.UP), pos + Vector3.UP * 0.02)
+		_sparks.global_transform = Transform3D(Basis.looking_at(-back, Vector3.UP), p + Vector3.UP * 0.02)
 		(_sparks.process_material as ParticleProcessMaterial).initial_velocity_max = 2.0 if _rail.ledge else 4.5
 		_sparks.amount_ratio = 0.35 if _rail.ledge else 1.0
-	_dust.global_position = pos + Vector3.UP * 0.05
-	var ground := course.surface(pos.x, s(), pos.y + 0.05).x
-	var height := maxf(pos.y - ground, 0.0)
-	_shadow.global_position = Vector3(pos.x, ground + 0.025, pos.z)
+	_dust.global_position = p + Vector3.UP * 0.05
+	var ground := course.surface(p.x, -p.z, p.y + 0.05).x
+	var height := maxf(p.y - ground, 0.0)
+	_shadow.global_position = Vector3(p.x, ground + 0.025, p.z)
 	_shadow.scale = Vector3.ONE * (1.1 + height * 0.15)
 	(_shadow.material_override as StandardMaterial3D).albedo_color.a = clampf(0.5 - height * 0.08, 0.12, 0.5)
-	_tag.global_position = pos + Vector3.UP * 2.15
+	_tag.global_position = p + Vector3.UP * 2.15
 
 
 func _update_audio(dt: float) -> void:

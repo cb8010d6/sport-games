@@ -523,6 +523,7 @@ func _fmt_time(t: float) -> String:
 
 func _camera(p: Player, r: Racer, dt: float, snap: bool) -> void:
 	var sk := r.sk
+	var at := sk.draw_pos   # drawn (smoothed) position, as the rider mesh
 	var fwd := Vector3(-sin(sk.heading), 0.0, -cos(sk.heading))
 	if sk.mode == RSSkier.Mode.AIR and Vector2(sk.vel.x, sk.vel.z).length() > 0.5:
 		fwd = Vector3(sk.vel.x, 0.0, sk.vel.z).normalized()
@@ -532,28 +533,28 @@ func _camera(p: Player, r: Racer, dt: float, snap: bool) -> void:
 	r.cam_fwd = fwd if snap else r.cam_fwd.lerp(fwd, 1.0 - exp(-dt * 2.5)).normalized()
 	var spd := sk.current_speed()
 	var dist := 4.6 + clampf(spd - 8.0, 0.0, 18.0) * 0.1
-	var want := sk.pos - r.cam_fwd * dist + Vector3.UP * (2.3 + clampf(spd - 10.0, 0.0, 15.0) * 0.04)
-	var look := sk.pos + r.cam_fwd * 6.0 + Vector3.UP * 0.4
+	var want := at - r.cam_fwd * dist + Vector3.UP * (2.3 + clampf(spd - 10.0, 0.0, 15.0) * 0.04)
+	var look := at + r.cam_fwd * 6.0 + Vector3.UP * 0.4
 	if sk.mode == RSSkier.Mode.CRASH:
-		want = r.cam_pos.lerp(sk.pos - r.cam_fwd * 6.0 + Vector3.UP * 3.0, 0.03)
-		look = sk.pos + Vector3.UP * 0.4
+		want = r.cam_pos.lerp(at - r.cam_fwd * 6.0 + Vector3.UP * 3.0, 0.03)
+		look = at + Vector3.UP * 0.4
 	elif sk.finished and spd < 2.5:
 		r.orbit += dt * 0.35
-		want = sk.pos + Vector3(sin(r.orbit) * 4.5, 1.8, cos(r.orbit) * 4.5)
-		look = sk.pos + Vector3.UP * 1.0
+		want = at + Vector3(sin(r.orbit) * 4.5, 1.8, cos(r.orbit) * 4.5)
+		look = at + Vector3.UP * 1.0
 	want.y = maxf(want.y, _course.height(want.x, want.z) + 1.0)
 	if snap:
-		r.cam_off = want - sk.pos
+		r.cam_off = want - at
 		r.cam_pos = want
 		r.cam_look = look
 	elif sk.mode == RSSkier.Mode.CRASH or (sk.finished and spd < 2.5):
 		r.cam_pos = r.cam_pos.lerp(want, k)
-		r.cam_off = r.cam_pos - sk.pos
+		r.cam_off = r.cam_pos - at
 		r.cam_look = r.cam_look.lerp(look, minf(k * 1.4, 1.0))
 	else:
 		# Smooth the offset from the skier, not the position: no lag however fast.
-		r.cam_off = r.cam_off.lerp(want - sk.pos, k)
-		r.cam_pos = sk.pos + r.cam_off
+		r.cam_off = r.cam_off.lerp(want - at, k)
+		r.cam_pos = at + r.cam_off
 		r.cam_look = r.cam_look.lerp(look, minf(k * 2.5, 1.0))
 	r.cam_pos.y = maxf(r.cam_pos.y, _course.height(r.cam_pos.x, r.cam_pos.z) + 0.8)
 	# Never inside another skier: rise over anyone right in front of the lens.
@@ -577,7 +578,7 @@ func _camera(p: Player, r: Racer, dt: float, snap: bool) -> void:
 		# Intro: high over the run looking down the valley, then swooping in behind the racer.
 		var ahead := _course.world(0.0, 180.0, 0.0)
 		var p0 := _course.world(-40.0, -60.0, 60.0)
-		var p1 := sk.pos + Vector3(6.0 * signf(sk.pos.x - _course.centre(0.0) + 0.01), 4.0, 12.0)
+		var p1 := at + Vector3(6.0 * signf(at.x - _course.centre(0.0) + 0.01), 4.0, 12.0)
 		RSIntro.apply(p.cam, phase_time, INTRO, p0, p1, r.cam_pos, ahead, r.cam_look, 55.0, 64.0, 0.3)
 	_follow_snow(r.snow, p.cam)
 

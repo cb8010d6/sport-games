@@ -413,6 +413,7 @@ func _fmt(n: int) -> String:
 
 func _camera(p: Player, r: Rider, dt: float, snap: bool) -> void:
 	var sk := r.sk
+	var at := sk.draw_pos   # drawn (smoothed) position, as the rider mesh
 	var fwd := Vector3(-sin(sk.heading), 0.0, -cos(sk.heading))
 	if sk.mode == RSSkater.Mode.AIR and Vector2(sk.vel.x, sk.vel.z).length() > 0.5:
 		fwd = Vector3(sk.vel.x, 0.0, sk.vel.z).normalized()
@@ -420,15 +421,15 @@ func _camera(p: Player, r: Rider, dt: float, snap: bool) -> void:
 	r.cam_fwd = fwd if snap else r.cam_fwd.lerp(fwd, 1.0 - exp(-dt * 3.0)).normalized()
 	var spd := sk.current_speed()
 	var dist := 4.6 + clampf(spd - 8.0, 0.0, 6.0) * 0.16
-	var want := sk.pos - r.cam_fwd * dist + Vector3.UP * 1.9
-	var look := sk.pos + r.cam_fwd * 3.2 + Vector3.UP * 0.9
+	var want := at - r.cam_fwd * dist + Vector3.UP * 1.9
+	var look := at + r.cam_fwd * 3.2 + Vector3.UP * 0.9
 	if sk.mode == RSSkater.Mode.BAIL:
-		want = r.cam_pos.lerp(sk.pos - r.cam_fwd * 5.5 + Vector3.UP * 2.6, 0.02)
-		look = sk.pos + Vector3.UP * 0.5
+		want = r.cam_pos.lerp(at - r.cam_fwd * 5.5 + Vector3.UP * 2.6, 0.02)
+		look = at + Vector3.UP * 0.5
 	elif sk.finished and spd < 2.0:
 		r.orbit += dt * 0.35
-		want = sk.pos + Vector3(sin(r.orbit) * 4.0, 1.7, cos(r.orbit) * 4.0)
-		look = sk.pos + Vector3.UP * 0.9
+		want = at + Vector3(sin(r.orbit) * 4.0, 1.7, cos(r.orbit) * 4.0)
+		look = at + Vector3.UP * 0.9
 	want.x = clampf(want.x, -RSSkateCourse.BOUND + 0.6, RSSkateCourse.BOUND - 0.6)
 	want.y = maxf(want.y, _course.top(want.x, -want.z) + 0.8)
 	if snap:
@@ -450,10 +451,10 @@ func _camera(p: Player, r: Rider, dt: float, snap: bool) -> void:
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
 		# Intro: from high over the start, looking down the street to the sea, swooping in
 		# behind the rider.
-		var p0 := sk.pos + Vector3(0.0, 26.0, 36.0)
-		var p1 := sk.pos + Vector3(5.0 * signf(sk.pos.x + 0.01), 5.0, 13.0)
+		var p0 := at + Vector3(0.0, 26.0, 36.0)
+		var p1 := at + Vector3(5.0 * signf(at.x + 0.01), 5.0, 13.0)
 		RSIntro.apply(p.cam, phase_time, INTRO, p0, p1, r.cam_pos,
-			sk.pos + Vector3(0.0, -8.0, -120.0), r.cam_look, 50.0, 66.0)
+			at + Vector3(0.0, -8.0, -120.0), r.cam_look, 50.0, 66.0)
 
 
 # ------------------------------------------------------------------- hints / OLED ----
@@ -565,7 +566,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 
 	# Balance meter above the rider while grinding or in a manual.
 	if sk.mode in [RSSkater.Mode.GRIND, RSSkater.Mode.MANUAL]:
-		var head := sk.pos + Vector3.UP * 2.35
+		var head := sk.draw_pos + Vector3.UP * 2.35
 		if not p.cam.is_position_behind(head):
 			_draw_balance(h, p.cam.unproject_position(head), 58 * k, sk.needle, k)
 
