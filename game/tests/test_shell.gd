@@ -125,6 +125,19 @@ func _run() -> void:
 	ControllerHub._handle_json(hub_event.call("disconnected"))
 	_check(cancels[0] == 1 and plain_releases[0] == 0, "disconnect mid-hold cancels the button once, without a release (#55)")
 	_check(ControllerHub.controllers[9].buttons == 0, "disconnect clears the held buttons (#55)")
+	# The roster alone reporting it offline -- no disconnected event -- cancels
+	# the same way, and a repeat does not cancel twice; with the held buttons
+	# cleared, no late release can surface when it comes back (#55).
+	var roster9 := func(online: bool) -> PackedByteArray:
+		return JSON.stringify({"type": "roster", "controllers": [{"id": 9, "kind": "phone", "name": "T", "player": 1, "connected": online}]}).to_utf8_buffer()
+	ControllerHub._handle_json(roster9.call(true))
+	ControllerHub.controllers[9].buttons = RSController.BTN_A
+	ControllerHub._handle_json(roster9.call(false))
+	_check(cancels[0] == 2 and plain_releases[0] == 0, "roster-only offline cancels the held button, no event needed (#55)")
+	_check(ControllerHub.controllers[9].buttons == 0, "roster-only offline clears the held buttons (#55)")
+	ControllerHub._handle_json(roster9.call(false))
+	ControllerHub._handle_json(hub_event.call("disconnected"))
+	_check(cancels[0] == 2, "repeated offline roster/event does not cancel twice (#55)")
 	ControllerHub.controllers.erase(9)
 	var pause := RSPauseMenu.new(self, true)
 	add_child(pause)
