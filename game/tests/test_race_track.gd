@@ -24,6 +24,11 @@ func _run() -> void:
 	_finishes()
 	_standings()
 	_timing()
+	_follower_profiles()
+	_follower_lanes()
+	_rubber_band()
+	_drive_follower(RSRaceTrack.new(_circle(128, 20.0), true, 0.0), 1.5, "circle")
+	_drive_follower(RSRaceTrack.new(_hairpin_points(), true, 0.0), 4.0, "hairpin")
 	print("RS_RACE_TRACK_TESTS: %d checks, %d failures" % [_checks, _failures])
 	get_tree().quit(1 if _failures else 0)
 
@@ -262,3 +267,141 @@ func _timing() -> void:
 	var elapsed := Time.get_ticks_usec() - began
 	_check(absf(r.progress - 999.0) < 0.00001 and not r.finished, "timing: 1000 updates advance the racer to the expected progress")
 	print("RS_RACE_TRACK_TIMING: 1000 update_racer + update_standings calls: %d us (%.2f us/update)" % [elapsed, elapsed / 1000.0])
+
+
+func _hairpin_points() -> PackedVector3Array:
+	# Two 60 m straights joined by 12 m radius, 180 degree hairpins. Subdivide
+	# the straights too, so the geometric curvature transition is well resolved.
+	var points := PackedVector3Array([Vector3(-12, 0, 30)])
+	for i in range(1, 31):
+		points.append(Vector3(-12, 0, 30 - 2 * i))
+	for i in range(1, 33):
+		var angle := PI + PI * i / 32.0
+		points.append(Vector3(12 * cos(angle), 0, -30 + 12 * sin(angle)))
+	for i in range(1, 31):
+		points.append(Vector3(12, 0, -30 + 2 * i))
+	for i in range(1, 32):
+		var angle := PI * i / 32.0
+		points.append(Vector3(12 * cos(angle), 0, 30 + 12 * sin(angle)))
+	return points
+
+
+func _follower_profiles() -> void:
+	var line := _line()
+	var speeds := RSRaceFollower.speed_profile(line, 22.0, 6.0, 8.0, 3.0)
+	_check(speeds.size() == 51, "profile: open uniform nodes include both endpoints at <=2 m spacing")
+	for value in speeds:
+		_check(is_equal_approx(value, 22.0), "profile: every straight-line sample remains at vmax")
+	_check(RSRaceFollower.profile_at(line, speeds, -5.0) == 22.0 and RSRaceFollower.profile_at(line, speeds, 110.0) == 22.0, "profile: open sampling clamps beyond both endpoints")
+	var circle := RSRaceTrack.new(_circle(128, 20.0), true, 0.0)
+	speeds = RSRaceFollower.speed_profile(circle, 22.0, 6.0, 8.0)
+	_check(speeds.size() == ceili(circle.length / RSRaceTrack.SPLINE_STEP), "profile: closed uniform nodes omit the duplicate seam endpoint")
+	for value in speeds:
+		_check(absf(value - sqrt(6.0 * 20.0)) < 0.02, "profile: radius R curve obeys sqrt(lat_accel * R)")
+	var points := _hairpin_points()
+	var hairpin := RSRaceTrack.new(points, true, 0.0)
+	var braked := RSRaceFollower.speed_profile(hairpin, 22.0, 6.0, 8.0)
+	var before_turn := RSRaceFollower.profile_at(hairpin, braked, 50.0)
+	_check(before_turn < 20.0 and before_turn > 9.0, "profile: braking begins on the straight before the hairpin")
+	var raw := RSRaceFollower.speed_profile(hairpin, 22.0, 6.0, 0.0)
+	var accelerated := RSRaceFollower.speed_profile(hairpin, 22.0, 6.0, 8.0, 2.0)
+	_check(accelerated[0] < raw[0] - 0.1, "profile: acceleration constraint reaches across the last->first seam")
+	_profile_limits(hairpin, accelerated, 8.0, 2.0)
+	# Move the seam just into the first bend; its preceding straight now needs
+	# braking through the last->first edge, rather than merely within the array.
+	var shifted := PackedVector3Array()
+	for i in points.size():
+		shifted.append(points[(i + 31) % points.size()])
+	var seam := RSRaceTrack.new(shifted, true, 0.0)
+	raw = RSRaceFollower.speed_profile(seam, 22.0, 6.0, 0.0)
+	braked = RSRaceFollower.speed_profile(seam, 22.0, 6.0, 8.0, 2.0)
+	_check(braked[braked.size() - 1] < raw[raw.size() - 1] - 0.1, "profile: braking constraint reaches backwards across the seam")
+	_profile_limits(seam, braked, 8.0, 2.0)
+	_check(absf(RSRaceFollower.profile_at(seam, braked, seam.length) - braked[0]) < 0.00001, "profile: closed interpolation is continuous at the seam")
+	_check(absf(RSRaceFollower.profile_at(seam, braked, -0.4) - RSRaceFollower.profile_at(seam, braked, seam.length - 0.4)) < 0.00001, "profile: negative sampling wraps over the seam")
+
+
+func _profile_limits(track: RSRaceTrack, speeds: PackedFloat32Array, brake: float, accel: float) -> void:
+	var ds := track.length / speeds.size()
+	for i in speeds.size():
+		var next := (i + 1) % speeds.size()
+		var a := speeds[i] * speeds[i]
+		var b := speeds[next] * speeds[next]
+		_check(a <= b + 2.0 * brake * ds + 0.001, "profile: every edge, including the seam, respects braking energy")
+		_check(b <= a + 2.0 * accel * ds + 0.001, "profile: every edge, including the seam, respects acceleration energy")
+		var middle := RSRaceFollower.profile_at(track, speeds, (i + 0.5) * ds)
+		_check(absf(middle * middle - (a + b) * 0.5) < 0.001, "profile: interior energy interpolation preserves the node acceleration bound")
+
+
+func _follower_lanes() -> void:
+	var track := _line()
+	track.add_gate(20.0, 2.4, 2.8)
+	track.add_gate(40.0, -5.0, 5.0)
+	track.add_gate(60.0, -INF, -2.0)
+	var r := track.add_racer(1)
+	var follower := RSRaceFollower.new(track, 22.0)
+	follower.lane = 20.0
+	_check(is_equal_approx(follower.lane_for(r), 2.6), "follower: a narrow gate uses its centre when margins would overlap")
+	_check(follower.target(r, 10.0).distance_to(Vector3(2.6, 0, -12)) < 0.0001, "follower: default lookahead adds 0.6 seconds of travel and the safe lane offset")
+	r.next_gate = 1
+	_check(follower.lane_for(r) == 4.0, "follower: a wide gate clamps the requested lane inside its margin")
+	r.next_gate = 2
+	_check(follower.lane_for(r) == -3.0, "follower: one-sided unbounded windows retain their finite margin")
+	r.next_gate = track.gate_count()
+	_check(follower.lane_for(r) == 20.0, "follower: the requested lane resumes after the final gate")
+	_check(is_equal_approx(follower.speed(r), 22.0), "follower: speed reads the precomputed profile")
+
+
+func _rubber_band() -> void:
+	_check(RSRaceFollower.rubber_band(0.0, 80.0, 0.15, 0.1) == 1.0, "rubber band: zero gap is neutral")
+	_check(is_equal_approx(RSRaceFollower.rubber_band(80.0, 80.0, 0.15, 0.1), 1.15), "rubber band: a full trailing gap receives the configured boost")
+	_check(is_equal_approx(RSRaceFollower.rubber_band(-80.0, 80.0, 0.15, 0.1), 0.9), "rubber band: a full leading gap receives the configured slowdown")
+	_check(is_equal_approx(RSRaceFollower.rubber_band(40.0, 80.0, 0.15, 0.1), 1.075) and is_equal_approx(RSRaceFollower.rubber_band(-40.0, 80.0, 0.15, 0.1), 0.95), "rubber band: intermediate gaps scale linearly")
+	_check(RSRaceFollower.rubber_band(800.0, 80.0, 2.0, 2.0) == 1.5 and RSRaceFollower.rubber_band(-800.0, 80.0, 2.0, 2.0) == 0.5, "rubber band: oversized gaps and coefficients stay within [0.5, 1.5]")
+	_check(RSRaceFollower.rubber_band(800.0, 80.0, 0.0, 0.0) == 1.0 and RSRaceFollower.rubber_band(-800.0, 80.0, 0.0, 0.0) == 1.0, "rubber band: zero coefficients disable both directions")
+	_check(RSRaceFollower.rubber_band(80.0, 0.0, 0.15, 0.1) == 1.0, "rubber band: a nonpositive reference gap is neutral")
+
+
+func _drive_follower(track: RSRaceTrack, half_width: float, label: String) -> void:
+	track.laps = 3
+	for i in 8:
+		track.add_gate(track.length * i / 8.0, -half_width, half_width)
+	var r := track.add_racer(1)
+	var follower := RSRaceFollower.new(track, 22.0)
+	var pos := track.point_at(0.0)
+	var forward := track.tangent_at(0.0)
+	var velocity := 0.0
+	var dt := 1.0 / 120.0
+	var wrong_way := false
+	var reversed := false
+	var outside := false
+	var misses := 0
+	var peak_lateral := 0.0
+	var frames := 0
+	for frame in 30000:
+		var want := follower.speed(r)
+		velocity = move_toward(velocity, want, (6.0 if want > velocity else 8.0) * dt)
+		var aim := follower.target(r, velocity)
+		var error := RSRaceTrack.steer_angle(forward, pos, aim)
+		var distance := Vector2(aim.x - pos.x, aim.z - pos.z).length()
+		# Pure-pursuit kinematic car: derive yaw from the actual aim/position,
+		# then integrate a midpoint heading. Never move pos with point_at/project.
+		var turn := 2.0 * velocity * sin(error) / maxf(distance, 0.1) * dt
+		pos += forward.rotated(Vector3.UP, -turn * 0.5) * velocity * dt
+		forward = forward.rotated(Vector3.UP, -turn)
+		var previous := r.progress
+		var window := track.gate_window(r.next_gate)
+		var event := track.update_racer(r, pos, (frame + 1) * dt)
+		misses += 1 if event & RSRaceTrack.GATE_MISSED else 0
+		wrong_way = wrong_way or r.wrong_way
+		reversed = reversed or r.progress < previous - 0.0001
+		outside = outside or r.lateral < window.x or r.lateral > window.y
+		peak_lateral = maxf(peak_lateral, absf(r.lateral))
+		frames = frame + 1
+		if r.finished:
+			break
+	_check(r.finished and r.lap == 3, label + ": default follower drives three complete laps")
+	_check(misses == 0 and r.gates_missed == 0 and r.gates_hit == 24, label + ": kinematic car passes all 24 ordered gates without a miss")
+	_check(not wrong_way and not reversed, label + ": kinematic car never reverses or reports wrong_way")
+	_check(not outside, label + ": lateral remains within the active gate window at every step")
+	print("RS_RACE_FOLLOWER: %s, %d steps, %.3f m peak lateral, %d gates, %d misses" % [label, frames, peak_lateral, r.gates_hit, r.gates_missed])

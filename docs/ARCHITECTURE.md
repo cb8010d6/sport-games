@@ -95,6 +95,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 | 需求 | 用这个 | 不要 |
 |---|---|---|
+| 赛道、名次、机器人跟线 | `RSRaceTrack` 管理进度与检查门；`RSRaceFollower` 提供前视目标、速度曲线与追赶系数 | 项目自己复制路线进度或机器人跟线逻辑 |
 | 项目列表、地图、教学、挑战 | `RSCatalog`（读各项目的 `RSGameModule` 清单）；工具用 `tools/catalog.py` | 在框架、菜单、测试或工具里另写一份项目或地图列表 |
 | 大厅教学 | 清单的 `lessons` 引用 `RSTutorial` 的步骤常量；新动作先在 `RSTutorial` 加通用步骤 | 项目自己做教学流程 |
 | 手柄状态、按键 | `ControllerHub` 的信号，`RSController`（`orientation`、`forward()`、`pitch()`、`is_pressed()`） | 自己连 UDP 或解析协议 |
