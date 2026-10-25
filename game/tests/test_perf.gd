@@ -167,7 +167,7 @@ func _rig_view_tier() -> void:
 		return
 	var saved_quality := RSSettings.quality
 	var saved_upscale := RSSettings.upscale
-	RSSettings.quality = 3
+	RSSettings.quality = 2
 	RSSettings.upscale = 0
 	RSSettings.set_views(1, null)
 	var rig := RSHumanRig.new()
@@ -197,15 +197,40 @@ func _rig_view_tier() -> void:
 	_check_rig_tier(rig, true)
 	_check_rig_tier(second, true)
 	_check(second.shadow_casters() == after, "a newly built four-view rig starts in the split tier (#53-01)")
-	RSSettings.quality = 0
-	RSSettings.apply_world(self)
-	_check_rig_tier(rig, true)
+	for quality: int in [0, 1, 2]:
+		RSSettings.quality = quality
+		RSSettings.apply_world(self)
+		_check_rig_tier(rig, true)
+		_check_rig_tier(second, true)
 	RSSettings.quality = 3
 	RSSettings.apply_world(self)
+	_check_rig_tier(rig, false)
+	_check_rig_tier(second, false)
+	_check(rig.shadow_casters() == before and second.shadow_casters() == before, "switching to ultra restores four-view character detail (#53-01)")
+	RSSettings.set_views(3, self)
+	_check_rig_tier(rig, false)
+	var ultra := RSHumanRig.new()
+	ultra.add_child(ultra.body)
+	add_child(ultra)
+	ultra._load_character(RSSkaterRig.RIDERS[1])
+	_check_rig_tier(ultra, false)
+	_check(ultra.shadow_casters() == before, "a newly built ultra rig keeps all shadow casters with three views (#53-01)")
+	RSSettings.quality = 2
+	RSSettings.apply_world(self)
 	_check_rig_tier(rig, true)
+	_check_rig_tier(second, true)
+	_check_rig_tier(ultra, true)
+	RSSettings.quality = 3
+	RSSettings.apply_world(self)
+	RSSettings.set_views(4, self)
+	_check_rig_tier(rig, false)
+	_check_rig_tier(second, false)
+	_check_rig_tier(ultra, false)
+	print("RS_PERF_RIG_ULTRA: shadow casters per rig %d -> %d, lod_bias 1.00 -> %.2f" % [before, ultra.shadow_casters(), (ultra._quality_meshes[0] as MeshInstance3D).lod_bias])
 	RSSettings.set_views(2, self)
 	_check_rig_tier(rig, false)
 	_check_rig_tier(second, false)
+	_check_rig_tier(ultra, false)
 	RSSettings.set_views(1, self)
 	_check(rig.shadow_casters() == before and second.shadow_casters() == before, "returning to one view restores every character shadow caster (#53-01)")
 	for entry: Array in baseline:
@@ -219,6 +244,7 @@ func _rig_view_tier() -> void:
 	RSSettings.apply_world(self)
 	rig.free()
 	second.free()
+	ultra.free()
 
 
 func _check_rig_tier(rig: RSHumanRig, split: bool) -> void:

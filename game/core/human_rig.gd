@@ -132,7 +132,7 @@ func _tune_material(m: StandardMaterial3D, part: String) -> void:
 
 func apply_quality() -> void:
 	## Settings events refresh cached meshes/materials; no per-frame polling or name scans.
-	var split := RSSettings.split_tier()
+	var split := _split_detail()
 	for mesh: MeshInstance3D in _quality_meshes:
 		mesh.lod_bias = SPLIT_LOD_BIAS if split else 1.0
 	for mesh: MeshInstance3D in _detail_meshes:
@@ -141,9 +141,14 @@ func apply_quality() -> void:
 		_apply_material_quality(material, _quality_materials[material])
 
 
+func _split_detail() -> bool:
+	## Ultra keeps the original character detail even with three or four views.
+	return RSSettings.split_tier() and RSSettings.quality < 3
+
+
 func _apply_material_quality(material: StandardMaterial3D, flags: Vector2i) -> void:
 	if flags.x != 0:
-		material.subsurf_scatter_enabled = RSSettings.quality >= 2 and not RSSettings.split_tier()
+		material.subsurf_scatter_enabled = RSSettings.quality >= 2 and not _split_detail()
 	if flags.y != 0:
 		# Match apply_viewport's MSAA rule in both directions, including native <-> FSR.
 		var msaa := RSSettings.upscale == 0 and RSSettings.quality >= 1
