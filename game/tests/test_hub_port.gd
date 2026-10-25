@@ -60,7 +60,8 @@ func _run() -> void:
 
 
 func _send_roster(state: String) -> void:
-	var roster := {"type": "roster", "controllers": []}
+	# The roster is the complete list: a controller missing from it is offline (#78), so keep 91 in it.
+	var roster := {"type": "roster", "controllers": [{"id": 91, "player": 1, "kind": "sim", "name": "Port", "connected": true}]}
 	if not state.is_empty():
 		roster["ble_state"] = state
 	_peer.put_packet(JSON.stringify(roster).to_utf8_buffer())
