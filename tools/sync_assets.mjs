@@ -130,6 +130,7 @@ export async function installAsset(item, root, resolve, { fetcher = fetch, force
 const NODE_MINIMUMS = [[22, 23, 4], [24, 22, 1], [26, 12, 1]];
 export function nodeVersionSupported(version = process.versions.node) {
   const [major, minor, patch] = version.split('.').map(Number);
+  if (major > NODE_MINIMUMS.at(-1)[0]) return true;  // newer major lines than this list: allowed
   return NODE_MINIMUMS.some(([maj, min, pat]) => major === maj && (minor > min || (minor === min && patch >= pat)));
 }
 
