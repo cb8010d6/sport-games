@@ -281,12 +281,11 @@ static func apply_viewport(vp: Viewport) -> void:
 
 static func set_views(n: int, root: Node) -> void:
 	## How many 3D views are drawn now (RSPartyViews keeps this current). Crossing the split
-	## tier re-applies the sun shadows under root.
+	## tier refreshes sun shadows and quality listeners under root.
 	var was := split_tier()
 	views = maxi(n, 1)
 	if split_tier() != was and root != null and root.is_inside_tree():
-		for sun: DirectionalLight3D in root.find_children("*", "DirectionalLight3D", true, false):
-			sun_shadows(sun)
+		apply_world(root)
 
 
 static func split_tier() -> bool:
