@@ -35,13 +35,39 @@ Regina 手柄 ──BLE──────┤→ hub（Python，hub/regina_hub）
 game/scenes/<id>/
   <id>_game.gd      extends RSPartyGame，只写本项目的规则和画面
   <id>_game.tscn    只有根节点和脚本，场景内容在代码里构建
+  <id>_module.tres  项目清单（RSGameModule），框架、菜单、测试和工具都从这里取项目信息
   <其他>.gd         本项目专用类，class_name RS<项目><名字>
 game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 ```
 
-项目注册在游戏目录里（PR #2 合并后是 `game/core/catalog.gd` 的 `RSCatalog.GAMES`；在那之前是 `main_menu.gd` 的 `GAMES`）。
+### 项目清单与自动发现
 
-菜单的 `RSGamePreview` 根据目录 ID 显示 `assets/previews/<id>.jpg`，只在焦点切换时加载并缓存。预览由 `tools/capture_previews.py` 从实际运动场景的玩家 3D 视口渲染，不含界面覆盖；运行时不会为选中项目再建一个世界。缺少预览的目录项正常进入，不显示空卡；设置等非运动入口隐藏预览。
+每个项目在自己的文件夹里放一个 `<id>_module.tres`（`class_name RSGameModule`，`game/core/game_module.gd`）。新增项目只加这个文件夹、预览图、`en.json` 和 README 条目，不改 `core`、菜单或 `tools` 里的列表。步骤见 [NEW_GAME.md](NEW_GAME.md)，`tools/new_game.py <id>` 生成骨架。
+
+| 字段 | 含义 |
+|---|---|
+| `id` | 等于文件夹名；存档、纪录、教学完成状态、派对赛都用它，定了不改 |
+| `name`、`desc` | 菜单名称和说明（中文 key，英文在 `en.json`） |
+| `oled` | 手柄 OLED 标题，ASCII 大写，最多 10 个字符 |
+| `scene` | `RSPartyGame` 场景 |
+| `maps_script` | 定义 `const MAPS` 的脚本（就是 `_maps()` 返回的数组）；单地图项目留空 |
+| `lessons` | 大厅教学步骤：`RSTutorial` 步骤常量的名字（`TILT_RIGHT`、`THROW`…） |
+| `solo_goals` | 单人挑战三档分数（地图 1，每档一星） |
+| `players` | 支持人数 `Vector2i(最少, 最多)`，1–4 |
+| `mode` | `individual` 各打各的 / `versus` 同场对战 / `teams` 组队（F5 之前都是 `individual`） |
+| `ambience` | 主环境音的 `RSSfx` id |
+| `preview` | 菜单预览图 `res://assets/previews/<id>.jpg` |
+| `ready` | 是否出现在菜单、单人和派对页；未完成的项目设 `false`，仍可用 `--game=<id>` 打开 |
+| `order` | 菜单顺序（小的在前，相同按 id） |
+| `benchmark` | 是否进入设置页的性能测试（`RSBenchmarkMenu.CASES`） |
+
+选 `.tres` 而不是 `<id>_module.gd` 常量：字段有类型，编辑器里能直接改；读取清单不会加载项目场景或贴图；工具不用启动 Godot 也能解析文本。
+
+`RSCatalog` 第一次被调用时用 `ResourceLoader.list_directory("res://scenes/")` 找所有 `<id>/<id>_module.tres`，检查字段（id 与文件夹一致、OLED、场景存在、人数、模式），不合格的报错并跳过。导出包里 `.tres` 会被转成二进制并重映射，`list_directory` 仍然列出原名，所以导出版本不需要构建时索引（已用导出的 pck 实测）。`RSCatalog.games()` 是菜单列表（`ready` 的项目，按 `order`），`find_game(id, include_hidden)`、`module(id)`、`maps(id)`、`lessons(id)`、`solo_goals(id)`、`benchmark_ids()` 供框架使用；`RSTutorial` 和 `RSSolo` 从清单取教学步骤和挑战分数。
+
+工具从 `tools/catalog.py` 取项目和地图列表（直接解析清单和 `MAPS`，不需要 Godot）。`python tools/catalog.py --check`（CI 里的 `tools/tests/test_catalog.py`）要求每个 `ready` 项目都有预览图、教学、三档挑战和英文翻译。`main_menu.gd` 的 `--dump-catalog=<文件>` 把游戏自己发现的目录写成 JSON 后退出；`tools/test_game.py` 用它核对 Godot 和 Python 两边一致，也可以拿导出的游戏跑同样的核对。
+
+菜单的 `RSGamePreview` 显示清单里的 `preview`，只在焦点切换时加载并缓存。预览由 `tools/capture_previews.py` 从实际运动场景的玩家 3D 视口渲染，不含界面覆盖；运行时不会为选中项目再建一个世界。缺少预览的目录项正常进入，不显示空卡；设置等非运动入口隐藏预览。
 
 ### 回合流程
 
@@ -61,7 +87,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 正式单人模式使用 `RSSolo.begin(game_id, slot, difficulty)`：一个已分配本地槽的真人和一个电脑对手，共用原有物理、名次和教学流程；只有真人可以写纪录。电脑独占另一个槽，`RSPartyGame` 保证真人缺席时不会自动开局，其他手柄不会加入。项目通过 `bot_error()` / `bot_ability()` 取得难度参数，演示默认参数保持原样。退出到菜单时清除会话。每项目三个分数挑战基于地图 1 的正式个人最佳导出（每档一星），复用 `records.cfg`，不另加进度文件；主菜单标明规则、个人星数与难度。
 
-调试参数（`--` 之后）只在 `party_game.gd` 和 `main_menu.gd` 里解析（ARCH-ARGS）：`--demo=N`、`--shots=<前缀>`、`--map=N`、`--game=<id>`；项目自己的参数通过 `_parse_arg(arg)` 拿到。唯一例外是 `--hub-port=N`：`ControllerHub` 必须在任何场景之前绑定端口，所以由它自己读取（`# allow: ARCH-ARGS`），见第 4 节。
+调试参数（`--` 之后）只在 `party_game.gd` 和 `main_menu.gd` 里解析（ARCH-ARGS）：`--demo=N`、`--shots=<前缀>`、`--map=N`、`--game=<id>`、`--dump-catalog=<文件>`；项目自己的参数通过 `_parse_arg(arg)` 拿到。唯一例外是 `--hub-port=N`：`ControllerHub` 必须在任何场景之前绑定端口，所以由它自己读取（`# allow: ARCH-ARGS`），见第 4 节。
 
 ## 3. 公共模块
 
@@ -69,6 +95,8 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 | 需求 | 用这个 | 不要 |
 |---|---|---|
+| 项目列表、地图、教学、挑战 | `RSCatalog`（读各项目的 `RSGameModule` 清单）；工具用 `tools/catalog.py` | 在框架、菜单、测试或工具里另写一份项目或地图列表 |
+| 大厅教学 | 清单的 `lessons` 引用 `RSTutorial` 的步骤常量；新动作先在 `RSTutorial` 加通用步骤 | 项目自己做教学流程 |
 | 手柄状态、按键 | `ControllerHub` 的信号，`RSController`（`orientation`、`forward()`、`pitch()`、`is_pressed()`） | 自己连 UDP 或解析协议 |
 | 体感手势 | `RSMotionGestures` → `RSMotionControls`（倾斜转向、甩动起跳、翻转、转体）；`RSSwingDetector`（挥动）；`RSTiltStick`（倾斜当摇杆） | 在项目里重写阈值和滤波 |
 | 震动 | `haptic(p, "hit")`、`haptic_all(name)`（名称表是 `ControllerHub.HAPTICS`，新名称加在那里） | 直接 `ControllerHub.vibrate`（ARCH-HAPTIC） |
@@ -85,7 +113,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 | 材质、道具 | `RSPbr.surface / standard`，`RSProps.place`（MultiMesh 批量） | 每个物体一个材质、一个节点 |
 | 人物 | `RSHumanRig` 子类（MPFB 角色，FK / IK 姿态） | 另做一套骨骼控制 |
 | 领奖台 | `RSPodium.configure(steps, footprint, extra, spacing, font, buried)` 在场景加载时建模；`present(scores)`、`rank(i)`、`cheer(i)`、`spot(i)`、`apply_camera(...)` 共用名次、台面、世界坐标站位和推进镜头；`fit_left(camera)` 为右侧成绩留出空间，`reset()` 隐藏并清除上一局名次 | 三个项目重复搭建台阶、计算名次与镜头公式 |
-| 存档 | 只在 `core` 里读写 `user://`（ARCH-SAVE）：`RSSettings`（settings.cfg），PR #2 合并后还有 `RSProfiles`（profiles.cfg）、`RSRecords`（records.cfg）、`RSTournament`（内存中的派对赛） | 项目自己写文件 |
+| 存档 | 只在 `core` 里读写 `user://`（ARCH-SAVE）：`RSSettings`（settings.cfg），还有 `RSProfiles`（profiles.cfg）、`RSRecords`（records.cfg）、`RSTournament`（内存中的派对赛） | 项目自己写文件 |
 
 ## 4. 数据与接口
 
@@ -103,7 +131,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 界面字号由 `RSSettings.text_size` 保存在同一设置文件，标准为 100%，大号为 125%。`RSUi` 保留控件、Theme 和成绩富文本的原始字号，切换时一次更新现有界面，新控件按当前设置创建；不重载比赛、不逐帧遍历节点、不重复累乘。主菜单项目列表和菜单子页滚动跟随焦点。六项目通过 `RSPartyGame.draw_text / draw_pill` 统一放大 HUD，受分屏宽度与屏幕边缘限制的单行文字按实际字体度量适配；3D 世界标签和手柄 OLED 保持原尺寸。
 
 - **中枢 ↔ 游戏**：只有 [protocol.md](protocol.md) 定义的 UDP 消息。新增字段要同时改协议文档、hub 和 `ControllerHub`，并保持旧字段兼容。
-- **端口**：正常游戏监听 `127.0.0.1:47800`、发往 hub 的 47801，同一时间只能运行一个实例。`RS_TEST_MODE=1` 时 `ControllerHub` 绑定系统分配的临时端口、不向 hub 发任何消息，同一台电脑上可以并行跑任意多个测试实例，也不会打扰正在运行的真实 hub；测试用 `ControllerHub.listen_port()` 取得端口，向它发送合成的 hub 数据包。需要真实 hub 的双实例测试给每个实例传 `--hub-port=N`（任何模式都有效）：游戏发往 N、监听 N-1，对应 hub 用 `--hub-port N --game-port N-1` 启动。端口无效（不在 2–65535）时报错且不绑定。`tools/` 下启动游戏项目的测试脚本都设置 `RS_TEST_MODE=1`；`tools/test_hub_port.py` 在占住 47800 的情况下同时启动多个实例检查以上行为。发行包冒烟（`smoke_release.py`、`release_launcher.py`）按正常模式运行，自带 hub，仍使用固定端口。
+- **端口**：正常游戏监听 `127.0.0.1:47800`、发往 hub 的 47801，同一时间只能运行一个实例。`RS_TEST_MODE=1` 时 `ControllerHub` 绑定系统分配的临时端口、不向 hub 发任何消息，同一台电脑上可以并行跑任意多个测试实例，也不会打扰正在运行的真实 hub；测试用 `ControllerHub.listen_port()` 取得端口，向它发送合成的 hub 数据包。需要真实 hub 的双实例测试给每个实例传 `--hub-port=N`（任何模式都有效）：游戏发往 N、监听 N-1，对应 hub 用 `--hub-port N --game-port N-1` 启动。端口无效（不在 2–65535）时报错且不绑定。`tools/` 下启动游戏项目的测试脚本都设置 `RS_TEST_MODE=1`；`tools/test_hub_port.py` 在占住 47800 的情况下同时启动多个实例检查以上行为。发行包冒烟按正常模式运行、自带 hub；其中只有启动器冒烟（`release_launcher.py`）使用固定端口，`smoke_release.py` 给冻结 hub 分配随机端口，导出游戏的冒烟走测试模式。
 - **存档**：`user://*.cfg`（ConfigFile）。`RSSave.read(path)` 读原文件、`.bak`、`.tmp` 中的有效副本；`RSSave.write(path, config)` 使用版本 1 元数据、SHA-256 校验、验证后的临时文件和上一份有效备份。无版本旧档按版本 0 读取，下次成功保存时升级。未知版本只读保护，不用旧备份覆盖；所有副本损坏时返回默认配置并记录警告。备份与临时文件是现有存档的恢复副本，不新增业务存档或 autoload。Windows 替换目标文件存在短暂间隙，因此承诺可恢复写入，不承诺断电原子性或磁盘硬件损坏恢复。`override.cfg` 仍是启动时派生的渲染设置；两份设置文件无法构成跨文件事务，驱动变更保存失败时返回错误。
 - **文案**：中文原文就是 key。改中文原文等于换了 key，必须同步 `en.json`，并通过 `python tools/i18n_check.py`。
 - **素材**：`res://assets/...`。新增素材必须记录来源和许可（[ASSETS.md](ASSETS.md)、[THIRD_PARTY.md](THIRD_PARTY.md)）。Poly Haven 原图不进 Git，由 `tools/sync_assets.mjs` 下载并按 `tools/assets.lock.json` 校验。
@@ -136,3 +164,11 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 - 固定地图和起始种子不代表跨帧率确定性回放。现有按帧随机消耗、物理与 GPU 粒子限制应在界面和元数据说明，不能用固定 FPS 模拟或录像替代真实渲染测量。
 
 验收涵盖成功/取消/失败恢复、哨兵存档字节不变、同一统计样本、2/4 人实际渲染、中英文截图和严格退出检查。只交付测量能力，不自动调画质，不承诺尚未实测的 FPS。
+
+## 8. 回合与派对大赛中断恢复（#52，实施中）
+
+先于实现记录的接口与验收见 [中断恢复记录](ISSUE_52_ROUND_RECOVERY.md)。射箭与保龄球各自在现有玩家状态中保存出手等待时间，按正常计分接口消耗超时的零分出手；公共层不引用项目类型，不以移除比赛中玩家代替结算。
+
+`RSPartyGame` 继续独占大厅准备、阶段转换与退出处理，`RSTournament` 继续只持有内存中的原始参赛槽位与累计积分。缺席下一项的槽位保留、该项加零分；大厅至少一人在场且所有在场参赛者准备才开始。`RSPartyUi` 展示缺席计分规则与短时二次 C 的退出确认；确认状态随其他输入、阶段／回合变化或确认者断线取消。暂停冻结玩法与确认时钟。无新增协议、业务存档、autoload 或运行时依赖。
+
+退出确认的内存状态由 `RSTournament.ExitGuard` 承载，每个游戏实例独占一份；它接收调用者提供的比赛时钟、阶段和参与者校验，不持有场景、UI或SceneTree，不自行切换场景。`RSPartyGame` 负责信号、调用状态和实际退出，`RSPartyUi` 只显示提示。缺席结果槽位的计算也由 `RSTournament` 接收最终结果行完成，避免在 UI 或项目中另造积分规则。

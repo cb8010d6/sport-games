@@ -132,7 +132,7 @@ jobs:
           path: build/game
       - name: Build portable game and hub
         run: python tools/build_windows.py --game-input build/game
-      - name: Test frozen network endpoints and exported game
+      - name: Test frozen BLE backend, network endpoints and exported game
         run: python tools/smoke_release.py dist/SportGames-Windows-x86_64
       - name: Package checked files and checksum
         run: python tools/package_archive.py

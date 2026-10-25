@@ -1,15 +1,12 @@
 class_name RSPartyGame
 extends Node3D
-## Shared frame for the 1-4 player games: lobby (A = ready, phone QR code), one split-screen
-## view + HUD per player, 3-2-1 countdown, ranked results (A = again, C = menu), Esc back to
-## the menu, and debug flags. A game extends this and overrides the "game hooks"; scores go
-## in Player.score, the game's own per-player state in Player.data.
+## Shared 1-4 player frame: lobby, split-screen HUDs, countdown, ranked results and pause.
+## Sports override game hooks, keep their state in Player.data and write Player.score.
+## C returns to the menu; active tournaments require the same controller to confirm with C.
 ##
-## Games with several maps list them in _maps(): the lobby then shows a map card (B or ←/→ to
-## change, remembered per game) and _load_map() rebuilds the world for the chosen one.
+## _maps() provides each game's map card; B or arrows select a remembered map for _load_map().
 ##
-## D (a short press, on any controller) or Esc opens the pause menu (RSPauseMenu): continue,
-## restart the round, display settings (RSSettings), language, main menu.
+## Short D or Esc opens RSPauseMenu: continue, restart, settings, language or main menu.
 ##
 ## The split-screen views live in RSPartyViews (`views`), the lobby / results / pause panels in
 ## RSPartyUi (`ui`); this script runs the rounds and draws the HUDs.
@@ -101,6 +98,7 @@ var _smoke_shot := ""
 var _smoke_done := false
 var _tournament_final_shown := false
 var _tournament_final_msec := 0  ## when the final podium appeared; A is ignored for 1 s (#55)
+var _tournament_exit := RSTournament.ExitGuard.new()
 var _tutorials: Dictionary = {}  ## controller id -> its active lobby lesson
 var _music: RSMusic
 
@@ -299,6 +297,9 @@ func _ready() -> void:
 	ControllerHub.button_released.connect(_on_button.bind(false))
 	ControllerHub.button_cancelled.connect(_on_button_cancelled)
 	ControllerHub.controller_event.connect(_on_event)
+	_tournament_exit.eligible = _exit_eligible
+	ControllerHub.controller_disconnected.connect(_exit_disconnected)
+	ControllerHub.roster_changed.connect(_validate_tournament_exit)
 	ControllerHub.qr_received.connect(ui.set_qr)
 	if not ControllerHub.qr_rows.is_empty():
 		ui.set_qr(ControllerHub.phone_url, ControllerHub.qr_rows)
@@ -324,6 +325,8 @@ func _ready() -> void:
 func _unhandled_input(event: InputEvent) -> void:
 	if benchmark_mode:
 		return
+	if event.is_pressed():
+		_clear_tournament_exit()
 	if phase == Phase.LOBBY and event is InputEventKey and event.pressed and not event.echo and event.physical_keycode == KEY_T:
 		review_tutorials()
 		get_viewport().set_input_as_handled()
@@ -341,6 +344,7 @@ func _unhandled_input(event: InputEvent) -> void:
 func go_menu() -> void:
 	if benchmark_mode:
 		return
+	_clear_tournament_exit()
 	get_tree().paused = false
 	RSTournament.clear()
 	RSSolo.clear()
@@ -350,6 +354,7 @@ func go_menu() -> void:
 func open_pause() -> void:
 	if benchmark_mode:
 		return
+	_clear_tournament_exit()
 	if _shots.is_empty():
 		ui.pause.can_restart = phase != Phase.LOBBY and not (RSTournament.active() and RSTournament.round_done)
 		ui.pause.can_tutorial = phase == Phase.LOBBY and not players.is_empty() and demo == 0
@@ -368,6 +373,7 @@ func restart_round() -> void:
 func _process(delta: float) -> void:
 	_clock += delta
 	phase_time += delta
+	_validate_tournament_exit()
 	match phase:
 		Phase.LOBBY:
 			_sync_players()
@@ -381,11 +387,13 @@ func _process(delta: float) -> void:
 			if solo_mode:
 				all_ready = players.size() == 2 and ordered().any(func(p: Player) -> bool: return not p.fake and p.c.connected)
 			if not benchmark_mode and RSTournament.active():
-				all_ready = players.size() == RSTournament.entrants.size()
+				all_ready = not players.is_empty()
 			for p: Player in players.values():
 				if p.fake and not p.ready and phase_time > 0.8:
 					_set_ready(p, true)
 				all_ready = all_ready and p.ready
+				if not benchmark_mode and RSTournament.active():
+					all_ready = all_ready and p.c.connected and RSTournament.entrants.has(p.c.player)
 			ui.update_lobby()
 			if all_ready:
 				_start_countdown()
@@ -477,6 +485,7 @@ func tutorials_active() -> bool:
 func review_tutorials() -> void:
 	if phase != Phase.LOBBY:
 		return
+	_clear_tournament_exit()
 	for p: Player in players.values():
 		if not p.fake and p.c.kind != "replay":
 			_set_ready(p, false)
@@ -527,6 +536,8 @@ func _add_player(c: RSController, fake: bool) -> Player:
 
 
 func _remove_player(id: int) -> void:
+	if _tournament_exit.controller != null and _tournament_exit.controller.id == id:
+		_clear_tournament_exit()
 	var p: Player = players[id]
 	_player_removed(p)
 	views.remove(p)
@@ -556,6 +567,7 @@ func _sync_players() -> void:
 # ------------------------------------------------------------------------- phases ----
 
 func _to_lobby() -> void:
+	_clear_tournament_exit()
 	_music.play_track("lobby")
 	phase = Phase.LOBBY
 	phase_time = 0.0
@@ -568,6 +580,7 @@ func _to_lobby() -> void:
 
 
 func _start_countdown() -> void:
+	_clear_tournament_exit()
 	_music.silence()
 	_result_committed = false
 	phase = Phase.COUNTDOWN
@@ -592,6 +605,7 @@ func finish_round() -> void:
 	# basketball): this guard alone runs too late for their preparation.
 	if _result_committed:
 		return
+	_clear_tournament_exit()
 	_result_committed = true
 	_music.play_track("victory")
 	phase = Phase.RESULTS
@@ -621,6 +635,8 @@ func finish_round() -> void:
 		haptic(p, "win" if rank == 1 else "hit")
 	if not benchmark_mode and RSTournament.active():
 		RSTournament.record(game_id(), results)
+		for slot: int in RSTournament.missing(results):
+			lines.append(tr("P%d 本项目缺席：0 大赛积分，保留此前积分") % slot)
 		lines.append("\n" + tr("大赛总积分 · %d / %d") % [RSTournament.index + 1, RSTournament.games.size()])
 		for row: Dictionary in RSTournament.standings():
 			lines.append("P%d · %s · %d" % [row["slot"], RSProfiles.bbcode(row["name"]), row["points"]])
@@ -641,6 +657,8 @@ func _on_button(c: RSController, button: int, pressed: bool) -> void:
 		return
 	if solo_mode and (c.player != RSSolo.slot or c.kind == "replay"):
 		return
+	if pressed and button != RSController.BTN_C:
+		_clear_tournament_exit()
 	# D: a short press toggles the pause menu (a long one is the hub's recenter).
 	if button == RSController.BTN_D:
 		if pressed:
@@ -662,7 +680,10 @@ func _on_button(c: RSController, button: int, pressed: bool) -> void:
 				_player_cancel_hold(held_p, button)
 		return
 	if pressed and button == RSController.BTN_C and phase in [Phase.LOBBY, Phase.RESULTS]:
-		go_menu()
+		if RSTournament.active():
+			_request_tournament_exit(c)
+		else:
+			go_menu()
 		return
 	var p: Player = players.get(c.id)
 	if p == null:
@@ -716,7 +737,36 @@ func _on_event(c: RSController, ev: String) -> void:
 		return
 	var p: Player = players.get(c.id)
 	if p and ev == "recentered":
+		_clear_tournament_exit()
 		_player_recentered(p)
+
+
+func _exit_eligible(c: RSController) -> bool:
+	return c != null and c.connected and players.has(c.id) and (players[c.id] as Player).c == c and RSTournament.entrants.has(c.player)
+
+
+func _request_tournament_exit(c: RSController) -> void:
+	if _tournament_exit.request(c, phase, _clock):
+		go_menu()
+	else:
+		ui.show_exit_confirmation(_tournament_exit.pending())
+
+
+func _validate_tournament_exit() -> void:
+	_tournament_exit.validate(RSTournament.active(), phase, _clock)
+	ui.show_exit_confirmation(_tournament_exit.pending())
+
+
+func _exit_disconnected(c: RSController) -> void:
+	# Event and reconnect may both arrive before _process; never keep an old confirmation.
+	_tournament_exit.lost(c)
+	ui.show_exit_confirmation(_tournament_exit.pending())
+
+
+func _clear_tournament_exit() -> void:
+	_tournament_exit.clear()
+	if is_instance_valid(ui):
+		ui.show_exit_confirmation(false)
 
 
 # --------------------------------------------------------------------------- OLED ----
@@ -770,6 +820,7 @@ func _oled_lobby(p: Player) -> void:
 
 func pick_map(step: int) -> void:
 	## Lobby: show the next / previous map on the card now, load it once the picking stops.
+	_clear_tournament_exit()
 	if demo or _maps().size() < 2:
 		return
 	var from := _pending_map if _pending_map >= 0 else map_index

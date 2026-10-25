@@ -9,6 +9,11 @@
   ],
   "documented": [
     {
+      "prefix": "docs/screenshots/bowling-b1-",
+      "license": "MIT AND CC0-1.0",
+      "evidence": "docs/BOWLING_B1_ENVIRONMENT.md#历史原图与来源"
+    },
+    {
       "prefix": "docs/screenshots/phase11-podium-",
       "license": "MIT AND CC0-1.0",
       "evidence": "docs/PHASE_11_SHARED_PODIUM.md"
@@ -38,6 +43,12 @@
       "extensions": [".png"],
       "license": "MIT",
       "evidence": "docs/perf/ingame-benchmark-2026-10-23/CREDITS.md"
+    },
+    {
+      "prefix": "docs/perf/issue-53-2026-10-25/",
+      "extensions": [".jpg"],
+      "license": "MIT AND CC0-1.0",
+      "evidence": "docs/perf/issue-53-2026-10-25/CREDITS.md"
     },
     {
       "prefix": "docs/screenshots/phase3-solo-",
@@ -73,6 +84,11 @@
       "prefix": "docs/screenshots/phase6-camera-",
       "license": "MIT",
       "evidence": "docs/PHASE_6_CAMERA_COMFORT.md"
+    },
+    {
+      "prefix": "game/assets/shared/",
+      "license": "CC0-1.0",
+      "evidence": "game/assets/shared/CREDITS.md"
     },
     {
       "prefix": "game/assets/polyhaven/",
@@ -119,6 +135,11 @@
       "prefix": "docs/screenshots/bench-ui-",
       "license": "MIT",
       "evidence": "docs/PERFORMANCE.md#游戏内性能测试"
+    },
+    {
+      "prefix": "docs/screenshots/golf-g1-",
+      "license": "MIT AND CC0-1.0",
+      "evidence": "docs/GOLF_M1.md#截图与来源"
     }
   ]
 }

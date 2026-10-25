@@ -2,6 +2,7 @@ class_name RSTutorial
 extends RefCounted
 ## One player's lobby lesson: demonstrate, then require fresh motion/button practice.
 ## No game state changes and no fabricated controller samples. The party frame saves completion.
+## Each game's steps are listed by constant name in its RSGameModule manifest (lessons).
 
 const DEMO_SECONDS := 2.4
 const TILT_RIGHT := {"kind": "right", "text": "向右倾斜手柄，并保持片刻"}
@@ -12,14 +13,6 @@ const DRAW := {"kind": "draw", "text": "按住 A 拉弓一秒，再松开"}
 const THROW := {"kind": "throw", "text": "按住 B 挥动手柄，再松开出手"}
 const JUMP := {"kind": "jump", "text": "快速向上抬手柄，练习起跳"}
 const GRAB := {"kind": "hold_b", "text": "按住 B，练习空中抓板"}
-const LESSONS := {
-	"plane": [TILT_RIGHT, TILT_FORWARD, BOOST],
-	"archery": [AIM, DRAW],
-	"bowling": [TILT_RIGHT, THROW],
-	"skate": [TILT_RIGHT, JUMP, GRAB],
-	"ski": [TILT_RIGHT, TILT_FORWARD, JUMP, GRAB],
-	"basketball": [AIM, THROW],
-}
 
 var steps: Array = []
 var index := 0
@@ -40,8 +33,21 @@ var _left_hand := false
 
 
 func _init(game_id: String) -> void:
-	steps = LESSONS.get(game_id, []).duplicate()
+	steps = step_list(RSCatalog.lessons(game_id))
 	finished = steps.is_empty()
+
+
+static func step_list(names: PackedStringArray) -> Array:
+	## Step constants of this class by name; unknown names are reported and skipped.
+	var constants := (load("res://core/tutorial.gd") as Script).get_script_constant_map()
+	var result: Array = []
+	for step_name: String in names:
+		var step: Variant = constants.get(step_name)
+		if step is Dictionary and (step as Dictionary).has("kind"):
+			result.append(step)
+		else:
+			push_error("Unknown tutorial step: " + step_name)
+	return result
 
 
 func start(c: RSController) -> void:

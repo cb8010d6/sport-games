@@ -12,6 +12,7 @@ import tempfile
 import time
 from pathlib import Path
 
+import catalog
 from smoke_test import engine_errors, png_size
 from test_game import ROOT, find_godot, run_engine
 
@@ -29,7 +30,7 @@ def main() -> int:
     try:
         cases = [("", 0, language, verify) for language in (0, 1) for verify in (False, True)]
         if not args.ui_only:
-            cases += [(game, players, 0, False) for game in ("plane", "archery", "bowling", "skate", "ski", "basketball") for players in (2, 4)]
+            cases += [(game, players, 0, False) for game in catalog.game_ids() for players in (2, 4)]
         for game, players, language, verify in cases:
             name = f"{game or 'menu'}-{players}-{language}" + ("-reload" if verify else "")
             data = temporary / f"{game or 'menu'}-{players}-{language}"

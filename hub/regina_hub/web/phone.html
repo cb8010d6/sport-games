@@ -316,7 +316,7 @@ let profileName = "";
 try { profileName = localStorage.getItem("rs-profile-name") || ""; } catch (_) { /* private mode */ }
 let playerNo = 0;
 
-const CONN_TEXT = { connected: RS.t("已连接"), connecting: RS.t("连接中…"), disconnected: RS.t("重连中…") };
+const CONN_TEXT = { connected: RS.t("已连接"), connecting: RS.t("连接中…"), disconnected: RS.t("重连中…"), pair_required: RS.t("请重新扫码连接") };
 function statusLine() {
   $("name").textContent = (playerNo ? `P${playerNo} · ` : "") + deviceName;
   let s = CONN_TEXT[connState] || connState;
