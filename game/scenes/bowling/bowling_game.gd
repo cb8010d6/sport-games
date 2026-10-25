@@ -22,6 +22,7 @@ const TWIST_DEAD := 0.08
 const SETTLE := 2.2                ## seconds after the ball is gone before counting pins
 const INTRO := 3.8                 ## venue flyover before the original 3-2-1
 const SCORE_BG := Color(Color("e3e5ef"), 0.76) ## user-selected light blue-grey, with the lane visible beneath
+const AIM_WAIT := 20.0             ## effective PLAY seconds to start each throw
 
 enum Step { AIM, SWING, ROLLING, SETTLE_PINS, DONE }
 
@@ -349,7 +350,9 @@ func _play_process(delta: float) -> void:
 	for p: Player in players.values():
 		var s := _bowler(p)
 		s.step_t += delta
-		if p.fake:
+		if s.step == Step.AIM and s.step_t >= AIM_WAIT:
+			_expire_aim(p)
+		elif p.fake:
 			_bot(p)
 		match s.step:
 			Step.AIM:
@@ -406,6 +409,11 @@ func _player_button(p: Player, button: int, pressed: bool) -> void:
 
 func _start_swing(p: Player) -> void:
 	var s := _bowler(p)
+	if s.step != Step.AIM:
+		return
+	if s.step_t >= AIM_WAIT:
+		_expire_aim(p)
+		return
 	s.step = Step.SWING
 	s.step_t = 0.0
 	s.swing_q = p.c.motion_orientation()
@@ -476,6 +484,19 @@ func _count_pins(p: Player) -> void:
 		if s.standing[i] and _pin_down(s, i):
 			s.standing[i] = false
 			knocked += 1
+	_finish_throw(p, knocked)
+
+
+func _expire_aim(p: Player) -> void:
+	var s := _bowler(p)
+	if phase != Phase.PLAY or s.step != Step.AIM or s.step_t < AIM_WAIT:
+		return
+	# A missed deadline is a zero throw, not a scan of pins fallen on an earlier ball.
+	_finish_throw(p, 0, true)
+
+
+func _finish_throw(p: Player, knocked: int, timed_out: bool = false) -> void:
+	var s := _bowler(p)
 	var first_ball := s.ball_in_frame == 0 or (s.frame == _frames - 1 and _fresh_rack_ball(s))
 	s.rolls.append(knocked)
 	var standing := s.standing.count(true)
@@ -483,7 +504,10 @@ func _count_pins(p: Player) -> void:
 	var oled := "%d PINS" % knocked
 	var reset_all := false
 	var next_frame := false
-	if standing == 0 and first_ball:
+	if timed_out:
+		label = tr("出手超时，按 0 瓶计")
+		oled = "TIME OUT"
+	elif standing == 0 and first_ball:
 		s.strikes += 1
 		label = tr("全中！STRIKE")
 		oled = "STRIKE!"
@@ -708,6 +732,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 				draw_text(h, hint, Vector2(sz.x * 0.5, sz.y - 40 * k), hint_size, RSUi.TEXT, true)
 				var label := tr("第 %d 格　第 %d 球") % [mini(s.frame, _frames - 1) + 1, s.ball_in_frame + 1]
 				draw_text(h, label, Vector2(sz.x * 0.5, sz.y - 76 * k), 20 * k, RSUi.TEXT_MUTED, true)
+				draw_text(h, tr("出手剩余 %d 秒") % maxi(0, ceili(AIM_WAIT - s.step_t)), Vector2(sz.x * 0.5, sz.y - 106 * k), 18 * k, RSUi.TEXT_MUTED, true)
 		Step.SWING:
 			# Live twist gauge: where the ball would curve if released now.
 			var tw := 0.0 if p.fake else _twist(p)
