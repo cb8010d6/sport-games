@@ -18,3 +18,4 @@ ambience = "wind_amb"
 preview = "res://assets/previews/ski.jpg"
 ready = true
 order = 50
+benchmark = true

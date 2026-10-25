@@ -66,6 +66,15 @@ static func solo_goals(id: String) -> Array:
 	return [] if m == null else Array(m.solo_goals)
 
 
+static func benchmark_ids() -> Array[String]:
+	## The menu games marked benchmark = true, in menu order (RSBenchmarkMenu.CASES).
+	var ids: Array[String] = []
+	for m: RSGameModule in modules():
+		if m.benchmark:
+			ids.append(m.id)
+	return ids
+
+
 static func dump() -> Dictionary:
 	## Everything the tools need, hidden modules included (tools/catalog.py reads this JSON).
 	var rows: Array = []
@@ -92,7 +101,7 @@ static func _entry(m: RSGameModule) -> Dictionary:
 	return {"id": m.id, "name": m.name, "oled": m.oled, "scene": m.scene, "desc": m.desc,
 		"maps_script": m.maps_script, "lessons": Array(m.lessons), "solo_goals": Array(m.solo_goals),
 		"players": [m.players.x, m.players.y], "mode": m.mode, "ambience": m.ambience,
-		"preview": m.preview, "ready": m.ready, "order": m.order}
+		"preview": m.preview, "ready": m.ready, "order": m.order, "benchmark": m.benchmark}
 
 
 static func _discover() -> Array[RSGameModule]:

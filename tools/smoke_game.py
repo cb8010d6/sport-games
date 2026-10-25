@@ -31,10 +31,11 @@ def smoke_game(executable: Path, project: Path | None = None) -> None:
     command = [str(executable.resolve()), "--headless", "--fixed-fps", "60", "--quit-after", "600"]
     if project:
         command += ["--path", str(project.resolve())]
+    import catalog  # every game module (hidden ones too) and its maps; see tools/catalog.py
     cases = [("menu/main_menu", 0, 0)]
-    cases += [(f"{game}/{game}_game", 0, 1) for game in ["plane", "archery", "bowling", "skate"]]
-    cases += [("ski/ski_game", index, 1) for index in range(4)]
-    cases += [("basketball/basketball_game", index, players) for index in range(2) for players in [1, 2, 4]]
+    for game in catalog.game_ids(include_hidden=True):   # basketball also checks its split-screen
+        cases += [(f"{game}/{game}_game", index, players) for index in range(catalog.map_count(game))
+                  for players in ([1, 2, 4] if game == "basketball" else [1])]
     for scene, index, players in cases:
         game_id = scene.split("/", 1)[0]
         args = ["--", f"--game={game_id}", f"--demo={players}", f"--map={index}"] if players else []

@@ -19,6 +19,7 @@ import tempfile
 import time
 from pathlib import Path
 
+import catalog
 from engine_process import run_engine, silence_native_crash_dialogs
 from smoke_test import png_size
 from test_game import ROOT, find_godot
@@ -147,7 +148,7 @@ def run_case(godot: str, output: Path, mode: str, players: int, language: int, s
             validate_fixture_export(directory / "fixture-export")
             if mode == "ui":
                 measured = json.loads((directory / "ui-results.json").read_text(encoding="utf-8"))["runs"]
-                if [run["game"] for run in measured] != ["skate", "ski", "basketball"]:
+                if [run["game"] for run in measured] != list(catalog.benchmark_ids()):
                     raise ValueError("retained UI export lost the actual three-scene sequence")
                 for run in measured:
                     elapsed = sum(sample["frame_ms"] for sample in run["samples"]) / 1000

@@ -25,3 +25,4 @@ const MODES := ["individual", "versus", "teams"]   ## 各打各的 / 同场对�
 @export_file("*.jpg") var preview := "" ## menu picture rendered by tools/capture_previews.py
 @export var ready := false              ## listed in the menu, solo and party pages
 @export var order := 100                ## menu position, ascending (ties sort by id)
+@export var benchmark := false          ## one of the settings benchmark scenes (RSBenchmarkMenu)

@@ -18,3 +18,4 @@ ambience = ""
 preview = "res://assets/previews/skate.jpg"
 ready = true
 order = 40
+benchmark = true

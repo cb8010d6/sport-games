@@ -8,7 +8,7 @@ extends Control
 signal run_completed(reports: Array[Dictionary])
 signal _case_finished(report: Dictionary)
 
-const CASES := ["skate", "ski", "basketball"]
+static var CASES := RSCatalog.benchmark_ids()   ## manifests with benchmark = true, in menu order
 const RESOLUTIONS := [Vector2i(1600, 900), Vector2i(1920, 1080)]
 const BENCH_SEED := 20261023
 const MIN_GPU_COVERAGE := 0.5     ## below this share of valid viewport readings the estimate is withheld

@@ -369,7 +369,7 @@ func _ui_tests() -> void:
 		ids.append(str(report.get("game", "")))
 		_check(report.get("status") == "PASS", "actual UI case completed successfully")
 		_validate_actual(report)
-	_check(ids == ["skate", "ski", "basketball"], "actual fixed scene order")
+	_check(ids == RSCatalog.benchmark_ids() and not ids.is_empty(), "actual fixed scene order")
 	_check(_state() == before, "successful UI sequence restores preferences and actual window")
 	await _screenshot("results.png")
 	var scroll := menu.get("_results_scroll") as ScrollContainer

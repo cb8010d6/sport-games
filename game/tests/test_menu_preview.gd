@@ -113,7 +113,7 @@ func _run() -> void:
 		await _frames()
 		_selected(index, "catalog %d" % index)
 		await _capture(RSCatalog.games()[index]["id"])
-	_check(_menu._preview._textures.size() == 6, "one cached texture per sport")
+	_check(_menu._preview._textures.size() == RSCatalog.games().size(), "one cached texture per sport")
 	_check(_menu.find_children("*", "RSPartyGame", true, false).is_empty(), "menu does not instantiate sport games")
 	_menu._preview.show_game({"id": "missing-preview-test", "name": ""})
 	_check(not _menu._preview.visible, "missing art hides preview")

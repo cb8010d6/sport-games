@@ -20,9 +20,10 @@ import tempfile
 import time
 from pathlib import Path
 
+import catalog
 from test_game import ROOT, find_godot, run_engine, silence_native_crash_dialogs
 
-GAMES = ("plane", "archery", "bowling", "skate", "ski", "basketball")
+GAMES = catalog.game_ids()   # the menu games (tools/catalog.py)
 
 
 def engine_errors(log: str) -> tuple[list[str], list[str]]:

@@ -18,3 +18,4 @@ ambience = "city_amb"
 preview = "res://assets/previews/basketball.jpg"
 ready = true
 order = 60
+benchmark = true
