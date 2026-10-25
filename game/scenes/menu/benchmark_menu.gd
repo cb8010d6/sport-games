@@ -9,7 +9,7 @@ signal run_completed(reports: Array[Dictionary])
 signal _case_finished(report: Dictionary)
 
 const CASES := ["skate", "ski", "basketball"]
-const RESOLUTIONS := [Vector2i(1600, 900), Vector2i(1920, 1080)]
+const RESOLUTIONS := [Vector2i(1600, 900), Vector2i(1920, 1080), Vector2i(2560, 1440)]
 const BENCH_SEED := 20261023
 const MIN_GPU_COVERAGE := 0.5     ## below this share of valid viewport readings the estimate is withheld
 static var return_to_settings := false
@@ -142,7 +142,7 @@ func _build_config(ui: Control) -> void:
 	for quality: String in RSSettings.QUALITY_NAMES:
 		qualities.append(tr(quality))
 	_quality = _option(column, tr("画质"), tr("只在测试期间临时使用，不改变你的画面设置。"), qualities, RSSettings.quality)
-	_resolution = _option(column, tr("分辨率"), tr("窗口模式输出；测试期间关闭超分，使用原生分辨率渲染。"), ["1600 × 900", "1920 × 1080"], 1 if get_tree().root.size == RESOLUTIONS[1] else 0)
+	_resolution = _option(column, tr("分辨率"), tr("窗口模式输出；测试期间关闭超分，使用原生分辨率渲染。"), ["1600 × 900", "1920 × 1080", "2560 × 1440"], 1 if get_tree().root.size == RESOLUTIONS[1] else 0)
 	var notes := _card(column, 6)
 	notes.add_child(RSUi.label(tr("临时关闭垂直同步与帧率上限，使用原生分辨率；完成或取消后恢复设置，不保存偏好。"), 16, RSUi.TEXT_MUTED, true))
 	notes.add_child(RSUi.label(tr("固定场景与起始种子；轨迹和粒子可能随帧率变化。曲线界面的开销计入测量。"), 16, RSUi.TEXT_MUTED, true))

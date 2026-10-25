@@ -8,6 +8,7 @@ import time
 import unittest
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from unittest import mock
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent / "fixtures"))
@@ -27,6 +28,85 @@ class EngineProcessTests(unittest.TestCase):
         self.assertEqual(result.returncode, 7)
         self.assertEqual(result.stdout.strip(), "out")
         self.assertEqual(result.stderr.strip(), "err")
+
+    def test_explicit_cwd_and_relative_project_lock_use_the_same_directory(self):
+        parent_cwd = Path.cwd()
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp)
+            script = "import pathlib; print(pathlib.Path.cwd()); print(pathlib.Path('project/.godot/rs-runner.lock').is_file())"
+            command = [sys.executable, "-c", script, "--path", "project"]
+            result = run_engine(command, env=dict(os.environ), timeout=10, cwd=directory)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertEqual(result.stdout.splitlines(), [str(directory), "True"])
+            self.assertEqual(Path.cwd(), parent_cwd)
+            with project_lock(command, cwd=directory), self.assertRaisesRegex(OSError, "Another automated Godot run"):
+                run_engine(command, env=dict(os.environ), timeout=10, cwd=directory)
+
+    def test_normal_exit_stops_descendants_before_their_directory_is_removed(self):
+        with tempfile.TemporaryDirectory() as temp:
+            directory = Path(temp) / "owned"
+            directory.mkdir()
+            command = tree_command(directory)
+            with ThreadPoolExecutor(max_workers=1) as pool:
+                future = pool.submit(run_engine, command, env=dict(os.environ), timeout=TREE_TIMEOUT)
+                try:
+                    deadline = time.monotonic() + STARTUP_TIMEOUT
+                    while not tree_ready(directory) and not future.done() and time.monotonic() < deadline:
+                        time.sleep(0.02)
+                    if future.done():
+                        future.result()
+                    self.assertTrue(tree_ready(directory))
+                    self.assertEqual(tree_survivors(directory), ["child", "grandchild"])
+                    # Native descendants retain the wrapper's pipes until released.
+                    (directory / "release").touch()
+                    result = future.result(timeout=5)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    self.assertIn("WRAPPER", result.stdout)
+                    self.assertEqual(tree_survivors(directory), [], "Normal return left owned descendants alive")
+                    shutil.rmtree(directory)
+                    self.assertFalse(directory.exists())
+                finally:
+                    if directory.exists():
+                        cleanup_tree(directory)
+
+    @unittest.skipUnless(os.name == "nt", "Win32 Job accounting failure")
+    def test_cleanup_failure_rejects_success_with_complete_streams(self):
+        wait_empty = engine_process.WindowsJob.wait_empty
+
+        def failed_wait(job):
+            wait_empty(job)
+            raise OSError("fixture accounting failure")
+
+        with mock.patch.object(engine_process.WindowsJob, "wait_empty", failed_wait), \
+             self.assertRaisesRegex(OSError, "fixture accounting failure") as caught:
+            run_engine([sys.executable, "-c", "import sys; print('out'); print('err', file=sys.stderr)"],
+                       env=dict(os.environ), timeout=10)
+        notes = "\n".join(caught.exception.__notes__)
+        self.assertIn("stdout:\nout", notes)
+        self.assertIn("stderr:\nerr", notes)
+
+    @unittest.skipUnless(os.name == "nt", "Win32 Job accounting failure")
+    def test_cleanup_failure_preserves_original_timeout_and_streams(self):
+        wait_empty = engine_process.WindowsJob.wait_empty
+
+        def bounded_wait(job):
+            wait_empty(job, timeout=0.1)
+
+        started = time.monotonic()
+        # A real native process remains alive until close; the accounting wait must
+        # fail within its deadline while retaining the original process timeout.
+        with mock.patch.object(engine_process.WindowsJob, "terminate", return_value=None), \
+             mock.patch.object(engine_process.WindowsJob, "wait_empty", bounded_wait), \
+             self.assertRaises(subprocess.TimeoutExpired) as caught:
+            command = [tree_command(Path.cwd())[0], "-NoLogo", "-NoProfile", "-NonInteractive", "-Command",
+                       "[Console]::WriteLine('out'); [Console]::Error.WriteLine('err'); Start-Sleep -Seconds 10"]
+            run_engine(command,
+                       env=dict(os.environ), timeout=2)
+        self.assertEqual(caught.exception.timeout, 2)
+        self.assertIn("out", caught.exception.stdout)
+        self.assertIn("err", caught.exception.stderr)
+        self.assertIn("active processes after 0.1s", "\n".join(caught.exception.__notes__))
+        self.assertLess(time.monotonic() - started, 4)
 
     def test_timeout_kills_child_after_wrapper_already_exited(self):
         self._assert_timeout_kills_tree(startup_delay=0)

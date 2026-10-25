@@ -256,7 +256,7 @@ class ReginaBleSource:
             try:
                 gyro = _sensor_vector(P.parse_legacy_vec3(bytes(data)), DEG2RAD, MAX_GYRO_RAD_S)
                 # No device clock: timestamp on arrival (BLE jitter goes straight into the integration).
-                t_us = time.monotonic() * 1e6
+                t_us = time.perf_counter() * 1e6  # monotonic() ticks every ~16 ms on Windows
                 self.hub.on_imu(c, [(t_us, self.remap(gyro), self.remap(last_accel[0]))])
             except (ValueError, OverflowError, struct.error):
                 self._bad_packet("legacy gyro", c)

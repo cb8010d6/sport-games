@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
-import { installAsset, request, resolveFile, safePath, sha256, validateUrl } from '../sync_assets.mjs';
+import { installAsset, nodeVersionSupported, request, resolveFile, safePath, sha256, validateUrl } from '../sync_assets.mjs';
 import { sanitizeJpegProcessingHistory } from '../asset_metadata.mjs';
 
 const remote = { url: 'https://dl.polyhaven.com/file/ph-assets/fixture.bin' };
@@ -98,4 +98,14 @@ test('sanitized downloads must match the final hash before installation', async 
   const entry = { ...item(cleaned), downloadSha256: sha256(jpeg), transform: 'jpeg-processing-history-v1' };
   assert.equal(await installAsset(entry, root, () => remote, { fetcher: async () => response(jpeg) }), 'downloaded');
   assert.deepEqual(fs.readFileSync(safePath(root, entry.path)), cleaned);
+});
+
+test('only patched Node lines are supported (#51)', () => {
+  assert.equal(nodeVersionSupported('22.23.4'), true);
+  assert.equal(nodeVersionSupported('22.23.3'), false);
+  assert.equal(nodeVersionSupported('24.22.1'), true);
+  assert.equal(nodeVersionSupported('26.12.1'), true);
+  assert.equal(nodeVersionSupported('20.19.0'), false);
+  assert.equal(nodeVersionSupported('23.11.0'), false);
+  assert.equal(nodeVersionSupported('28.0.0'), true);  // newer majors than the list are not blocked
 });
