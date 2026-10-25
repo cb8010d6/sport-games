@@ -5,7 +5,8 @@ extends RefCounted
 ## frame can no longer ask for more and more sub-steps (more CPU, slower frames, more steps).
 ## A frame that would need more than MAX_STEPS takes MAX_STEPS longer steps instead (up to
 ## MAX_H each) so the ride stays in real time; only a hitch beyond MAX_STEPS * MAX_H is dropped.
-## The leftover time is drawn by interpolating between the last two states (draw()).
+## The leftover time (< STEP) is drawn by carrying the last sub-step's motion on (draw()),
+## which adds no display latency and is exact when the frame time is a whole number of steps.
 
 const STEP := 1.0 / 120.0
 const MAX_STEPS := 3
@@ -54,4 +55,4 @@ func draw(p: Vector3) -> Vector3:
 	if not p.is_equal_approx(_cur):
 		reset(p)
 		return p
-	return _prev.lerp(_cur, clampf(acc / h, 0.0, 1.0))
+	return _cur + (_cur - _prev) * clampf(acc / h, 0.0, 1.0)
