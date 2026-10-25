@@ -51,17 +51,21 @@ static func profile(slot: int) -> Dictionary:
 
 
 static func player_name(slot: int) -> String:
-	return str(profile(slot)["name"])
+	## Read _slots directly: these run per HUD frame, profile() would deep-copy.
+	load_once()
+	return str(_slots[clampi(slot, 1, 4)]["name"])
 
 
 static func player_color(slot: int) -> Color:
 	if RSSettings.color_safe:
 		return ACCESSIBLE_COLORS[clampi(slot - 1, 0, 3)]
-	return COLORS[int(profile(slot)["color"])]
+	load_once()
+	return COLORS[int(_slots[clampi(slot, 1, 4)]["color"])]
 
 
 static func avatar(slot: int) -> int:
-	return int(profile(slot)["avatar"])
+	load_once()
+	return int(_slots[clampi(slot, 1, 4)]["avatar"])
 
 
 static func left_handed(slot: int) -> bool:

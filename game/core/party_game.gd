@@ -31,6 +31,7 @@ class Player:
 	var cam: Camera3D
 	var hud: PlayerHud
 	var oled_key := ""           ## last OLED update, to skip identical ones
+	var oled_sent := ""          ## JSON of the last ui send_ui() actually sent (framework dedup)
 
 	func popup(text: String, color: Color = Color.WHITE) -> void:
 		hud.popups.append([text, color, float(hud.game.get("_clock"))])
@@ -297,7 +298,7 @@ func _ready() -> void:
 		c.id = 200 + i
 		c.player = i + 1
 		c.kind = "replay"
-		c.display_name = "Bot-%d" % (i + 1)
+		c.display_name = tr("机器人 %d") % (i + 1)
 		c.connected = true
 		_add_player(c, true)
 	if solo_mode:
@@ -578,6 +579,7 @@ func _start_countdown() -> void:
 	for p: Player in players.values():
 		p.score = 0
 		p.oled_key = ""
+		p.oled_sent = ""
 		p.hud.popups.clear()
 	_apply_pending_map()
 	ui.lobby_panel.visible = false
@@ -588,6 +590,9 @@ func _start_countdown() -> void:
 
 
 func finish_round() -> void:
+	# Subclasses that prepare replay/podium state before calling super must
+	# return early when _result_committed is already set (see skate/ski/
+	# basketball): this guard alone runs too late for their preparation.
 	if _result_committed:
 		return
 	_clear_tournament_exit()
@@ -737,8 +742,20 @@ func _clear_tournament_exit() -> void:
 # --------------------------------------------------------------------------- OLED ----
 
 func send_ui(p: Player, ui: Dictionary) -> void:
-	if not p.fake:
-		ControllerHub.send_ui(p.c.id, ui)
+	if p.fake:
+		return
+	if not ui.has("toast"):
+		# ARCHITECTURE promises send_ui dedups: identical state is not resent.
+		# Projects may keep their own cheap oled_key checks on top; this is the
+		# safety net for callers that don't. An emptied oled_key (pause menu,
+		# new round) means "whatever the screen shows now is stale": resend.
+		var key := JSON.stringify(ui)
+		if p.oled_key.is_empty():
+			p.oled_sent = ""
+		if key == p.oled_sent:
+			return
+		p.oled_sent = key
+	ControllerHub.send_ui(p.c.id, ui)
 
 
 func vibrate(p: Player, ms: int) -> void:
@@ -795,6 +812,8 @@ func _apply_pending_map() -> void:
 		map_index = m
 		_last_map[get_script().resource_path] = m
 		_load_map(m)
+		# The new map's environment and sun carry scene values; re-apply the quality gates (#54).
+		RSSettings.apply_world(self)
 	_update_map_card()
 
 

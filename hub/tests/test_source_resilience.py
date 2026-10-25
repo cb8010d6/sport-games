@@ -67,8 +67,8 @@ async def test_source_failures_leave_web_and_game_running(tmp_path, monkeypatch,
             assert all(not c.connected for c in hub.controllers.values() if c.kind == "replay")
             port = source._runner.addresses[0][1]
             async with aiohttp.ClientSession() as session:
-                async with session.ws_connect(f"http://127.0.0.1:{port}/ws") as ws:
-                    await ws.send_json({"t": "hello", "kind": "sim", "client_id": "source-fixture"})
+                async with session.ws_connect(f"http://127.0.0.1:{port}/ws", origin=f"http://127.0.0.1:{port}") as ws:
+                    await ws.send_json({"t": "hello", "kind": "sim", "client_id": "source-fixture", "token": source.pairing_token})
                     welcome = await ws.receive_json(timeout=2)
                     assert welcome["t"] == "welcome" and welcome["player"] == 1
                     await ws.send_json({"t": "in", "b": 1, "d": [2, -1], "an": [0.25, 0]})
