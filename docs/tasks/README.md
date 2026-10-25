@@ -87,7 +87,7 @@
 | [53-03](53-03-ski-snow-budget.md) | 雪粒子按视图数缩量，大厅雪比赛中停掉 | 待领 | — | 项目（滑雪） |
 | [53-04](53-04-ball-fire-cache.md) | 篮球火焰粒子资源共享、开场预热 | 待领 | — | 项目（篮球） |
 | [53-05](53-05-texture-imports.md) | 纹理导入设置检查 / 修正工具，角色纹理改显存压缩 + 2K 上限 | 待领 | — | 工具 + 素材 |
-| [53-06](53-06-viewport-pixel-size.md) | 分屏 SubViewport 按窗口像素渲染 | 待确认 | 维护者决定默认值 | 框架 |
+| [53-06](53-06-viewport-pixel-size.md) | 分屏 SubViewport 按窗口像素渲染（默认方案 B） | 待领 | — | 框架 |
 
 ## #58 素材与美术剩余项（PR #88 之后）
 
@@ -100,7 +100,7 @@
 | [58-03](58-03-cc0-material-pack.md) | ambientCG 等 CC0 材质 ZIP → Poly Haven 命名的打包脚本 | 待领 | — | 工具 |
 | [58-04](58-04-character-generator.md) | 统一人物生成脚本 + 阵容 / 服装配置 | 待领 | — | 工具（Blender） |
 | [58-05](58-05-rs-outfit.md) | `RSOutfit`：阵容路径、服装材质槽 | 待领 | 58-04 的目录约定 | 框架 |
-| [58-06](58-06-character-migration.md) | 滑板 / 滑雪 / 篮球改用共享阵容，删旧角色 | 待确认 | 58-04、58-05、53-05；维护者确认阵容 | 素材 + 项目 |
+| [58-06](58-06-character-migration.md) | 滑板 / 滑雪 / 篮球改用共享阵容，删旧角色 | 待领 | 58-04、58-05、53-05 | 素材 + 项目 |
 | [58-07](58-07-outfits-court.md) | 乒乓 / 网球 / 沙排服装 | 待领 | 58-04 | 素材 |
 | [58-08](58-08-outfits-boxing-jetski.md) | 拳击 / 水上摩托服装、裁判 NPC | 待领 | 58-04、58-02 | 素材 |
 | [58-09](58-09-pose-reference.md) | 网球等关键姿态数据（Poses 02） | 待领 | — | 素材 |
@@ -108,7 +108,7 @@
 | [58-11](58-11-acg-materials.md) | ambientCG 材质：铁丝网、球网、绳、泡沫、胶皮 | 待领 | 58-03 | 素材 |
 | [58-12](58-12-crowd-meshes.md) | 观众 v2 低模（MPFB） | 待领 | — | 素材（Blender） |
 | [58-13](58-13-crowd-impostor.md) | 观众 v2 后排 impostor 图集 + `RSCrowd` 远排入口 | 待领 | 58-12、39-17 | 素材 + 框架 |
-| [58-14](58-14-trees-to-shared.md) | `golf/trees/` → `shared/vegetation/`（只移动） | 待确认 | 高尔夫负责人同意 | 素材 + 项目（高尔夫） |
+| [58-14](58-14-trees-to-shared.md) | `golf/trees/` → `shared/vegetation/`（只移动） | 待领 | — | 素材 + 项目（高尔夫） |
 | [58-15](58-15-ground-materials.md) | 红土、木地板、沙、地胶等地表材质 | 待领 | 58-02 | 素材 |
 | [58-16](58-16-hdri-set.md) | HDRI：室外 puresky、海滩、湖 / 海湾、室内 2K | 待领 | 58-02 | 素材 |
 | [58-17](58-17-sky-presets.md) | `RSSkyPresets`：天空 + 太阳 + 雾的预设与构建 | 待领 | 58-16 的路径约定 | 框架 |

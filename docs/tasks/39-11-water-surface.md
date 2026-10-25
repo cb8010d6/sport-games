@@ -29,7 +29,7 @@ Issue #39 F8（#58 P4 的代码部分）· 区域：框架（`game/core/`、`gam
 class_name RSWaterSurface
 extends MeshInstance3D
 
-const FOAM_TEXTURE := "res://assets/shared/materials/acg_foam002/foam_color.png"
+const FOAM_TEXTURE := "res://assets/shared/materials/acg_foam002/acg_foam002_diff_2k.png"
 	## #58 P4 交付的泡沫贴图；文件不存在时着色器用程序噪声代替（use_foam_texture = false），不报错
 
 var preset: RSWater.Preset
