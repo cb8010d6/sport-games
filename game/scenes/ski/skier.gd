@@ -44,6 +44,8 @@ var player_layer := 1
 
 var pos := Vector3.ZERO        ## on the snow under the bindings, world
 var vel := Vector3.ZERO
+var draw_pos := Vector3.ZERO   ## where the skier is drawn: pos, smoothed between sub-steps
+var clock := RSFixedStep.new() ## sub-step clock (fixed 120 Hz, capped per frame)
 var heading := 0.0             ## where the skis point, rad about +Y, 0 = -Z
 var mode := Mode.RIDE
 var spin := 0.0                ## in the air: turned from the takeoff heading
@@ -111,6 +113,8 @@ func quiet() -> void:
 
 func place(u: float, s: float) -> void:
 	pos = course.world(u, s)
+	draw_pos = pos
+	clock.reset(pos)
 	heading = course.heading_at(s)
 	vel = Vector3.ZERO
 	mode = Mode.RIDE
@@ -161,10 +165,16 @@ func step(dt: float, c: RSMotionControls, racing: bool) -> void:
 	if racing:
 		run_time += dt if not finished else 0.0
 		_events(c)
-		var n := maxi(1, ceili(dt / (1.0 / 120.0)))
-		_frac = 1.0 / n
+		var n := clock.advance(dt)
+		_frac = 1.0 / n if n > 0 else 1.0
+		if n == 0 and mode == Mode.AIR:
+			spin += c.yaw_delta * SPIN_GAIN   # this frame's turn, with no sub-step to carry it
 		for i in n:
-			_sub(dt / n, c)
+			var before := pos
+			_sub(clock.h, c)
+			if i == n - 1:
+				clock.push(before, pos)
+	draw_pos = clock.draw(pos)
 	_visuals(dt, c)
 
 
@@ -481,7 +491,7 @@ func _visuals(dt: float, c: RSMotionControls) -> void:
 			fwd = Vector3(hv.x, 0.0, hv.y).normalized()
 	var z := -(fwd - up * fwd.dot(up)).normalized()
 	var x := up.cross(z).normalized()
-	rig.global_transform = Transform3D(Basis(x, up, z).orthonormalized(), pos)
+	rig.global_transform = Transform3D(Basis(x, up, z).orthonormalized(), draw_pos)
 	var spd := current_speed()
 	var target := spin
 	if finished and mode == Mode.RIDE:
@@ -638,6 +648,7 @@ func _soft_dot() -> GradientTexture2D:
 
 
 func _update_fx(_dt: float) -> void:
+	var p := draw_pos
 	var spd := current_speed()
 	var spraying := mode == Mode.RIDE and spd > 4.0 and (skid > 0.15 or absf(_lean) > 0.55)
 	_spray.emitting = spraying
@@ -645,15 +656,15 @@ func _update_fx(_dt: float) -> void:
 		# Off the outside of the turn, thrown back and up.
 		var back := -_dir(heading)
 		var out := Vector3(back.z, 0, -back.x) * signf(_lean)
-		_spray.global_transform = Transform3D(Basis.looking_at(-(back * 0.6 + out * 0.8 + Vector3.UP * 0.2).normalized(), Vector3.UP), pos + back * 0.5 + Vector3.UP * 0.05)
+		_spray.global_transform = Transform3D(Basis.looking_at(-(back * 0.6 + out * 0.8 + Vector3.UP * 0.2).normalized(), Vector3.UP), p + back * 0.5 + Vector3.UP * 0.05)
 		_spray.amount_ratio = clampf(maxf(skid, (absf(_lean) - 0.5) * 2.0) * clampf(spd / 14.0, 0.3, 1.0), 0.15, 1.0)
-	_puff.global_position = pos + Vector3.UP * 0.1
-	var ground := course.height(pos.x, pos.z)
-	var height := maxf(pos.y - ground, 0.0)
-	_shadow.global_transform = Transform3D(Basis(Vector3.UP, heading), Vector3(pos.x, ground + 0.03, pos.z))
+	_puff.global_position = p + Vector3.UP * 0.1
+	var ground := course.height(p.x, p.z)
+	var height := maxf(p.y - ground, 0.0)
+	_shadow.global_transform = Transform3D(Basis(Vector3.UP, heading), Vector3(p.x, ground + 0.03, p.z))
 	_shadow.scale = Vector3.ONE * (1.0 + height * 0.12)
 	(_shadow.material_override as StandardMaterial3D).albedo_color.a = clampf(0.4 - height * 0.06, 0.1, 0.4)
-	_tag.global_position = pos + Vector3.UP * 2.2
+	_tag.global_position = p + Vector3.UP * 2.2
 
 
 func _update_audio(dt: float) -> void:
