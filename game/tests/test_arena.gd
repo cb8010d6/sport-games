@@ -13,6 +13,8 @@ func _ready() -> void:
 	_empty_inputs()
 	_triangle_counter()
 	_test_lights()
+	_test_crowd()
+	_test_hall()
 	print("RS_ARENA_TESTS: %d checks, %d failures" % [_checks, _failures]) # no-i18n
 	get_tree().quit(0 if _failures == 0 else 1)
 
@@ -205,6 +207,88 @@ func _test_lights_node_bridge() -> void:
 	grand.free()
 
 
+func _test_hall() -> void:
+	var old_quality := RSSettings.quality
+	var old_loaded := RSSettings._loaded
+	RSSettings._loaded = true # exercise quality rules, without consulting a player's saved settings
+	var grand := Node3D.new()
+	grand.transform = Transform3D(Basis(Vector3.UP, 0.3), Vector3(5, 1, -4))
+	var holder := Node3D.new()
+	holder.transform = Transform3D(Basis(Vector3.UP, -0.2).scaled(Vector3(2, 1, 1)), Vector3(-2, 0, 3))
+	grand.add_child(holder)
+	var size := Vector3(24, 9, 36)
+	var presets: Array[RSArenaHall.Preset] = [RSArenaHall.preset_gym(), RSArenaHall.preset_boxing(), RSArenaHall.preset_hall()]
+	var previous_wall: Material
+	for i in presets.size():
+		var preset := presets[i]
+		RSSettings.quality = 2
+		var xform := Transform3D(Basis(Vector3.UP, -0.6), Vector3(i * 40.0, 2, 8))
+		var root := RSArenaHall.build(holder, xform, size, preset)
+		_check(_close(grand.transform * holder.transform * root.transform, xform), "hall: off-tree transformed parents preserve the requested world floor origin")
+		var environments := root.find_children("*", "WorldEnvironment", true, false)
+		_check(environments.size() == 1, "hall: every preset creates exactly one environment")
+		var env := (environments[0] as WorldEnvironment).environment
+		_check(env.tonemap_mode == Environment.TONE_MAPPER_AGX and absf(env.tonemap_exposure - preset.exposure) < 1e-6, "hall: AgX and preset exposure are applied")
+		_check(preset.hdri == "" and env.sky == null and env.background_mode == Environment.BG_COLOR and env.reflected_light_source == Environment.REFLECTION_SOURCE_DISABLED, "hall: empty HDRI uses pure-color fill without loading a panorama")
+		_check(env.ambient_light_color == preset.ambient and absf(env.fog_density - preset.fog_density) < 1e-6, "hall: ambient color and haze follow the preset")
+		var bounds := AABB()
+		var first := true
+		for node: Node in root.get_children():
+			if node is MeshInstance3D:
+				var part := node as MeshInstance3D
+				var part_bounds := part.transform * part.get_aabb()
+				bounds = part_bounds if first else bounds.merge(part_bounds)
+				first = false
+		_check(bounds.position.distance_to(Vector3(-12, 0, -18)) < 1e-5 and bounds.size.distance_to(size) < 1e-5, "hall: inward shell faces and internal beams have exactly the requested size AABB")
+		var floor_panel := root.get_node("Floor") as MeshInstance3D # no-i18n
+		var ceiling_panel := root.get_node("Ceiling") as MeshInstance3D # no-i18n
+		_check(floor_panel.basis.z.is_equal_approx(Vector3.UP) and ceiling_panel.basis.z.is_equal_approx(Vector3.DOWN), "hall: floor and ceiling face the room interior")
+		var wall := (root.get_node("BackWall") as MeshInstance3D).mesh.surface_get_material(0) # no-i18n
+		if previous_wall != null:
+			_check(wall == previous_wall, "hall: presets sharing a scanned wall reuse the same material")
+		previous_wall = wall
+		var lights := root.get_node("Lights") as Node3D # no-i18n
+		_check(lights.get_child_count() == preset.light_rows * preset.light_cols and RSArenaLights.real_light_count(lights) == preset.real_lights, "hall: preset panel count and total real-light budget agree")
+		_check(_close(lights.transform, Transform3D.IDENTITY), "hall: ceiling fixtures inherit the room transform instead of cancelling it")
+		_check(root.find_children("*", "DirectionalLight3D", true, false).is_empty(), "hall: indoor lighting creates no sun")
+		RSSettings.quality = 0
+		RSSettings.apply_world(root)
+		_check(not env.ssao_enabled and not env.glow_enabled and not env.ssr_enabled, "hall: low quality disables scene-requested expensive effects")
+		RSSettings.quality = 1
+		RSSettings.apply_world(root)
+		_check(env.ssao_enabled and env.glow_enabled and not env.ssr_enabled, "hall: medium quality restores SSAO/glow while leaving SSR off")
+		RSSettings.quality = 2
+		RSSettings.apply_world(root)
+		_check(env.ssao_enabled and env.glow_enabled and env.ssr_enabled and bool(env.get_meta("ssao_enabled")), "hall: high quality restores the original environment effects")
+	grand.free()
+	_test_hall_node_bridge()
+	RSSettings.quality = old_quality
+	RSSettings._loaded = old_loaded
+
+
+func _test_hall_node_bridge() -> void:
+	# A plain Node breaks spatial inheritance; verify actual in-tree positions so
+	# the test cannot repeat the builder's incorrect ancestor multiplication.
+	var grand := Node3D.new()
+	grand.position = Vector3(10, 0, 0)
+	add_child(grand)
+	var bridge := Node.new()
+	grand.add_child(bridge)
+	var holder := Node3D.new()
+	bridge.add_child(holder)
+	var root := RSArenaHall.build(holder, Transform3D.IDENTITY, Vector3(24, 9, 36), RSArenaHall.preset_gym())
+	var root_error := root.global_position.length()
+	_check(_close(root.global_transform, Transform3D.IDENTITY), "hall: plain Node bridge excludes the translated grandparent from the world floor origin")
+	var grid := root.get_node("Lights") as Node3D # no-i18n
+	var grid_error := grid.global_position.length()
+	_check(_close(grid.global_transform, Transform3D.IDENTITY), "hall: ceiling fixture world placement follows the requested room origin across a plain Node bridge")
+	var first_head := grid.get_child(0) as Node3D
+	var head_error := first_head.global_position.distance_to(Vector3(-7.2, 8.65, -9.6))
+	_check(grid.get_child_count() == 12 and RSArenaLights.real_light_count(grid) == 2 and head_error < 1e-5, "hall: actual ceiling head position and light budget remain correct across a plain Node bridge")
+	print("ARENA_NUMERIC hall_node_bridge_root_error_m=%.9f grid_error_m=%.9f first_head_error_m=%.9f" % [root_error, grid_error, head_error]) # no-i18n
+	grand.free()
+
+
 func _parent_transforms() -> void:
 	# Deliberately keep this hierarchy outside the tree: no global_transform access is safe here.
 	var grand := Node3D.new()
@@ -362,3 +446,102 @@ func _triangle_counter() -> void:
 	holder.add_child(line_node)
 	_check(RSArena.triangle_count(holder) == 24, "counter ignores line primitives")
 	holder.free()
+
+
+func _test_crowd() -> void:
+	var holder := Node3D.new()
+	holder.transform = Transform3D(Basis(Vector3.UP, 0.7).scaled(Vector3(2, 1, 1)), Vector3(5, 2, -3))
+	var seats: Array[Transform3D] = []
+	for i in 200:
+		seats.append(Transform3D(Basis(Vector3.UP, float(i % 4) * PI * 0.5), Vector3(i % 20, 0.4 + floorf(i / 20.0) * 0.4, -floorf(i / 20.0))))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 17
+	var half := RSCrowd.fill_seats(holder, seats, 0.5, rng)
+	var expected := PackedInt32Array([0, 1, 2, 7, 9, 10, 15, 16, 17, 18, 19, 22, 25, 27, 28, 29, 31, 36, 38, 39,
+		40, 42, 43, 44, 46, 47, 49, 50, 53, 55, 56, 62, 63, 64, 68, 73, 74, 75, 78, 79, 81, 82, 83, 84, 86, 88,
+		93, 94, 95, 98, 101, 102, 106, 108, 110, 111, 113, 114, 115, 116, 119, 121, 123, 124, 128, 130, 133, 136,
+		138, 139, 141, 144, 145, 147, 148, 149, 150, 151, 154, 156, 158, 164, 165, 171, 172, 173, 175, 176, 178,
+		179, 180, 182, 185, 190, 191, 192, 195, 197])
+	_check(half.get_parent() == holder and holder.get_child_count() == 1, "fill_seats adds one MultiMesh node")
+	_check(half.multimesh.instance_count == 98, "seed 17 fills exactly 98 of 200 seats at occupancy 0.5")
+	_check(half.multimesh.use_colors and half.multimesh.use_custom_data, "crowd enables per-instance colors and phase/tempo")
+	# Inspect the actual submitted buffer: transform 12 + shirt 4 + custom data 4.
+	var buffer := half.multimesh.buffer
+	var stored := buffer.size() == expected.size() * 20
+	_check(stored, "crowd retains a twenty-float buffer per occupied seat")
+	var distribution := stored and half.multimesh.instance_count == expected.size()
+	if stored:
+		for i in expected.size():
+			distribution = distribution and _close(_buffer_transform(buffer.slice(i * 20, i * 20 + 12), 0), seats[expected[i]])
+	_check(distribution, "seed 17 matches every fixed occupied seat position and +Z orientation")
+	_check(half.top_level and _close(half.transform, Transform3D.IDENTITY), "world seat coordinates ignore the transformed parent")
+	rng.seed = 17
+	var repeated := RSCrowd.fill_seats(holder, seats, 0.5, rng)
+	_check(repeated.multimesh.buffer == buffer, "same seed exactly reproduces transforms, shirts, phases, and tempos")
+	var empty := RSCrowd.fill_seats(holder, seats, 0.0, rng)
+	_check(empty.multimesh.instance_count == 0 and empty.multimesh.buffer.is_empty(), "zero occupancy submits no instances")
+	var full := RSCrowd.fill_seats(holder, seats, 1.0, rng)
+	_check(full.multimesh.instance_count == 200, "full occupancy always fills every seat")
+	var full_buffer := full.multimesh.buffer
+	var full_aligned := full_buffer.size() == 200 * 20
+	if full_aligned:
+		for i in 200:
+			full_aligned = full_aligned and _close(_buffer_transform(full_buffer.slice(i * 20, i * 20 + 12), 0), seats[i])
+	_check(full_aligned, "full occupancy retains all world seat transforms in order")
+	_check(RSCrowd.fill_seats(holder, seats, -0.1, rng).multimesh.instance_count == 0, "negative occupancy clamps to zero")
+	_check(RSCrowd.fill_seats(holder, seats, 1.1, rng).multimesh.instance_count == 200, "occupancy above one clamps to full")
+	var material := half.material_override as ShaderMaterial
+	var other := repeated.material_override as ShaderMaterial
+	_check(material != null and other != null and material != other, "every crowd group owns its shader material override")
+	_check(material.get_shader_parameter("cheer") == 0.6, "default cheer retains the legacy 0.6 intensity")
+	var nodes := holder.get_child_count()
+	RSCrowd.cheer(half, 1.0)
+	_check(material.get_shader_parameter("cheer") == 1.0 and other.get_shader_parameter("cheer") == 0.6, "cheer changes one group without affecting another")
+	RSCrowd.cheer(half, -1.0)
+	_check(material.get_shader_parameter("cheer") == 0.0, "cheer clamps negative intensity")
+	RSCrowd.cheer(half, 2.0)
+	_check(material.get_shader_parameter("cheer") == 1.0, "cheer clamps intensity above one")
+	_check(half.material_override == material and half.multimesh.buffer == buffer and holder.get_child_count() == nodes, "cheer only updates its existing uniform")
+	_check(half.multimesh.mesh == RSCrowd.mesh() and full.multimesh.mesh == RSCrowd.mesh(), "crowd groups share the cached mesh")
+	if not ResourceLoader.exists(RSCrowd.V2_MESH):
+		var fallback := RSCrowd.mesh()
+		_check(fallback is ArrayMesh and fallback.get_surface_count() == 2, "missing V2 asset falls back to two-surface capsule fan")
+		var masked := true
+		for surface in fallback.get_surface_count():
+			var arrays := fallback.surface_get_arrays(surface)
+			var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			var uv: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV2]
+			masked = masked and not vertices.is_empty() and uv.size() == vertices.size()
+			for value in uv:
+				masked = masked and value.x == (1.0 if surface == 1 else 0.0)
+		_check(masked, "shirt and skin surfaces retain distinct masks under one material override")
+	_crowd_legacy(holder, seats.slice(0, 12))
+	print("ARENA_NUMERIC crowd_seed=17 occupied=%d total=200 buffer_floats=%d" % [half.multimesh.instance_count, buffer.size()]) # no-i18n
+	holder.free()
+
+
+func _crowd_legacy(holder: Node3D, xforms: Array[Transform3D]) -> void:
+	# Ski's existing custom palette and place() call; replay the pre-change RNG contract.
+	var shirts := [Color(0.95, 0.3, 0.3), Color(0.2, 0.5, 0.95), Color(1.0, 0.8, 0.2), Color(0.12, 0.13, 0.16),
+		Color(0.95, 0.95, 0.95), Color(0.6, 0.35, 0.8), Color(1.0, 0.55, 0.2), Color(0.2, 0.7, 0.45)]
+	var rng := RandomNumberGenerator.new()
+	var legacy_rng := RandomNumberGenerator.new()
+	rng.seed = 3917
+	legacy_rng.seed = 3917
+	var mmi := RSCrowd.place(holder, xforms, rng, shirts)
+	_check(mmi.multimesh.instance_count == 12 and not mmi.top_level, "legacy place keeps count and parent-local coordinates")
+	var buffer := mmi.multimesh.buffer
+	var matches := buffer.size() == 12 * 20
+	for i in xforms.size():
+		var color := shirts[legacy_rng.randi_range(0, shirts.size() - 1)] as Color
+		var custom := Color(legacy_rng.randf(), legacy_rng.randf_range(0.7, 1.3), 0, 0)
+		if buffer.size() == 12 * 20:
+			matches = matches and _close(_buffer_transform(buffer.slice(i * 20, i * 20 + 12), 0), xforms[i])
+			matches = matches and _crowd_color(buffer, i, 12).is_equal_approx(color) and _crowd_color(buffer, i, 16).is_equal_approx(custom)
+	_check(matches, "legacy ski call preserves every submitted transform, shirt color, phase, and tempo")
+	_check(rng.state == legacy_rng.state, "place consumes exactly the legacy RNG sequence")
+
+
+func _crowd_color(buffer: PackedFloat32Array, index: int, offset: int) -> Color:
+	var o := index * 20 + offset
+	return Color(buffer[o], buffer[o + 1], buffer[o + 2], buffer[o + 3])

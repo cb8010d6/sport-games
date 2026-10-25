@@ -114,6 +114,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 | 文案 | 节点里 `tr("中文")`，静态代码里 `RSLang.t("中文")`；英文在 `game/i18n/en.json` | 直接写英文、拼接句子 |
 | 材质、道具 | `RSPbr.surface / standard`，`RSProps.place`（MultiMesh 批量） | 每个物体一个材质、一个节点 |
 | 水面 | `RSWater`（共享波浪数学）、`RSWaterSurface`（水面与同一游戏时钟的高度查询）、`RSWaterWake`（固定容量尾迹、`splash` 浪花） | 项目另写波浪公式或独立计时的水面 / 尾迹 |
+| 场馆构件 | `RSArena`（看台 / 围挡）、`RSArenaLights`（灯架）、`RSScoreboard`（记分牌）、`RSCrowd.fill_seats`（按座位填观众）、`RSArenaHall`（室内壳与环境） | 项目自建通用场馆构件或绕开 `RSSettings` 的室内效果 |
 | 人物 | `RSHumanRig` 子类（MPFB 角色，FK / IK 姿态） | 另做一套骨骼控制 |
 | 领奖台 | `RSPodium.configure(steps, footprint, extra, spacing, font, buried)` 在场景加载时建模；`present(scores)`、`rank(i)`、`cheer(i)`、`spot(i)`、`apply_camera(...)` 共用名次、台面、世界坐标站位和推进镜头；`fit_left(camera)` 为右侧成绩留出空间，`reset()` 隐藏并清除上一局名次 | 三个项目重复搭建台阶、计算名次与镜头公式 |
 | 存档 | 只在 `core` 里读写 `user://`（ARCH-SAVE）：`RSSettings`（settings.cfg），还有 `RSProfiles`（profiles.cfg）、`RSRecords`（records.cfg）、`RSTournament`（内存中的派对赛） | 项目自己写文件 |
