@@ -131,9 +131,9 @@ async def test_websocket_connection_cap():
             sockets.append(ws)
         extra = aiohttp.ClientSession()
         sessions.append(extra)
-        with pytest.raises(aiohttp.WSServerHandshakeError) as excinfo:
-            await extra.ws_connect(f"http://127.0.0.1:{port}/ws", origin=f"http://127.0.0.1:{port}")
-        assert excinfo.value.status == 503
+        refused = await extra.ws_connect(f"http://127.0.0.1:{port}/ws", origin=f"http://127.0.0.1:{port}")
+        msg = await refused.receive(timeout=2)
+        assert msg.type == aiohttp.WSMsgType.CLOSE and msg.data == 1013
     finally:
         for ws in sockets:
             await ws.close()

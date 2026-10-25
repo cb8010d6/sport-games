@@ -27,9 +27,9 @@ MAX_PENDING_WS_MESSAGES = 32
 MAX_GYRO_RAD_S = 35.0
 MAX_ACCEL_M_S2 = 160.0
 MAX_TIMESTAMP_MS = (1 << 53) - 1   ## JavaScript's exact integer range
+MAX_WS_CONNECTIONS = 16         ## simultaneous phone/simulator sockets (#45)
 MIN_SAMPLE_INTERVAL_MS = 0.001   ## 1 MHz ceiling, well above browser sensor rates
 TIMESTAMP_GAP_ALLOWANCE_MS = 1000.0
-MAX_WS_CONNECTIONS = 16         ## simultaneous phone/simulator sockets (#45)
 PHONE_PREDICT_S = 0.03          ## phones: Wi-Fi + browser event delay, roughly
 
 
@@ -130,10 +130,10 @@ def clean_profile_name(value: Any, limit: int = 20) -> str:
 
 
 class WebSource:
+    _ws_count = 0   ## live websocket connections, capped in _ws (#45)
     def __init__(self, hub: Hub, phone_axis_map: Any = PHONE_AXIS_MAP):
         self.hub = hub
         self.pairing_token = secrets.token_urlsafe(32)
-        self._ws_count = 0
         self.remaps = {"device": make_remap(phone_axis_map), "canonical": make_remap(CANONICAL_AXIS_MAP)}
         self.app = web.Application(middlewares=[self._local_access])
         self.app.add_routes(
@@ -268,18 +268,13 @@ class WebSource:
 
     async def _ws(self, request: web.Request) -> web.StreamResponse:
         self._same_origin(request, required=True)
-        if self._ws_count >= MAX_WS_CONNECTIONS:
-            log.warning("websocket refused: %d connections already open", self._ws_count)
-            return web.Response(status=503, text="too many controller connections")
-        self._ws_count += 1
-        try:
-            return await self._ws_session(request)
-        finally:
-            self._ws_count -= 1
-
-    async def _ws_session(self, request: web.Request) -> web.StreamResponse:
         ws = web.WebSocketResponse(heartbeat=5.0, max_msg_size=1 << 20)
         await ws.prepare(request)
+        if self._ws_count >= MAX_WS_CONNECTIONS:
+            log.warning("websocket refused: %d connections already open", self._ws_count)
+            await ws.close(code=1013, message=b"too many controller connections")
+            return ws
+        self._ws_count += 1
         transport = WsTransport(ws)
         controller: Controller | None = None
         last_sample_ms: float | None = None
@@ -372,6 +367,7 @@ class WebSource:
                     battery = int(batt) if isinstance(batt, (int, float)) and 0 <= batt <= 100 else None
                     self.hub.on_status(controller, battery, bool(data.get("charging", False)))
         finally:
+            self._ws_count -= 1
             if controller is not None:
                 self.hub.detach(controller)
             await transport.close()
