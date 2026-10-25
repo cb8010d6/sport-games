@@ -22,6 +22,10 @@ const STAIR_TREAD := 0.6
 const HDRI := "res://assets/polyhaven/hdris/kloppenheim_06_puresky/kloppenheim_06_puresky_4k.hdr"
 ## Toward the sun: the HDRI's sun bearing (ahead-right), raised so light reaches the street.
 const TO_SUN := Vector3(0.61, 0.52, -0.78)
+## Static meshes are cut into chunks this long along s so each view (and each shadow cascade)
+## only draws the stretch of street it can see (#53).
+const CHUNK_S := 50.0
+const PIECE_BUCKET := 4.0     ## metres of s per bucket of the piece lookup (surface / top)
 
 
 class Piece:
@@ -108,8 +112,12 @@ var _py := PackedFloat32Array()
 var _stairs: Array[Vector3] = []        ## (s0, s1, steps)
 var _sections: Array[Array] = []        ## [s0, s1, surface name]
 var _rng := RandomNumberGenerator.new()
-var _st: Dictionary = {}                ## material name -> SurfaceTool while building
+var _st: Dictionary = {}                ## Vector2i(chunk, material id) -> SurfaceTool while building
+var _mat_ids: Dictionary = {}           ## material name -> id in those keys
 var _mats: Dictionary = {}
+var _buckets: Array[PackedInt32Array] = []   ## piece indices per PIECE_BUCKET of s
+var _bucket_s0 := 0.0
+var _bucketed := -1                          ## pieces.size() when _buckets was built
 
 
 func _init() -> void:
@@ -125,18 +133,58 @@ func H(s: float) -> float:
 	var n := _ps.size()
 	if s <= _ps[0]:
 		return _py[0]
-	for i in range(1, n):
-		if s <= _ps[i]:
-			return lerpf(_py[i - 1], _py[i], (s - _ps[i - 1]) / (_ps[i] - _ps[i - 1]))
+	var i := _knot(s)
+	if i < n:
+		return lerpf(_py[i - 1], _py[i], (s - _ps[i - 1]) / (_ps[i] - _ps[i - 1]))
 	return _py[n - 1]
 
 
 func road_slope(s: float) -> float:
 	## dH/ds.
-	for i in range(1, _ps.size()):
-		if s <= _ps[i]:
-			return (_py[i] - _py[i - 1]) / (_ps[i] - _ps[i - 1])
+	var i := _knot(s)
+	if i < _ps.size():
+		return (_py[i] - _py[i - 1]) / (_ps[i] - _ps[i - 1])
 	return 0.0
+
+
+func _knot(s: float) -> int:
+	## The first profile knot i >= 1 with s <= _ps[i] (_ps.size() past the end). bsearch
+	## compares in float32, so step to the exact answer from there.
+	var n := _ps.size()
+	var i := maxi(_ps.bsearch(s), 1)
+	while i > 1 and s <= _ps[i - 1]:
+		i -= 1
+	while i < n and s > _ps[i]:
+		i += 1
+	return i
+
+
+func _near(s: float) -> PackedInt32Array:
+	## Indices (ascending) of the pieces whose s range can contain s: one bucket per
+	## PIECE_BUCKET metres, built on first use and again if pieces were added.
+	if _bucketed != pieces.size():
+		_bucket_pieces()
+	var b := floori((s - _bucket_s0) / PIECE_BUCKET)
+	return _buckets[b] if b >= 0 and b < _buckets.size() else PackedInt32Array()
+
+
+func _bucket_pieces() -> void:
+	_bucketed = pieces.size()
+	_buckets.clear()
+	if pieces.is_empty():
+		return
+	_bucket_s0 = pieces[0].s0
+	var s1 := pieces[0].s1
+	for p in pieces:
+		_bucket_s0 = minf(_bucket_s0, p.s0)
+		s1 = maxf(s1, p.s1)
+	_buckets.resize(floori((s1 - _bucket_s0) / PIECE_BUCKET) + 1)
+	for i in pieces.size():
+		var p := pieces[i]
+		for b in range(floori((p.s0 - _bucket_s0) / PIECE_BUCKET), floori((p.s1 - _bucket_s0) / PIECE_BUCKET) + 1):
+			var cell := _buckets[b]
+			cell.append(i)
+			_buckets[b] = cell
 
 
 func stairs_at(s: float) -> bool:
@@ -167,15 +215,16 @@ func surface(x: float, s: float, y_max: float) -> Vector3:
 	## Highest walkable surface at (x, s) that is not above y_max:
 	## (height, slope dh/ds, piece index or -1).
 	var base := H(s)
-	var best := Vector3(base, road_slope(s), -1.0)
+	var rs := road_slope(s)
+	var best := Vector3(base, rs, -1.0)
 	if absf(x) > HALF_W and not stairs_at(s):
 		best.x += CURB
-	for i in pieces.size():
+	for i in _near(s):
 		var p := pieces[i]
 		if p.contains(x, s):
 			var y := base + p.rel(s)
 			if y <= y_max and y > best.x:
-				best = Vector3(y, road_slope(s) + p.slope(s), float(i))
+				best = Vector3(y, rs + p.slope(s), float(i))
 	return best
 
 
@@ -183,7 +232,8 @@ func top(x: float, s: float) -> float:
 	## Highest surface at (x, s), however high (for wall checks).
 	var base := H(s)
 	var best := base + (CURB if absf(x) > HALF_W and not stairs_at(s) else 0.0)
-	for p in pieces:
+	for i in _near(s):
+		var p := pieces[i]
 		if p.contains(x, s):
 			best = maxf(best, base + p.rel(s))
 	return best
@@ -472,36 +522,55 @@ func _metal(color: Color, metallic: float, roughness: float) -> StandardMaterial
 	return m
 
 
-func _surf(mat_name: String) -> SurfaceTool:
-	if not _st.has(mat_name):
+func _surf(mat_name: String, z: float) -> SurfaceTool:
+	## The SurfaceTool for mat_name in the CHUNK_S chunk holding world z.
+	var key := Vector2i(floori(-z / CHUNK_S), _mat_ids.get_or_add(mat_name, _mat_ids.size()))
+	if not _st.has(key):
 		var st := SurfaceTool.new()
 		st.begin(Mesh.PRIMITIVE_TRIANGLES)
-		_st[mat_name] = st
-	return _st[mat_name]
+		_st[key] = st
+	return _st[key]
 
 
-func _commit(node_name: String) -> MeshInstance3D:
-	var mesh := ArrayMesh.new()
-	for mat_name: String in _st:
-		var st: SurfaceTool = _st[mat_name]
+func _commit(node_name: String) -> void:
+	## One MeshInstance3D per chunk ("<node_name>_<chunk>"), one surface per material.
+	var names := _mat_ids.keys()
+	var meshes: Dictionary = {}     # chunk -> ArrayMesh
+	for key: Vector2i in _st:
+		var st: SurfaceTool = _st[key]
+		var mat_name: String = names[key.y]
 		var mat: Material = _mats[mat_name]
 		if mat is ShaderMaterial or (mat is BaseMaterial3D and (mat as BaseMaterial3D).normal_enabled):
 			st.generate_tangents()   # normal maps need them (every such surface has UVs)
+		var mesh: ArrayMesh = meshes.get_or_add(key.x, ArrayMesh.new())
 		st.commit(mesh)
-		mesh.surface_set_material(mesh.get_surface_count() - 1, _mats[mat_name])
+		mesh.surface_set_material(mesh.get_surface_count() - 1, mat)
 	_st.clear()
-	var mi := MeshInstance3D.new()
-	mi.name = node_name
-	mi.mesh = mesh
-	add_child(mi)
-	return mi
+	var chunks := meshes.keys()
+	chunks.sort()
+	for c: int in chunks:
+		var mi := MeshInstance3D.new()
+		mi.name = "%s_%d" % [node_name, c]
+		mi.mesh = meshes[c]
+		add_child(mi)
+
+
+func _props(key: String, xforms: Array, layers: int = 1, shadows: bool = true) -> void:
+	## RSProps.place, one MultiMesh per CHUNK_S chunk instead of one across the whole map.
+	var groups: Dictionary = {}
+	for xf: Transform3D in xforms:
+		(groups.get_or_add(floori(-xf.origin.z / CHUNK_S), []) as Array).append(xf)
+	var chunks := groups.keys()
+	chunks.sort()
+	for c: int in chunks:
+		RSProps.place(self, key, groups[c], layers, shadows)
 
 
 func _quad(mat_name: String, a: Vector3, b: Vector3, c: Vector3, d: Vector3, n: Vector3, uv_scale: float = 1.0, color: Color = Color.WHITE, uv2: Array = []) -> void:
 	## A flat quad with outward normal n; the winding is fixed up to face n. UVs are a planar
 	## projection in metres (times uv_scale), picked by the dominant normal axis; uv2, when
 	## given, holds one UV2 per corner a, b, c, d.
-	var st := _surf(mat_name)
+	var st := _surf(mat_name, (a.z + c.z) * 0.5)
 	var pts := [a, b, c, d]
 	var idx := [0, 1, 2, 3]
 	if (c - a).cross(b - a).dot(n) < 0.0:
@@ -527,7 +596,7 @@ func _quad(mat_name: String, a: Vector3, b: Vector3, c: Vector3, d: Vector3, n: 
 
 func _quad_uv(mat_name: String, pts: Array, uvs: Array, n: Vector3, color: Color) -> void:
 	## Quad with explicit UVs (building facades).
-	var st := _surf(mat_name)
+	var st := _surf(mat_name, (pts[0].z + pts[2].z) * 0.5)
 	var order := [0, 1, 2, 0, 2, 3]
 	if (pts[2] - pts[0]).cross(pts[1] - pts[0]).dot(n) < 0.0:
 		order = [0, 3, 2, 0, 2, 1]
@@ -539,7 +608,7 @@ func _quad_uv(mat_name: String, pts: Array, uvs: Array, n: Vector3, color: Color
 
 
 func _append(mat_name: String, mesh: Mesh, xf: Transform3D) -> void:
-	_surf(mat_name).append_from(mesh, 0, xf)
+	_surf(mat_name, xf.origin.z).append_from(mesh, 0, xf)
 
 
 func _cyl_xf(a: Vector3, b: Vector3) -> Transform3D:
@@ -735,8 +804,7 @@ func _build_city() -> void:
 	_building_row(1.0, BUILD_X + 0.05, -90.0, 299.5, 7.0, 18.0, true)
 	_building_row(-1.0, BUILD_X + 16.0, -90.0, END_S + 30.0, 16.0, 40.0, false)
 	_building_row(1.0, BUILD_X + 16.0, -90.0, 290.0, 14.0, 34.0, false)
-	var mi := _commit("city")
-	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	_commit("city")
 
 
 func _building_row(side: float, x_in: float, s_from: float, s_to: float, h_min: float, h_max: float, detail: bool) -> void:
@@ -882,7 +950,7 @@ func _build_seafront() -> void:
 		var sc := _rng.randf_range(1.6, 4.2)
 		var b := Basis(Vector3.UP, _rng.randf() * TAU) * Basis(Vector3.RIGHT, _rng.randf_range(-0.3, 0.3))
 		rocks.append(Transform3D(b.scaled(Vector3(sc, sc * _rng.randf_range(0.6, 1.0), sc)), p))
-	RSProps.place(self, "boulder", rocks, 1, false)
+	_props("boulder", rocks, 1, false)
 	# Seawall railing along the promenade and across the end.
 	var rail_mat := "white"
 	var bar := CylinderMesh.new()
@@ -999,13 +1067,13 @@ func _build_props() -> void:
 	var pmi := MultiMeshInstance3D.new()
 	pmi.multimesh = palms
 	add_child(pmi)
-	RSProps.place(self, "lamp", lamp_xf)
+	_props("lamp", lamp_xf)
 	var hyd: Array = []
 	for h in hydrants:
 		hyd.append(Transform3D(Basis(Vector3.UP, _rng.randf() * TAU), world(h.x, h.y, CURB)))
-	RSProps.place(self, "hydrant", hyd)
-	RSProps.place(self, "aircon", _ac.slice(0, _ac.size() / 2))
-	RSProps.place(self, "aircon_rust", _ac.slice(_ac.size() / 2))
+	_props("hydrant", hyd)
+	_props("aircon", _ac.slice(0, _ac.size() / 2))
+	_props("aircon_rust", _ac.slice(_ac.size() / 2))
 	_build_furniture()
 
 	var pennant := ["#ef4444", "#f59e0b", "#22c55e", "#3b82f6", "#a855f7", "#ffffff"]
@@ -1021,7 +1089,7 @@ func _build_props() -> void:
 			var p1 := a.lerp(b, t1) + Vector3.DOWN * 1.2 * sin(PI * t1)
 			var tip := (p0 + p1) * 0.5 + Vector3.DOWN * 0.55
 			var c := Color(pennant[i % pennant.size()]).srgb_to_linear()
-			var st := _surf("flag")
+			var st := _surf("flag", tip.z)
 			for tri in [[p0, p1, tip], [p0, tip, p1]]:
 				var n: Vector3 = (tri[2] - tri[0]).cross(tri[1] - tri[0]).normalized()
 				for v: Vector3 in tri:
@@ -1125,7 +1193,7 @@ func _build_furniture() -> void:
 		add.call("barrier", Transform3D(Basis(Vector3.UP, _rng.randf_range(-0.08, 0.08)), world(bx, -6.0, 0.0)))
 		bx += 1.62
 	for key: String in xf:
-		RSProps.place(self, key, xf[key], 1, key != "manhole")
+		_props(key, xf[key], 1, key != "manhole")
 
 
 func _palm_mesh() -> ArrayMesh:
