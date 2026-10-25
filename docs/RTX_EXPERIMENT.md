@@ -70,13 +70,18 @@ Recommended 预设、锐化 0、FG 关闭；光栅为原生、MSAA / FXAA 关闭
 `135dff3887a3d2ccf45cafbd9bdffa7b718e1e76`，不代表新引擎或本次迁移已经完成 GPU 验收。
 实测范围见 [RTX_MIGRATION.md](RTX_MIGRATION.md) 与
 [脱敏验证摘要](validation/rtx-c1fc0252a9.json)。C1 六种 Windows 构建、17 个真实游戏画面用例及
-四种 installed template 物理测试工程导出 / 运行通过；后者不是 Regina 本体导出，游戏本体导出仍待验。
+四种 installed template 物理测试工程导出 / 运行通过。Regina 本体另以匹配的 installed template
+完成 Windows release 导出，并从 EXE / PCK 通过 D3D12 中文双人滑冰、Vulkan 英文四人篮球：
+每例保存三张 1600×900 原始 PNG 后由生产 `RSExit` 自然退出，退出码 0，Job 清理后无 NGX 残留。
+运行命令没有 `--path`、外部 `--script` 或 `--quit-after`；前两轮控制器失败记录原样保留。
+这两例是短时导出启动 / 截图 / 退出检查，不是完整赛程或长时间自然游玩验收。
 画面用例在 RTX 4060 Laptop GPU 上验证 Vulkan / D3D12、Jolt 120 Hz、DLSS / DLAA、
 分屏 FG 降级、DDGI / PT 请求以及无 SDK 的 FSR2 回退，没有请求验证层或验证实际 DLSS 模型。
 早期 CPU 检查的实验引擎是 `1000baebd`；六组 D3D12 严格干净对照发生在 `d37b63e72b`，
 不能标成 C1 重跑通过。此前 d37 游戏画面运行因工具哈希变化导致的整体 FAIL 也保持原样。
 Vulkan SDK 2.14 仍有 `09600` / `03868` 验证诊断，FG 另有内部同步与线程诊断；
 本分支不能称为发布候选版本。
+独立 Windows 试玩入口默认 D3D12；显式选择 Vulkan 试验光追时仍受上述 SDK 验证问题限制。
 属性设置成功、headless 通过或单个菜单截图都不能替代实际 RTX / HDR / 性能验证。
 
 本次源代码适配由 OpenAI Codex 辅助完成；没有新增 AI 素材或第三方资产。

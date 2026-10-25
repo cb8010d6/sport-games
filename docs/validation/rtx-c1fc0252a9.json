@@ -172,8 +172,131 @@
     "rerunAtC1": false
   },
   "reginaGameExport": {
-    "status": "PENDING",
-    "scope": "Regina Sports Windows game export and exported-game launch"
+    "status": "PASS",
+    "scope": "Standard Windows release export and two short production screenshot/natural-exit cases; not full gameplay acceptance",
+    "engineCommit": "c1fc0252a98913d3be394417b6977a8c5aa4d77d",
+    "installedTemplateVersion": "4.8.beta1",
+    "installedTemplateSha256": "51ef6dd3a455cbe052d00c7cfb6cb9c7b914ce78a85a787098c5d30235fedccc",
+    "sdkRuntimeVersion": "2.14.16",
+    "sdkRuntimeDistribution": "Private local execution only; no SDK or game binaries published",
+    "importExitCode": 0,
+    "exportExitCode": 0,
+    "exeSha256": "0bd9f5246018ced91c406f011d996097f6f27df274216b128a3bdb3aaa1679f7",
+    "adjacentPckSha256": "9206c7d0dde4020524dc09c674af0ee2d65143744c1653d53363e28851bec333",
+    "usesSourcePathOverride": false,
+    "usesExternalScript": false,
+    "usesQuitAfter": false,
+    "productionScreenshotTimesSeconds": [
+      1,
+      4,
+      8
+    ],
+    "exitPath": "Production RSExit after final screenshot; wrapper has only a 180 second timeout",
+    "requestedDlss": "Quality Recommended; SDK options returned eOk; active model not queried",
+    "requestedNis": 0,
+    "requestedFg": false,
+    "requestedHdr": false,
+    "validationLayerRequested": false,
+    "cases": {
+      "d3d12-skate2": {
+        "status": "PASS",
+        "language": "zh-CN",
+        "exitCode": 0,
+        "checks": {
+          "exit_zero": true,
+          "no_errors": true,
+          "correct_version": true,
+          "correct_api": true,
+          "gpu_4060": true,
+          "actual_cli_game": true,
+          "three_real_screenshots": true,
+          "job_owned": true,
+          "no_owned_ngx": true,
+          "natural_exit_without_frame_guard": true
+        },
+        "screenshotCount": 3,
+        "receipt": {
+          "id": "regina-c1-natural-d3d12-skate2.json",
+          "sha256": "a924db57a68a0b5956f1c547a8d2d0ccd8eb9e5b4e0bfe357ef26aa0f50300b0"
+        },
+        "settingsSha256": "f32333807b709b5760226d10f6e21420f001caada067b77e3e18102f36021608"
+      },
+      "vulkan-basketball4": {
+        "status": "PASS",
+        "language": "en",
+        "exitCode": 0,
+        "checks": {
+          "exit_zero": true,
+          "no_errors": true,
+          "correct_version": true,
+          "correct_api": true,
+          "gpu_4060": true,
+          "actual_cli_game": true,
+          "three_real_screenshots": true,
+          "job_owned": true,
+          "no_owned_ngx": true,
+          "natural_exit_without_frame_guard": true
+        },
+        "screenshotCount": 3,
+        "receipt": {
+          "id": "regina-c1-natural-vulkan-basketball4.json",
+          "sha256": "d2a055959cb2b911daa4e00a4be25af62086fb125e212b2e9c0f3b23e389220f"
+        },
+        "settingsSha256": "2bb5355956c921ac937357bbfd62595eeaaeebc413ab0aac601898c9d018d106"
+      }
+    },
+    "selectedOriginalPng": {
+      "case": "d3d12-skate2",
+      "captureIndex": 2,
+      "size": [
+        1600,
+        900
+      ],
+      "sha256": "11c5b7967f8a51f4f6fe8827185dc055c4665acf8a86ff696bfe51f6a3e52683"
+    },
+    "evidence": {
+      "id": "regina-export-c1fc0252a9-01/natural-exit-matrix.json",
+      "sha256": "f8448fddd87b0503dc50e232bf6d5fe8cbc1a4c6c667894dae802e6579fe5240"
+    },
+    "inputEvidence": {
+      "import": {
+        "id": "regina-c1-01-import.json",
+        "sha256": "3874de95ac305b7801f6b0e4a7e2f5656282d57defd8a682f5af7169c90ff062"
+      },
+      "export": {
+        "id": "regina-c1-01-release.json",
+        "sha256": "1a3f8c9507ece3f2fde896a605db41c2e9207930d7bcc3d0824cd9e6662f48a2"
+      },
+      "installedTemplate": {
+        "id": "regina-export-c1fc0252a9-01/template-install.json",
+        "sha256": "d4c4de0aeb15e0f157ab0ecd08893a0d7e3efb63da4dd380c79658805240a886"
+      },
+      "runtimeInventory": {
+        "id": "regina-export-c1fc0252a9-01/runtime-inventory.json",
+        "sha256": "9cc669d4235105205a947e6ad890c4e23a59f55c682e443c448790ecdc8ce71c"
+      }
+    },
+    "earlierAttempts": [
+      {
+        "status": "FAIL",
+        "scope": "Acceptance controller; process exit was zero",
+        "reason": "Production release template did not run external --script; expected capture marker absent",
+        "evidence": {
+          "id": "regina-c1-01-d3d12-skate2.json",
+          "sha256": "53159a0a3ec86bac70092b76fca18d475413637ad4224e666d17f5c9646d3351"
+        },
+        "logSha256": "fbd2baef8e5484f6ebddabdf6a931be547a4c3552f843a74c8ab538d9f6d64f9"
+      },
+      {
+        "status": "FAIL",
+        "scope": "Two earlier production screenshot cases",
+        "reason": "Wall-clock duration below 19 seconds was not a valid natural-exit criterion; original failed checks retained",
+        "evidence": {
+          "id": "regina-export-c1fc0252a9-01/production-matrix.json",
+          "sha256": "448f485efc3b3e831151c847c3a471852254530ea5034856ff4b773117640819"
+        }
+      }
+    ]
   },
   "notValidated": [
     "C1 strict validation-layer rerun",
@@ -181,5 +304,19 @@
     "stable FPS or input latency",
     "HDR and XR",
     "fresh-machine distribution"
-  ]
+  ],
+  "engineSourceGeneratorTests": {
+    "status": "PASS",
+    "engineCommit": "c1fc0252a98913d3be394417b6977a8c5aa4d77d",
+    "passed": 43,
+    "failed": 0,
+    "skipped": 0,
+    "scope": "Godot.SourceGenerators.Tests; not Regina game tests",
+    "evidence": {
+      "id": "source-generators-c1.json",
+      "sha256": "d96cf7f8cee93de61712580d83d569afdeb8ed3113ca8d155dee6444c93d7cb0"
+    },
+    "logSha256": "e23d6a375fd87df48a4e2799d220d3fc208f71ea2b09481b9f0793b1dad0d640",
+    "trxSha256": "0f785c7abf65819c43aa1a1f72e97e5fcbaae0fd147a474e9944e65a8df4aedd"
+  }
 }
