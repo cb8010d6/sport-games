@@ -1,0 +1,352 @@
+{
+  "schema_version": 2,
+  "historical_acceptance_20261024": {
+    "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
+    "summary": {
+      "pass": 4,
+      "fail": 1,
+      "not_run": 2,
+      "automatic_retries": 0,
+      "static_checks": 2424,
+      "private_original_pngs_retained": 132,
+      "public_representative_pngs": 4
+    },
+    "cases": [
+      {
+        "case": "static-p2-zh-125",
+        "status": "PASS",
+        "worker_status": "PASS",
+        "engine_exit_code": 0,
+        "engine_diagnostics": [],
+        "elapsed_worker_seconds": 16.60899999999947,
+        "elapsed_hidden_helper_seconds": 21.75,
+        "integrity": {
+          "source_unchanged": true,
+          "real_saves_unchanged": true,
+          "import_cache_metadata_unchanged": true,
+          "fixture_unchanged": true,
+          "no_records": true,
+          "five_isolated_roots": true
+        },
+        "ac_endpoints_online": true,
+        "original_png_count": 3,
+        "original_validation_sha256": "02af5b78accfe56abfa4f4049ca40599db80b10baf11e89fa85286a3960a0edb",
+        "original_launch_validation_sha256": "b1aa92d8fec8f42aa7b6893b185023fdcf618ffe132c1642b6b7900396812068",
+        "checks": 477
+      },
+      {
+        "case": "static-p2-en-125",
+        "status": "PASS",
+        "worker_status": "PASS",
+        "engine_exit_code": 0,
+        "engine_diagnostics": [],
+        "elapsed_worker_seconds": 14.436999999999898,
+        "elapsed_hidden_helper_seconds": 15.906,
+        "integrity": {
+          "source_unchanged": true,
+          "real_saves_unchanged": true,
+          "import_cache_metadata_unchanged": true,
+          "fixture_unchanged": true,
+          "no_records": true,
+          "five_isolated_roots": true
+        },
+        "ac_endpoints_online": true,
+        "original_png_count": 3,
+        "original_validation_sha256": "c8a3c79b19c2b370ea4d4565a33205dccc99192fead699d96882d077c8ada4e0",
+        "original_launch_validation_sha256": "22afbb22ce0074ad6fb4ac854e9f029cf4f4b7eed9e7c342eada8b8f37f7e2f0",
+        "checks": 477
+      },
+      {
+        "case": "static-p4-zh-125",
+        "status": "PASS",
+        "worker_status": "PASS",
+        "engine_exit_code": 0,
+        "engine_diagnostics": [],
+        "elapsed_worker_seconds": 15.532000000000153,
+        "elapsed_hidden_helper_seconds": 16.984,
+        "integrity": {
+          "source_unchanged": true,
+          "real_saves_unchanged": true,
+          "import_cache_metadata_unchanged": true,
+          "fixture_unchanged": true,
+          "no_records": true,
+          "five_isolated_roots": true
+        },
+        "ac_endpoints_online": true,
+        "original_png_count": 3,
+        "original_validation_sha256": "4e6658c490dabcf072831197f66f8979e0c75dbb677983009b2949d2c757a5e2",
+        "original_launch_validation_sha256": "432ac40710ec1e2b1ce7b56f1ce5b9746713912e08fd1253256900ccd80615f7",
+        "checks": 735
+      },
+      {
+        "case": "static-p4-en-125",
+        "status": "PASS",
+        "worker_status": "PASS",
+        "engine_exit_code": 0,
+        "engine_diagnostics": [],
+        "elapsed_worker_seconds": 14.734999999999673,
+        "elapsed_hidden_helper_seconds": 16.312,
+        "integrity": {
+          "source_unchanged": true,
+          "real_saves_unchanged": true,
+          "import_cache_metadata_unchanged": true,
+          "fixture_unchanged": true,
+          "no_records": true,
+          "five_isolated_roots": true
+        },
+        "ac_endpoints_online": true,
+        "original_png_count": 3,
+        "original_validation_sha256": "2d205806d826a67550e06705002793749d8d668dad770d4a1bbb0e26f39cc163",
+        "original_launch_validation_sha256": "497deda4a70209cee862f9003dc00caadcee0fc4065aa1a9beb944232669defa",
+        "checks": 735
+      },
+      {
+        "case": "motion-p4-qhd-native",
+        "status": "FAIL",
+        "worker_status": "PASS",
+        "engine_exit_code": 0,
+        "engine_diagnostics": [],
+        "elapsed_worker_seconds": 189.65700000000015,
+        "elapsed_hidden_helper_seconds": 191.735,
+        "integrity": {
+          "source_unchanged": true,
+          "real_saves_unchanged": true,
+          "import_cache_metadata_unchanged": true,
+          "fixture_unchanged": true,
+          "no_records": true,
+          "five_isolated_roots": true
+        },
+        "ac_endpoints_online": true,
+        "original_png_count": 120,
+        "original_validation_sha256": "9e819d762c02833d11f104008e609485625cc6865031d9388e16817f81611165",
+        "original_launch_validation_sha256": "0546fb0c5f2c9647adc2648565ffe9695c65239c662ba24abfef95b0bb09ff2d",
+        "continuous_frames": 120,
+        "failure_class": "global_post_exit_process_guard",
+        "post_exit_godot_count": 2,
+        "failure_evidence_scope": "The launcher found two Godot processes after its own worker/helper returned. Those original process identities were unavailable when command lines were inspected; ownership is unconfirmed. Later observations do not identify the original processes.",
+        "visual_motion_acceptance": "NOT_ACCEPTED",
+        "original_sequence_published": false
+      },
+      {
+        "case": "motion-p4-qhd-fsr-native-aa",
+        "status": "NOT_RUN",
+        "original_png_count": 0
+      },
+      {
+        "case": "motion-p4-qhd-fsr-quality",
+        "status": "NOT_RUN",
+        "original_png_count": 0
+      }
+    ],
+    "limitations": "Four static PASS; native motion case remains FAIL at the process guard despite worker PASS; two FSR cases remain NOT_RUN. No historical result is upgraded."
+  },
+  "historical_static_review": {
+    "source_sha": "fb3af56008647e82a7b34598a687358e0ead8f5a",
+    "review": {
+      "reviewed": true,
+      "scope": "Three latest QHD profiles, two ultrawide PLAY originals and four approved same-box 200% P1-to-P4 crops",
+      "observations": "P1-P4 signs statically identifiable, no new layout overflow observed; pale translucent score cells keep scene details visible.",
+      "method": "Manual inspection of original PNGs by the primary reviewer"
+    },
+    "unverified_by_this_static_package": [
+      "motion shimmer",
+      "ghosting",
+      "real-controller playability",
+      "formal performance",
+      "HDR",
+      "VRR",
+      "cross-platform behaviour"
+    ],
+    "comparisons": [
+      {
+        "before": "before-qhd-native",
+        "after": "after-qhd-native",
+        "fixture_hash_equal": true,
+        "pose_hash_equal": true,
+        "camera_pose_projection_layout_equal": true,
+        "camera_max_numeric_delta": 0,
+        "root_viewport_equal": true,
+        "body_count_before": 44,
+        "body_count_after": 44,
+        "all_bodies_frozen": true,
+        "all_body_objects_equal": true,
+        "body_transform_max_numeric_delta": 0.0
+      },
+      {
+        "before": "after-qhd-native",
+        "after": "after-qhd-fsr-native-aa",
+        "fixture_hash_equal": true,
+        "pose_hash_equal": true,
+        "camera_pose_projection_layout_equal": true,
+        "camera_max_numeric_delta": 0,
+        "root_viewport_equal": false,
+        "body_count_before": 44,
+        "body_count_after": 44,
+        "all_bodies_frozen": true,
+        "all_body_objects_equal": true,
+        "body_transform_max_numeric_delta": 0.0
+      },
+      {
+        "before": "after-qhd-native",
+        "after": "after-qhd-fsr-quality",
+        "fixture_hash_equal": true,
+        "pose_hash_equal": true,
+        "camera_pose_projection_layout_equal": true,
+        "camera_max_numeric_delta": 0,
+        "root_viewport_equal": false,
+        "body_count_before": 44,
+        "body_count_after": 44,
+        "all_bodies_frozen": true,
+        "all_body_objects_equal": true,
+        "body_transform_max_numeric_delta": 0.0
+      }
+    ]
+  },
+  "observations_20261025": {
+    "source_sha": "5a0b91845f9971de606b1e2a2b758a919786b356",
+    "static_cases_pass": 7,
+    "static_checks": 3998,
+    "motion": {
+      "native": {
+        "status": "PASS",
+        "continuous_frames": 120
+      },
+      "fsr-native-aa": {
+        "status": "PASS",
+        "continuous_frames": 120
+      },
+      "fsr-quality-0.67": {
+        "status": "PASS",
+        "continuous_frames": 120
+      }
+    },
+    "natural_2p": {
+      "status": "OBSERVED",
+      "pngs": 112,
+      "frames_per_round": 5,
+      "wall_seconds": 247.734
+    },
+    "natural_4p": {
+      "status": "OBSERVED",
+      "pngs": 112,
+      "frames_per_round": 5,
+      "wall_seconds": 241.937
+    },
+    "preserved_negative_outcomes": [
+      "Graphical B: 1200-frame wait expired during COUNTDOWN at 4.327889 seconds; fixed in source test 5a0b918",
+      "Graphical C FSR AA: 210-second timeout, 113/120 PNGs; later manual D observation used 360 seconds and retained full 120-frame requirements",
+      "Natural B 4P: 139-second remainder under a shared 400-second budget timed out; independent C 4P observation retained its separate 400-second budget"
+    ],
+    "ordinary_2p_4p": "PASS",
+    "public_smoke_cases_pass": 15,
+    "smoke_diagnostics": "Known static-resource shutdown warning retained and excluded only by the original runner rule; not diagnostic-free",
+    "motion_review": "Selected-frame review only; not full latest-merged-source motion acceptance"
+  },
+  "current_gate": "Latest dev merge requires new 4P native/FSR-AA 120-frame observation and primary visual review; FSR quality softness alone is not blocking per comment 6392600213",
+  "archive": {
+    "archive_id": "pr31-comment6392600213-20261025-A",
+    "storage": "Private local review-evidence; not in Git and not uploaded",
+    "archive_manifest_sha256": "99de0b89b0d80824872146b91b62dbec1be856085276b0eb7f7c5816106f4ae9"
+  },
+  "earlier_headless_failures": {
+    "scope": "Historical steps from the archived revision; not new runs; exact source commits are unrecorded here",
+    "source_sha": null,
+    "observations": [
+      "Initial 10-frame score-grid width and 125% text-top bounds failed; scaling and width limits were fixed before the full eight-case rerun",
+      "MSDF range16 did not cover outline10 under the font constraint; range24 and the range-at-least-twice-outline assertion replaced it; range16 images do not verify the final style",
+      "After the pale score-cell style changed, an outdated observer reported four cell-count failures; its background marker was corrected without removing original conditions, and all eight cases reran with 4800 checks passed"
+    ]
+  },
+  "historical_hub_failure_before_dev_merge": {
+    "source_sha": null,
+    "scope": "Pre-merge result recorded in the archived revision, not a new run",
+    "passed": 111,
+    "failed": 5,
+    "failure_group": "legacy clock tests",
+    "later_resolution": "Mainline #75 superseded the closed #82; after the normal dev24097 merge the actual Hub suite passed150, without a fake-clock backport"
+  },
+  "image_availability": {
+    "archive_id": "pr31-images-20261025-A",
+    "archive_manifest_sha256": "78f8bdd54657fe8282e8467cb194ea0045efc765b95d176dbe39276c1c8bba1d",
+    "storage": "Private local review-evidence; not in Git and not uploaded",
+    "original_pngs_archived": 24,
+    "retained_public_pngs": 9,
+    "removed_from_index_pngs": 15,
+    "original_bytes_unchanged": true,
+    "old_200_percent_crops": "Archived originals only; no newly generated crop",
+    "public_images": [
+      "docs/screenshots/bowling-b1-r2-after-qhd-native.png",
+      "docs/screenshots/bowling-b1-r2-before-qhd-native.png",
+      "docs/screenshots/bowling-b1-r3-125-2p-zh-intro.png",
+      "docs/screenshots/bowling-b1-r3-125-4p-en-play.png",
+      "docs/screenshots/bowling-b1-r4-motion-fsr-native-aa-frame060.png",
+      "docs/screenshots/bowling-b1-r4-motion-fsr-quality-frame060.png",
+      "docs/screenshots/bowling-b1-r4-motion-native-frame060.png",
+      "docs/screenshots/bowling-b1-r4-natural-4p-frame099.png",
+      "docs/screenshots/bowling-b1-r4-natural-4p-frame111.png"
+    ],
+    "archived_images": [
+      {
+        "archive_file_id": "original-png/bowling-b1-2p-zh-play.png",
+        "sha256": "a52fa8cbc6b41e54881dc3c97bebce9f9c7377089cac3c51e1f0ce654de92dfe"
+      },
+      {
+        "archive_file_id": "original-png/bowling-b1-4p-en-play.png",
+        "sha256": "038f9db171ffeb20064be3b172f76883e46b438552362deb11c137bd8a3488ff"
+      },
+      {
+        "archive_file_id": "original-png/bowling-b1-4p-hall.png",
+        "sha256": "84b0f66dd9a7bd2fdffdc00fbf6b2d0a394245affe18f319dd4e80338b20daec"
+      },
+      {
+        "archive_file_id": "original-png/bowling-b1-after-4p.png",
+        "sha256": "6df2577cc972ddca224a50b8465004595999eb665c9ad8ce04063d951817ede2"
+      },
+      {
+        "archive_file_id": "original-png/bowling-b1-before-4p.png",
+        "sha256": "eac3baa8fd7712fb9970d566ffb7de854f5e69fd2286adfcb58a07a9d6d55c01"
+      },
+      {
+        "archive_file_id": "original-png/bowling-b1-r2-after-qhd-fsr-native-aa-p1-distant-p4-200pct.png",
+        "sha256": "20069948bca9f39942a03e2020654e783f366f40cc6a81a014271d88b591ef22"
+      },
+      {
+        "archive_file_id": "original-png/bowling-b1-r2-after-qhd-fsr-native-aa.png",
+        "sha256": "d37b948de812265c309d553837aaf3e9dae654d63479bd0ce8fe38705a8d7574"
+      },
+      {
+        "archive_file_id": "original-png/bowling-b1-r2-after-qhd-fsr-quality-p1-distant-p4-200pct.png",
+        "sha256": "70375f6a2ba8e2c9368476b6ad53211763256226e735f31635d364f96dcbc8d9"
+      },
+      {
+        "archive_file_id": "original-png/bowling-b1-r2-after-qhd-fsr-quality.png",
+        "sha256": "ce5179a4b04b11553ace8b6f06a9754c2a77b693025ff13a6ab285547b9e6206"
+      },
+      {
+        "archive_file_id": "original-png/bowling-b1-r2-after-qhd-native-p1-distant-p4-200pct.png",
+        "sha256": "4065b512460f02732246fc5c41028384da7252ad7999a555c0b38619b3ff476d"
+      },
+      {
+        "archive_file_id": "original-png/bowling-b1-r2-after-wide-2p-zh-play.png",
+        "sha256": "c6caff7c62ea5cb54e60de1b661a642cc5de85ce1bc7f27da4458c2fbeb77b3a"
+      },
+      {
+        "archive_file_id": "original-png/bowling-b1-r2-after-wide-4p-en-play.png",
+        "sha256": "a8efe8f81649e396d3ad2dc775b39599e0e180bc8a7ea662265ce93dd6f91f4f"
+      },
+      {
+        "archive_file_id": "original-png/bowling-b1-r2-before-qhd-native-p1-distant-p4-200pct.png",
+        "sha256": "ad0289fd09b8e7ff6f0f32abe88b7427d47cb4f9c78396e19b30aa5b129e3b4e"
+      },
+      {
+        "archive_file_id": "original-png/bowling-b1-r3-125-2p-en-play.png",
+        "sha256": "84680c7e463a69244e55147c4908fb9eb94d536caf46ed8a9d9ee6b8085ea0ab"
+      },
+      {
+        "archive_file_id": "original-png/bowling-b1-r3-125-4p-zh-intro.png",
+        "sha256": "6611a76801620d73d79f2b3dccb690da57f9544f889478e108a4875fa7b116e5"
+      }
+    ],
+    "historical_image_counts": "Historical result counts describe their original capture/publication batch; they are not the current repository image count"
+  }
+}
