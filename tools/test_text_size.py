@@ -1,6 +1,6 @@
 """Verify text sizes, process reload and real bilingual split-screen HUDs.
 
-python tools/test_text_size.py --screenshots
+python tools/test_text_size.py --screenshots [--resolution 1280x800]
 CI can use --ui-only with the sparse art checkout. Import the project first.
 """
 from __future__ import annotations
@@ -27,7 +27,10 @@ def main() -> int:
     parser.add_argument("--games", nargs="+", choices=catalog.game_ids(),
                         default=list(catalog.game_ids()))
     parser.add_argument("--output", type=Path, default=ROOT / "audit-output/text-size")
+    # Non-16:9 windows (16:10, 21:9) check that menus and HUDs still fit the expanded canvas.
+    parser.add_argument("--resolution", default=(1600, 900), type=lambda text: tuple(map(int, text.lower().split("x", 1))))
     args = parser.parse_args()
+    resolution = f"{args.resolution[0]}x{args.resolution[1]}"
     output = args.output.resolve()
     output.mkdir(parents=True, exist_ok=True)
     temporary = Path(tempfile.mkdtemp(prefix="_text-data-", dir=output)).resolve()
@@ -52,9 +55,10 @@ def main() -> int:
             graphical = args.screenshots and not verify
             env = dict(os.environ, RS_TEST_MODE="1", APPDATA=str(data), XDG_DATA_HOME=str(data),
                        XDG_CONFIG_HOME=str(temporary), XDG_CACHE_HOME=str(temporary), RS_TEXT_GAME=game,
-                       RS_TEXT_VERIFY="1" if verify else "0", RS_TEXT_SCREENSHOT=str(picture) if graphical else "")
+                       RS_TEXT_VERIFY="1" if verify else "0", RS_TEXT_SCREENSHOT=str(picture) if graphical else "",
+                       RS_TEXT_RESOLUTION=resolution)
             command = [find_godot(args.godot), "--path", str(ROOT / "game"),
-                       "res://tests/test_text_size.tscn", "--resolution", "1600x900"]
+                       "res://tests/test_text_size.tscn", "--resolution", resolution]
             if not graphical:
                 command += ["--headless", "--fixed-fps", "60"]
             command += ["--", f"--demo={players}", f"--map={map_index}"] if game else ["--", "--static-menu"]
@@ -70,7 +74,7 @@ def main() -> int:
                 suffixes = ["play", "results", "tutorial"] if game else ["settings", "menu", "players", "solo", "party", "records", "credits"]
                 if game == "basketball":
                     suffixes.append("feedback")
-                if any(png_size((output / f"{name}-{suffix}.png").read_bytes()) != (1600, 900) for suffix in suffixes):
+                if any(png_size((output / f"{name}-{suffix}.png").read_bytes()) != args.resolution for suffix in suffixes):
                     raise ValueError("Wrong screenshot dimensions")
             print(f"{name}: {markers[0]} (environment notes: {len(environment)})", flush=True)
     finally:
