@@ -1,6 +1,7 @@
 extends Node
 const TutorialCases := preload("res://tests/tutorial_cases.gd")
 const CatalogCases := preload("res://tests/catalog_cases.gd")
+const SwingClassifyCases := preload("res://tests/swing_classify_cases.gd")
 ## Run this scene with an isolated APPDATA directory; it writes actual ConfigFile saves.
 
 var _failures := 0
@@ -186,6 +187,7 @@ func _run() -> void:
 	_check(load("res://scenes/menu/main_menu.gd") != null, "main menu compiles")
 	CatalogCases.run(_check)
 	TutorialCases.run(_check)
+	SwingClassifyCases.run(_check)
 	await TutorialCases.integration(self, _check)
 	await get_tree().process_frame
 	# Let the audio thread release the pause-menu cue before shutting down the test process.
