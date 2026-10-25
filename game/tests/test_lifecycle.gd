@@ -9,8 +9,34 @@ var _game_id := "plane"
 var _report := ""
 var _captures := ""
 var _layout_only := false
+var _recovery_mode := ""
+var _recovery_elapsed := 0.0
 var _checks := 0
 var _heartbeat_at := 0
+
+
+## Count calls before the framework guard, so a repeated timeout finish cannot
+## hide behind _result_committed. These wrappers inherit the real sport logic.
+class RecoveryArchery extends "res://scenes/archery/archery_game.gd":
+	var finish_calls := 0
+
+	func game_id() -> String:
+		return "archery"
+
+	func finish_round() -> void:
+		finish_calls += 1
+		super.finish_round()
+
+
+class RecoveryBowling extends "res://scenes/bowling/bowling_game.gd":
+	var finish_calls := 0
+
+	func game_id() -> String:
+		return "bowling"
+
+	func finish_round() -> void:
+		finish_calls += 1
+		super.finish_round()
 
 
 func _ready() -> void:
@@ -29,6 +55,8 @@ func _ready() -> void:
 			_captures = arg.trim_prefix("--capture-output=")
 		elif arg == "--layout-only":
 			_layout_only = true
+		elif arg.begins_with("--round-recovery="):
+			_recovery_mode = arg.trim_prefix("--round-recovery=")
 	_peer.set_dest_address("127.0.0.1", ControllerHub.listen_port())
 	_run.call_deferred()
 
@@ -106,6 +134,248 @@ func _pause_check(game: RSPartyGame) -> void:
 	_check(game._clock > clock, "resume advances game clock")
 
 
+func _archery_pause_release_check(game: Variant) -> void:
+	var p: RSPartyGame.Player = game.players[81]
+	var s: Variant = game._archer(p)
+	await _send_input(1, RSController.BTN_A)
+	await _frames(60)
+	_check(s.drawing and s.power() >= game.MIN_POWER, "archery draws enough power to expose an unintended pause release")
+	var arrows_left: int = s.arrows_left
+	var arrows_out: int = s.arrows.size()
+	var hits: int = s.hits.size()
+	var score := p.score
+	await _tap(2, RSController.BTN_D)
+	_check(game.ui.pause.is_open() and get_tree().paused, "another controller pauses archery mid-draw")
+	var frozen_wait: float = s.wait_t
+	await _send_input(1, 0)
+	await _frames(5)
+	_check(not s.drawing and s.draw_t == 0.0, "release inside pause cancels the archery draw")
+	_check(s.arrows_left == arrows_left and s.arrows.size() == arrows_out and s.hits.size() == hits and p.score == score, "pause cancellation neither shoots nor consumes or scores an arrow")
+	_check(s.wait_t == frozen_wait and p.c.ui_state.get("bar") == null, "pause freezes the original deadline and clears the power bar")
+	await _tap(2, RSController.BTN_A)
+	_check(not game.ui.pause.is_open() and not get_tree().paused, "another controller resumes archery after the release")
+	_check(not s.drawing and s.arrows_left == arrows_left and s.arrows.size() == arrows_out, "resuming after a paused release launches no arrow")
+	game.set_process(false)
+	await _send_input(1, RSController.BTN_A)
+	_check(s.drawing, "archery can draw again after pause cancellation")
+	var wait_before: float = s.wait_t
+	game._player_cancel_hold(p, RSController.BTN_B)
+	_check(s.drawing, "cancelling a different button does not cancel the draw")
+	game._player_cancel_hold(p, RSController.BTN_A)
+	game._player_cancel_hold(p, RSController.BTN_A)
+	_check(not s.drawing and s.draw_t == 0.0 and s.wait_t == wait_before and wait_before >= frozen_wait, "repeated cancellation is idempotent and does not renew the arrow deadline")
+	game._process(game.SHOT_WAIT - wait_before)
+	_check(s.arrows_left == arrows_left - 1 and s.hits.size() == hits + 1 and s.arrows.size() == arrows_out, "cancelled draw still expires at its original deadline without launching an arrow")
+	game._player_cancel_hold(p, RSController.BTN_A)
+	await _send_input(1, 0)
+	_check(s.arrows_left == arrows_left - 1 and s.hits.size() == hits + 1 and s.arrows.size() == arrows_out and p.score == score, "cancellation and a late release after timeout do not shoot or settle twice")
+	game.restart_round()
+	game.set_process(true)
+	await _until_phase(game, RSPartyGame.Phase.PLAY)
+
+
+func _deadline_checks(game: Variant) -> void:
+	# Call the real processing and input paths at exact boundaries. Restore the
+	# ordinary live scene afterward; this is not a second scoring implementation.
+	game.set_process(false)
+	game.set_physics_process(false)
+	var p: RSPartyGame.Player = game.players[81]
+	if _game_id == "archery":
+		var s: Variant = game._archer(p)
+		s.wait_t = game.SHOT_WAIT - 0.5
+		game._on_button(p.c, RSController.BTN_A, true)
+		s.draw_t = 1.0
+		game._on_button(p.c, RSController.BTN_A, false)
+		_check(s.arrows_left == game.ARROWS - 1 and game._arrow_in_flight(s), "before-deadline release launches a real arrow")
+		game._process(game.SHOT_WAIT)
+		_check(s.arrows_left == game.ARROWS - 1 and s.hits.size() == 1, "in-flight arrow follows physics and settles once without a waiting timeout")
+		game._process(0.0)
+		_check(s.hits.size() == 1, "settled arrow is not scored twice")
+		game._begin_round(0)
+		game._stage = game.Stage.SHOOT
+		game._on_button(p.c, RSController.BTN_A, true)
+		game._process(game.SHOT_WAIT - 0.5)
+		game._on_button(p.c, RSController.BTN_A, true)
+		_check(s.wait_t == game.SHOT_WAIT - 0.5, "repeated draw presses do not renew the arrow deadline")
+		game._process(0.5)
+		_check(s.arrows_left == game.ARROWS - 1 and s.hits.size() == 1 and s.hits[0].z == 0 and not s.drawing, "exact deadline consumes one zero-ring arrow and cancels drawing")
+		game._on_button(p.c, RSController.BTN_A, false)
+		_check(s.arrows_left == game.ARROWS - 1 and s.hits.size() == 1 and s.arrows.is_empty(), "late release cannot shoot, consume or score the expired arrow again")
+		s.wait_t = game.SHOT_WAIT
+		game._on_button(p.c, RSController.BTN_A, true)
+		_check(s.arrows_left == game.ARROWS - 2 and not s.drawing, "deadline press cannot renew the expired arrow")
+		s.wait_t = game.SHOT_WAIT + 0.5
+		game._on_button(p.c, RSController.BTN_A, true)
+		game._on_button(p.c, RSController.BTN_A, false)
+		_check(s.arrows_left == 0 and s.hits.size() == game.ARROWS, "after-deadline input consumes only the final zero arrow")
+	else:
+		var s: Variant = game._bowler(p)
+		s.step_t = game.AIM_WAIT - 0.5
+		game._on_button(p.c, RSController.BTN_B, true)
+		_check(s.step == game.Step.SWING, "before-deadline B enters the original swing path")
+		s.step_t = 6.0
+		game._on_button(p.c, RSController.BTN_B, true)
+		game._process(0.0)
+		_check(s.step == game.Step.SWING and s.step_t == 6.0, "repeat B does not renew swing and original six-second boundary stays exclusive")
+		game._process(0.01)
+		_check(s.step == game.Step.ROLLING, "held swing still auto-releases after six seconds")
+		game._physics_process(1.0 / 60.0)
+		game._round_started(game.ordered())
+		var standing: Array = s.standing.duplicate()
+		s.step_t = game.AIM_WAIT
+		game._on_button(p.c, RSController.BTN_B, true)
+		_check(s.rolls == [0] and s.ball_in_frame == 1 and s.standing == standing, "first-ball deadline consumes zero and keeps the standing rack")
+		game._on_button(p.c, RSController.BTN_B, false)
+		_check(s.rolls == [0] and s.step == game.Step.AIM, "late B release does not turn a timed-out throw into a shot")
+		s.pins[0].global_position.y = -1.0
+		s.step_t = game.AIM_WAIT + 0.5
+		game._process(0.0)
+		_check(s.rolls == [0, 0] and s.frame == 1 and p.score == 0, "timeout never scans an old fallen pin and advances through normal frame rules")
+		var original_frames: int = game._frames
+		for frame_count: int in [5, 10]:
+			game._frames = frame_count
+			game._round_started(game.ordered())
+			s.frame = frame_count - 1
+			for _roll in (frame_count - 1) * 2:
+				s.rolls.append(0)
+			_knock_pins(game, p, 10)
+			_check(s.ball_in_frame == 1 and s.step == game.Step.AIM, "final-frame strike earns its normal bonus throws")
+			for _bonus in 2:
+				s.step_t = game.AIM_WAIT
+				game._process(0.0)
+			_check(s.step == game.Step.DONE and s.rolls.slice(-3) == [10, 0, 0] and p.score == 10, "five/ten-frame strike bonuses can time out without extra points")
+			game._round_started(game.ordered())
+			s.frame = frame_count - 1
+			for _roll in (frame_count - 1) * 2:
+				s.rolls.append(0)
+			s.step_t = game.AIM_WAIT
+			game._process(0.0)
+			_knock_pins(game, p, 10)
+			_check(s.ball_in_frame == 2 and s.step == game.Step.AIM, "zero then spare earns the normal final bonus")
+			s.step_t = game.AIM_WAIT
+			game._process(0.0)
+			_check(s.step == game.Step.DONE and s.rolls.slice(-3) == [0, 10, 0] and p.score == 10, "five/ten-frame spare bonus timeout settles once")
+		game._frames = original_frames
+	# A real roster disconnect/reconnect must not change the current waiting clock.
+	game.restart_round()
+	game.set_process(true)
+	game.set_physics_process(true)
+	if not await _until_phase(game, RSPartyGame.Phase.PLAY):
+		return
+	game.set_process(false)
+	game._process(2.0)
+	var wait_before: float = game._archer(p).wait_t if _game_id == "archery" else game._bowler(p).step_t
+	await _roster(1)
+	await _roster()
+	var wait_after: float = game._archer(p).wait_t if _game_id == "archery" else game._bowler(p).step_t
+	_check(game.players[81] == p and wait_before == wait_after, "same PLAY slot reconnect does not reset its deadline")
+	game.set_process(true)
+	await _tap(1, RSController.BTN_D)
+	var frozen_wait: float = game._archer(p).wait_t if _game_id == "archery" else game._bowler(p).step_t
+	await _frames(5)
+	var paused_wait: float = game._archer(p).wait_t if _game_id == "archery" else game._bowler(p).step_t
+	_check(get_tree().paused and frozen_wait == paused_wait, "real pause freezes the waiting deadline")
+	await _tap(1, RSController.BTN_A)
+	game.restart_round()
+	if await _until_phase(game, RSPartyGame.Phase.PLAY):
+		var reset_wait: float = game._archer(p).wait_t if _game_id == "archery" else game._bowler(p).step_t
+		_check(reset_wait < 1.0, "restart gives the new round a fresh waiting clock")
+
+
+func _knock_pins(game: Variant, p: RSPartyGame.Player, count: int) -> void:
+	var s: Variant = game._bowler(p)
+	var moved := 0
+	for i in s.pins.size():
+		if s.standing[i] and moved < count:
+			s.pins[i].global_position.y = -1.0
+			moved += 1
+	game._count_pins(p)
+
+
+func _round_recovery(game: RSPartyGame) -> void:
+	await _deadline_checks(game)
+	if game.phase != RSPartyGame.Phase.PLAY:
+		return
+	var original: RSPartyGame.Player = game.players[81]
+	var slots: Array = []
+	for p: RSPartyGame.Player in game.ordered():
+		p.fake = p != original
+		slots.append(p.c.player)
+	_check(RSTournament.begin([_game_id, "plane", "bowling" if _game_id == "archery" else "archery"], slots), "timeout fixture enables real tournament scoring for the current event")
+	if _recovery_mode == "disconnected":
+		await _roster(1)
+	_check(game.players[81] == original and not original.fake, "recovery retains P1 in PLAY instead of removing the waiting player")
+	var started := game._clock
+	for _frame in 260 * 60:
+		if game.phase == RSPartyGame.Phase.RESULTS:
+			break
+		await _frames(1)
+	_recovery_elapsed = game._clock - started
+	_check(game.phase == RSPartyGame.Phase.RESULTS and _recovery_elapsed <= 260.0, "idle/disconnected real scene reaches RESULTS within bounded effective time")
+	_check(original.score == 0 and game.players[81] == original, "waiting player finishes with zero and keeps the PLAY slot")
+	_check(original.c.connected == (_recovery_mode == "idle"), "requested disconnect/connected-idle condition persists")
+	await _results_reentry_checks(game)
+	for p: RSPartyGame.Player in game.ordered():
+		_check(RSRecords.best(_game_id, game.map_index, p.c.player) == -1, "recovery fixture writes no personal record")
+	RSTournament.clear()
+	get_tree().current_scene = null
+	game.queue_free()
+	await _frames(3)
+
+
+func _results_reentry_checks(game: Variant) -> void:
+	game.set_process(false)
+	game.set_physics_process(false)
+	_check(game.finish_calls == 1 and game._result_committed, "natural timeout journey calls finish_round exactly once before the framework guard")
+	var ranked: Array = game.ranked_players()
+	var rank := 1
+	for i in ranked.size():
+		var p: RSPartyGame.Player = ranked[i]
+		if i > 0 and p.score != (ranked[i - 1] as RSPartyGame.Player).score:
+			rank = i + 1
+		_check(RSTournament.round_done and RSTournament.entrants[p.c.player]["points"] == RSTournament.POINTS[rank - 1], "natural timeout results award each tournament rank exactly once")
+	var result_lines: String = game.ui._results_text.text
+	var standings := RSTournament.standings()
+	var snapshots: Dictionary = {}
+	for p: RSPartyGame.Player in game.ordered():
+		if _game_id == "archery":
+			var s: Variant = game._archer(p)
+			snapshots[p.c.id] = [p.score, s.arrows_left, s.arrows.size(), s.hits.duplicate(), s.round_scores.duplicate()]
+		else:
+			var s: Variant = game._bowler(p)
+			snapshots[p.c.id] = [p.score, s.frame, s.ball_in_frame, s.rolls.duplicate()]
+			game._expire_aim(p)
+		if _game_id == "archery":
+			game._expire_arrow(p)
+			game._player_cancel_hold(p, RSController.BTN_A)
+			game._player_cancel_hold(p, RSController.BTN_A)
+		await _send_input(p.c.player, 0)
+	game._process(2.0)
+	game._process(2.0)
+	_check(game.phase == RSPartyGame.Phase.RESULTS and game.phase_time >= 4.0 and game.finish_calls == 1, "RESULTS processing and late releases never re-enter finish_round")
+	_check(game.ui._results_text.text == result_lines and RSTournament.standings() == standings, "RESULTS retains the original result lines and tournament points")
+	for p: RSPartyGame.Player in game.ordered():
+		var actual: Array
+		if _game_id == "archery":
+			var s: Variant = game._archer(p)
+			actual = [p.score, s.arrows_left, s.arrows.size(), s.hits, s.round_scores]
+		else:
+			var s: Variant = game._bowler(p)
+			actual = [p.score, s.frame, s.ball_in_frame, s.rolls]
+		_check(actual == snapshots[p.c.id], "RESULTS timeout entry and cancellation preserve each player's settled score and throws")
+	if _game_id == "archery":
+		game.open_pause()
+		_check(game.ui.pause.is_open(), "archery cancellation is safe when pausing in RESULTS")
+		game.ui.pause.close()
+		var participants: Dictionary = game.players
+		game.players = {}
+		game.open_pause()
+		_check(game.ui.pause.is_open() and game.players.is_empty(), "archery pause cancellation is safe with no players")
+		game.ui.pause.close()
+		game.players = participants
+		_check(game.finish_calls == 1, "RESULTS and empty-player pause cancellation do not finish the round again")
+
+
 func _exercise() -> void:
 	get_tree().current_scene = null
 	var entry := RSCatalog.find_game(_game_id)
@@ -116,6 +386,10 @@ func _exercise() -> void:
 		RSProfiles.complete_tutorial(slot, _game_id)
 	var scene := load(entry["scene"]) as PackedScene
 	var game := scene.instantiate() as RSPartyGame
+	if not _recovery_mode.is_empty():
+		# The sports' tscn files contain only their root and script. Keep that
+		# actual scene node and replace only its script with a counting subclass.
+		game.set_script(RecoveryArchery if _game_id == "archery" else RecoveryBowling)
 	get_tree().root.add_child(game)
 	get_tree().current_scene = game
 	game._records_enabled = false
@@ -147,6 +421,13 @@ func _exercise() -> void:
 			_check(not rect.intersects(other), "split-screen cells do not overlap")
 		rectangles.append(rect)
 	await _capture("play")
+	if not _layout_only and _game_id == "archery":
+		await _archery_pause_release_check(game)
+	if not _recovery_mode.is_empty():
+		_check(_game_id in ["archery", "bowling"] and _recovery_mode in ["idle", "disconnected"], "valid real-scene round recovery case")
+		if _game_id in ["archery", "bowling"] and _recovery_mode in ["idle", "disconnected"]:
+			await _round_recovery(game)
+		return
 	if not _layout_only:
 		var original: RSPartyGame.Player = game.players[81]
 		original.score = 123
@@ -232,7 +513,8 @@ func _run() -> void:
 		var file := FileAccess.open(_report, FileAccess.WRITE)
 		if file != null:
 			file.store_string(JSON.stringify({"game": _game_id, "players": _count,
-				"checks": _checks, "errors": _errors, "layout_only": _layout_only}))
+				"checks": _checks, "errors": _errors, "layout_only": _layout_only,
+				"recovery_mode": _recovery_mode, "recovery_elapsed_seconds": _recovery_elapsed}))
 		else:
 			_check(false, "write lifecycle report")
 	print("RS_LIFECYCLE_DONE: %s/%d" % [_game_id, _count])

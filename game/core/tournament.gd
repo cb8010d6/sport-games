@@ -9,6 +9,49 @@ static var index := 0
 static var round_done := false
 
 
+class ExitGuard:
+	## Per-game input state. Time/phase/eligibility come from RSPartyGame; no scene or UI access.
+	const SECONDS := 3.0
+	var eligible: Callable
+	var controller: RSController
+	var _slot := 0
+	var _phase := -1
+	var _until := 0.0
+
+	func pending() -> bool:
+		return controller != null
+
+	func clear() -> void:
+		controller = null
+		_slot = 0
+		_phase = -1
+		_until = 0.0
+
+	func validate(active: bool, phase: int, now: float) -> void:
+		if controller != null and (not active or phase != _phase or now >= _until or controller.player != _slot or not _allowed(controller)):
+			clear()
+
+	func request(c: RSController, phase: int, now: float) -> bool:
+		if not _allowed(c):
+			return false
+		validate(true, phase, now)
+		if controller == c:
+			clear()
+			return true
+		controller = c
+		_slot = c.player
+		_phase = phase
+		_until = now + SECONDS
+		return false
+
+	func lost(c: RSController) -> void:
+		if controller != null and controller.id == c.id:
+			clear()
+
+	func _allowed(c: RSController) -> bool:
+		return c != null and eligible.is_valid() and bool(eligible.call(c))
+
+
 static func active() -> bool:
 	return not games.is_empty()
 
@@ -37,6 +80,7 @@ static func record(game_id: String, results: Array) -> bool:
 	if not active() or round_done or games[index] != game_id:
 		return false
 	var seen: Array = []
+	# Missing slots keep earlier points and receive zero for this event, without last-place points.
 	for row: Dictionary in results:
 		var slot := int(row.get("slot", 0))
 		if entrants.has(slot) and not slot in seen:
@@ -56,6 +100,17 @@ static func standings() -> Array:
 	rows.sort_custom(func(a: Dictionary, b: Dictionary) -> bool:
 		return a["points"] > b["points"] if a["points"] != b["points"] else a["slot"] < b["slot"])
 	return rows
+
+
+static func missing(results: Array) -> PackedInt32Array:
+	var slots := PackedInt32Array()
+	for slot: int in entrants:
+		var present := false
+		for row: Dictionary in results:
+			present = present or int(row.get("slot", 0)) == slot
+		if not present:
+			slots.append(slot)
+	return slots
 
 
 static func last_round() -> bool:
