@@ -14,6 +14,7 @@ from pathlib import Path
 from typing import Any
 
 from . import protocol as P
+from .diagnostics import PrivateFormatter
 from .frames import PHONE_AXIS_MAP, REGINA_DEFAULT_AXIS_MAP, handedness
 from .hub import Hub
 from .netutil import ensure_cert, lan_ips, qr_rows, ssl_context
@@ -160,7 +161,9 @@ def main(argv: list[str] | None = None) -> None:
         from .ble_selftest import run as ble_selftest
 
         raise SystemExit(ble_selftest())
-    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, format="%(asctime)s %(name)-5s %(message)s", datefmt="%H:%M:%S")
+    handler = logging.StreamHandler()
+    handler.setFormatter(PrivateFormatter("%(asctime)s %(name)-5s %(message)s", datefmt="%H:%M:%S"))
+    logging.basicConfig(level=logging.DEBUG if args.verbose else logging.INFO, handlers=[handler])
     logging.getLogger("bleak").setLevel(logging.INFO)
     logging.getLogger("asyncio").setLevel(logging.WARNING)
     if sys.platform == "win32":
