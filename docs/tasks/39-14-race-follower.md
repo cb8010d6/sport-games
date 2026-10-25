@@ -13,7 +13,7 @@ Issue #39 F9 · 区域：框架（`game/core/`）
 1. [39-13](39-13-race-track.md) 的接口契约（`Racer`、`point_at`、`right_at`、`curvature_at`、`gate_window`、`steer_angle`）
 2. `game/core/race_track.gd`（39-13 合入后的版本，只看公开函数）
 3. `game/core/party_game.gd` 456-461（`bot_error()`、`bot_ability()`）
-4. 草稿：协调者本机 `wt/race` 的 `game/core/race_track.gd` 80-110（`Follower`）、214-245（`speed_profile` / `profile_at`）、441-460（`catch_up` / `rubber_band`）
+4. 草稿：`origin/wip/39-race` 分支的 `game/core/race_track.gd` 80-110（`Follower`）、214-245（`speed_profile` / `profile_at`）、441-460（`catch_up` / `rubber_band`）
 5. `docs/ARCHITECTURE.md` 第 3 节
 
 ## 改动文件

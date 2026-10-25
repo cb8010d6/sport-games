@@ -15,7 +15,7 @@ Issue #39 F6 · 区域：框架（`game/core/`）
 3. `docs/CODING_STANDARDS.md`（类型、命名、SIZE）
 4. `docs/ARCHITECTURE.md` 第 3 节（公共模块表）
 5. [乒乓球 D0 设计](../TABLE_TENNIS_DESIGN.md)“F6 球物理与规则边界”一节（需求参考，玩法参数待维护者确认）
-6. 草稿：协调者本机 `wt/ball` 的 `game/core/ball_flight.gd` 1-445、460-700 行（见 [39-00](39-00-overview.md)）
+6. 草稿：`origin/wip/39-ball` 分支的 `game/core/ball_flight.gd` 1-445、460-700 行（见 [39-00](39-00-overview.md)）
 
 ## 改动文件
 

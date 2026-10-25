@@ -14,7 +14,7 @@ Issue #39 F9 · 区域：框架（`game/core/`）
 2. `game/core/fixed_step.gd` 前 20 行（core 纯逻辑类的写法）
 3. `docs/CODING_STANDARDS.md`
 4. `docs/ARCHITECTURE.md` 第 3 节
-5. 草稿：协调者本机 `wt/race` 的 `game/core/race_track.gd` 1-210、240-500、560-689 行（见 [39-00](39-00-overview.md)；`Follower`、`speed_profile`、`catch_up`、`rubber_band` 属于 39-14，本卡不要）
+5. 草稿：`origin/wip/39-race` 分支的 `game/core/race_track.gd` 1-210、240-500、560-689 行（见 [39-00](39-00-overview.md)；`Follower`、`speed_profile`、`catch_up`、`rubber_band` 属于 39-14，本卡不要）
 
 ## 改动文件
 

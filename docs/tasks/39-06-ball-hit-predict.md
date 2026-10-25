@@ -16,7 +16,7 @@ Issue #39 F6 · 区域：框架（`game/core/`）
 1. [39-05](39-05-ball-flight.md) 的接口契约
 2. `game/core/ball_flight.gd`（39-05 合入后的版本：`Surface`、接触处理函数、`copy()`）
 3. [乒乓球 D0 设计](../TABLE_TENNIS_DESIGN.md)中“自动跑位”“三档机器人”两段（需求参考）
-4. 草稿：协调者本机 `wt/ball` 的 `game/core/ball_flight.gd` 695-844 行（见 [39-00](39-00-overview.md)）
+4. 草稿：`origin/wip/39-ball` 分支的 `game/core/ball_flight.gd` 695-844 行（见 [39-00](39-00-overview.md)）
 5. `docs/ARCHITECTURE.md` 第 3 节
 
 ## 改动文件
