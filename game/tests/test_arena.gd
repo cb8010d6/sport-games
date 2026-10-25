@@ -14,6 +14,7 @@ func _ready() -> void:
 	_triangle_counter()
 	_test_lights()
 	_test_crowd()
+	_test_hall()
 	print("RS_ARENA_TESTS: %d checks, %d failures" % [_checks, _failures]) # no-i18n
 	get_tree().quit(0 if _failures == 0 else 1)
 
@@ -172,6 +173,64 @@ func _test_lights() -> void:
 	holder.add_child(another)
 	_check((board.get_child(0) as MeshInstance3D).material_override == (another.get_child(0) as MeshInstance3D).material_override, "scoreboard: bottom panels share their emissive material")
 	grand.free()
+
+
+func _test_hall() -> void:
+	var old_quality := RSSettings.quality
+	var old_loaded := RSSettings._loaded
+	RSSettings._loaded = true # exercise quality rules, without consulting a player's saved settings
+	var grand := Node3D.new()
+	grand.transform = Transform3D(Basis(Vector3.UP, 0.3), Vector3(5, 1, -4))
+	var holder := Node3D.new()
+	holder.transform = Transform3D(Basis(Vector3.UP, -0.2).scaled(Vector3(2, 1, 1)), Vector3(-2, 0, 3))
+	grand.add_child(holder)
+	var size := Vector3(24, 9, 36)
+	var presets: Array[RSArenaHall.Preset] = [RSArenaHall.preset_gym(), RSArenaHall.preset_boxing(), RSArenaHall.preset_hall()]
+	var previous_wall: Material
+	for i in presets.size():
+		var preset := presets[i]
+		RSSettings.quality = 2
+		var xform := Transform3D(Basis(Vector3.UP, -0.6), Vector3(i * 40.0, 2, 8))
+		var root := RSArenaHall.build(holder, xform, size, preset)
+		_check(_close(grand.transform * holder.transform * root.transform, xform), "hall: off-tree transformed parents preserve the requested world floor origin")
+		var environments := root.find_children("*", "WorldEnvironment", true, false)
+		_check(environments.size() == 1, "hall: every preset creates exactly one environment")
+		var env := (environments[0] as WorldEnvironment).environment
+		_check(env.tonemap_mode == Environment.TONE_MAPPER_AGX and absf(env.tonemap_exposure - preset.exposure) < 1e-6, "hall: AgX and preset exposure are applied")
+		_check(preset.hdri == "" and env.sky == null and env.background_mode == Environment.BG_COLOR and env.reflected_light_source == Environment.REFLECTION_SOURCE_DISABLED, "hall: empty HDRI uses pure-color fill without loading a panorama")
+		_check(env.ambient_light_color == preset.ambient and absf(env.fog_density - preset.fog_density) < 1e-6, "hall: ambient color and haze follow the preset")
+		var bounds := AABB()
+		var first := true
+		for node: Node in root.get_children():
+			if node is MeshInstance3D:
+				var part := node as MeshInstance3D
+				var part_bounds := part.transform * part.get_aabb()
+				bounds = part_bounds if first else bounds.merge(part_bounds)
+				first = false
+		_check(bounds.position.distance_to(Vector3(-12, 0, -18)) < 1e-5 and bounds.size.distance_to(size) < 1e-5, "hall: inward shell faces and internal beams have exactly the requested size AABB")
+		var floor_panel := root.get_node("Floor") as MeshInstance3D # no-i18n
+		var ceiling_panel := root.get_node("Ceiling") as MeshInstance3D # no-i18n
+		_check(floor_panel.basis.z.is_equal_approx(Vector3.UP) and ceiling_panel.basis.z.is_equal_approx(Vector3.DOWN), "hall: floor and ceiling face the room interior")
+		var wall := (root.get_node("BackWall") as MeshInstance3D).mesh.surface_get_material(0) # no-i18n
+		if previous_wall != null:
+			_check(wall == previous_wall, "hall: presets sharing a scanned wall reuse the same material")
+		previous_wall = wall
+		var lights := root.get_node("Lights") as Node3D # no-i18n
+		_check(lights.get_child_count() == preset.light_rows * preset.light_cols and RSArenaLights.real_light_count(lights) == preset.real_lights, "hall: preset panel count and total real-light budget agree")
+		_check(_close(lights.transform, Transform3D.IDENTITY), "hall: ceiling fixtures inherit the room transform instead of cancelling it")
+		_check(root.find_children("*", "DirectionalLight3D", true, false).is_empty(), "hall: indoor lighting creates no sun")
+		RSSettings.quality = 0
+		RSSettings.apply_world(root)
+		_check(not env.ssao_enabled and not env.glow_enabled and not env.ssr_enabled, "hall: low quality disables scene-requested expensive effects")
+		RSSettings.quality = 1
+		RSSettings.apply_world(root)
+		_check(env.ssao_enabled and env.glow_enabled and not env.ssr_enabled, "hall: medium quality restores SSAO/glow while leaving SSR off")
+		RSSettings.quality = 2
+		RSSettings.apply_world(root)
+		_check(env.ssao_enabled and env.glow_enabled and env.ssr_enabled and bool(env.get_meta("ssao_enabled")), "hall: high quality restores the original environment effects")
+	grand.free()
+	RSSettings.quality = old_quality
+	RSSettings._loaded = old_loaded
 
 
 func _parent_transforms() -> void:
