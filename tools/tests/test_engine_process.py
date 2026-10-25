@@ -98,8 +98,10 @@ class EngineProcessTests(unittest.TestCase):
         with mock.patch.object(engine_process.WindowsJob, "terminate", return_value=None), \
              mock.patch.object(engine_process.WindowsJob, "wait_empty", bounded_wait), \
              self.assertRaises(subprocess.TimeoutExpired) as caught:
-            command = [tree_command(Path.cwd())[0], "-NoLogo", "-NoProfile", "-NonInteractive", "-Command",
-                       "[Console]::WriteLine('out'); [Console]::Error.WriteLine('err'); Start-Sleep -Seconds 10"]
+            # Python, not PowerShell: a cold PowerShell start on CI can take longer than the 2 s timeout,
+            # so nothing had been written yet (#41).
+            command = [sys.executable, "-u", "-c",
+                       "import sys, time; print('out'); print('err', file=sys.stderr); time.sleep(10)"]
             run_engine(command,
                        env=dict(os.environ), timeout=2)
         self.assertEqual(caught.exception.timeout, 2)

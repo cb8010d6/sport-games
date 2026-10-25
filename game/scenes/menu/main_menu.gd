@@ -7,7 +7,7 @@ extends Control
 ## bottom. Non-sport entries show the live backdrop instead: two bot riders skate the seaside
 ## street from the skate game, filmed by a camera that cuts between chase and tracking shots.
 
-const GAMES := RSCatalog.GAMES + [
+const MODES := [   ## the entries after the sports from RSCatalog
 	{"name": "单人挑战", "oled": "SOLO", "scene": "", "page": "solo", "desc": "选择电脑难度，挑战三个分数目标，收集每个项目的星星。"},
 	{"name": "派对大赛", "oled": "PARTY", "scene": "", "page": "party", "desc": "选择 3–6 个项目，连续比赛并累计名次积分。"},
 	{"name": "玩家 / 手柄", "oled": "PLAYERS", "scene": "", "page": "players", "desc": "编辑玩家档案，扫码连接手机，分配手柄编号、查看电量与校准。"},
@@ -20,6 +20,9 @@ const GAMES := RSCatalog.GAMES + [
 		"desc": "按 A 切换界面语言：中文 / English"},
 ]
 const SHOT_TIME := 7.0           ## seconds per camera shot in the backdrop
+
+var entries: Array = RSCatalog.games() + MODES   ## the menu sports, then MODES
+var _sports := RSCatalog.games().size()          ## how many of entries are sports
 
 var _buttons: Array[Button] = []
 var _row_labels: Array = []      ## per button: its labels, recoloured when it is selected
@@ -50,7 +53,7 @@ var _side := 1.0
 
 func _ready() -> void:
 	RSExit.install(get_tree())
-	var cli_game := "plane"
+	var cli_game: String = entries[0].get("id", "")
 	var cli_launch := false
 	for a: String in OS.get_cmdline_user_args():
 		if a == "--demo" or a.begins_with("--demo="):
@@ -58,12 +61,23 @@ func _ready() -> void:
 		elif a.begins_with("--game="):
 			cli_game = a.trim_prefix("--game=")
 			cli_launch = true
+		elif a.begins_with("--dump-catalog="):
+			# Tools read the discovered manifests (also from an exported build) and quit.
+			var error := RSCatalog.write_dump(a.trim_prefix("--dump-catalog="))
+			if error != OK:
+				push_error("Cannot write the catalog dump: %s" % error_string(error))
+			else:
+				print("RS_CATALOG_DONE: %d" % RSCatalog.modules(true).size())
+			set_process(false)
+			RSExit.quit(get_tree(), 0 if error == OK else 1)
+			return
 	if cli_launch:
-		for game: Dictionary in GAMES:
-			if game.has("id") and game["id"] == cli_game:
-				print("CLI game: %s" % cli_game)
-				get_tree().change_scene_to_file.call_deferred(game["scene"])
-				return
+		# Hidden (ready = false) modules are reachable here so unfinished games can be tested.
+		var game := RSCatalog.find_game(cli_game, true)
+		if not game.is_empty():
+			print("CLI game: %s" % cli_game)
+			get_tree().change_scene_to_file.call_deferred(game["scene"])
+			return
 		push_error("Unknown --game id")
 		set_process(false)   # the menu is not built; _process would touch missing nodes
 		RSExit.quit(get_tree(), 2)
@@ -120,9 +134,9 @@ func _ready() -> void:
 	modes.columns = 2
 	modes.add_theme_constant_override("h_separation", 8)
 	modes.add_theme_constant_override("v_separation", 4)
-	for i in GAMES.size():
-		var sport := i < RSCatalog.GAMES.size()
-		if i == RSCatalog.GAMES.size():
+	for i in entries.size():
+		var sport := i < _sports
+		if i == _sports:
 			var line := HSeparator.new()
 			line.add_theme_constant_override("separation", 22)
 			_menu_grid.add_child(line)
@@ -205,8 +219,8 @@ func _ready() -> void:
 	RSMusic.attach(self).play_track("menu")
 	if RSBenchmarkMenu.return_to_settings:
 		RSBenchmarkMenu.return_to_settings = false
-		for i in GAMES.size():
-			if GAMES[i].get("page", "") == "settings":
+		for i in entries.size():
+			if entries[i].get("page", "") == "settings":
 				_buttons[i].grab_focus()
 				_open(i)
 				_settings.focus_benchmark()
@@ -316,11 +330,11 @@ func _on_focus(i: int) -> void:
 	_paint_row(_index, false)
 	_index = i
 	_paint_row(i, true)
-	_preview.show_game(GAMES[i])
+	_preview.show_game(entries[i])
 	_info_title.text = _name(i)
-	_info_tag.text = GAMES[i]["oled"] if RSSettings.language == 0 else ""
-	_desc.text = tr(GAMES[i]["desc"])
-	var game_id: String = GAMES[i].get("id", "")
+	_info_tag.text = entries[i]["oled"] if RSSettings.language == 0 else ""
+	_desc.text = tr(entries[i]["desc"])
+	var game_id: String = entries[i].get("id", "")
 	_stats.visible = not game_id.is_empty()
 	if _stats.visible:
 		var best := RSRecords.overall_best(game_id)
@@ -363,7 +377,7 @@ func _row(i: int, sport: bool) -> Button:
 	title.set_meta("rs_alpha", 0.86 if sport else 0.76)
 	labels.append(title)
 	if sport and RSSettings.language == 0:
-		var tag := RSUi.label(GAMES[i]["oled"], 15)
+		var tag := RSUi.label(entries[i]["oled"], 15)
 		tag.add_theme_font_override("font", RSUi.font_label())
 		tag.set_meta("rs_alpha", 0.5)
 		labels.append(tag)
@@ -462,37 +476,37 @@ func _on_button(_c: RSController, button: int) -> void:
 
 
 func _send_oled(c: RSController) -> void:
-	ControllerHub.send_ui(c.id, {"clear": true, "title": "REGINA", "main": GAMES[_index]["oled"], "sub": "%d / %d" % [_index + 1, GAMES.size()],
+	ControllerHub.send_ui(c.id, {"clear": true, "title": "REGINA", "main": entries[_index]["oled"], "sub": "%d / %d" % [_index + 1, entries.size()],
 		"legends": ["OPEN", "NEXT", "PREV", null]})
 
 
 func _name(i: int) -> String:
-	if GAMES[i]["scene"] == "" and not GAMES[i].has("page"):
-		return tr(GAMES[i]["name"]) % RSSettings.language_name()
-	return tr(GAMES[i]["name"])
+	if entries[i]["scene"] == "" and not entries[i].has("page"):
+		return tr(entries[i]["name"]) % RSSettings.language_name()
+	return tr(entries[i]["name"])
 
 
 func _open(i: int) -> void:
 	if _pages.visible or _settings.is_open():
 		return
-	if GAMES[i].has("page"):
+	if entries[i].has("page"):
 		_menu_grid.visible = false
 		_info.visible = false
 		_preview.visible = false
-		if GAMES[i]["page"] == "settings":
+		if entries[i]["page"] == "settings":
 			_settings.open()
 		else:
-			_pages.open(GAMES[i]["page"])
+			_pages.open(entries[i]["page"])
 		return
-	if GAMES[i]["scene"] == "":
+	if entries[i]["scene"] == "":
 		RSSettings.next_language()
 		get_tree().reload_current_scene()
 		return
-	get_tree().change_scene_to_file(GAMES[i]["scene"])
+	get_tree().change_scene_to_file(entries[i]["scene"])
 
 
 func _restore_focus() -> void:
 	_menu_grid.visible = true
 	_info.visible = true
 	_buttons[_index].grab_focus()
-	_preview.show_game(GAMES[_index])
+	_preview.show_game(entries[_index])

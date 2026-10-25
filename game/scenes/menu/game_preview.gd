@@ -22,8 +22,8 @@ func show_game(entry: Dictionary) -> void:
 	if game_id.is_empty():
 		return
 	if not _textures.has(game_id):
-		var path := "res://assets/previews/%s.jpg" % game_id
-		if not ResourceLoader.exists(path):
+		var path := str(entry.get("preview", ""))   # the manifest's preview (RSGameModule)
+		if path.is_empty() or not ResourceLoader.exists(path):
 			return
 		_textures[game_id] = load(path) as Texture2D
 	if texture != _textures[game_id]:
