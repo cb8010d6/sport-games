@@ -41,8 +41,9 @@ static func _throw(lesson: RSTutorial, c: RSController) -> void:
 
 
 static func run(check: Callable) -> void:
-	for entry: Dictionary in RSCatalog.GAMES:
-		check.call(RSTutorial.LESSONS.has(entry["id"]), "catalog game has tutorial: " + entry["id"])
+	for entry: Dictionary in RSCatalog.games():
+		var steps := RSTutorial.step_list(RSCatalog.lessons(entry["id"]))
+		check.call(not steps.is_empty() and steps.size() == RSCatalog.lessons(entry["id"]).size(), "catalog game has tutorial: " + entry["id"])
 	var c := _controller()
 	var lesson := RSTutorial.new("plane")
 	_button(lesson, c, RSController.BTN_A, true)

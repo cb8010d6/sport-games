@@ -25,7 +25,7 @@
   涉及多人界面时检查 2 人和 4 人分屏。
   自动无界面检查可运行 `python tools/smoke_game.py <Godot可执行文件> --project game`，它不替代画面和手柄实测。
 - 体感修改：说明测试用手机还是 Regina；检查短挥动、长按、断线与重连。
-- 所有修改：执行 `python tools/check_conventions.py`。
+- 所有修改：执行 `python tools/check_conventions.py` 和 `python -m ruff check --config hub/pyproject.toml hub tools`（CI 也会跑）。
 - 文案修改：执行 `python tools/i18n_check.py`，检查中英文。
 - 安装 Node.js 后可执行 `node tools/publication_audit.mjs --strict --write audit-output`；
   这是开发检查，不是游戏的运行依赖。也应执行 `node --test tools/tests/asset_sync.test.mjs`。

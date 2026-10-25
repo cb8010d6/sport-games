@@ -3,12 +3,14 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import struct
 import sys
 import unittest
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+import catalog
 from capture_previews import jpeg_size
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -26,9 +28,13 @@ class PreviewImageTests(unittest.TestCase):
     def test_committed_images_match_capture_manifest(self) -> None:
         folder = ROOT / "game/assets/previews"
         if not (folder / "manifest.json").is_file():
+            # Only the lightweight process-tool CI (RS_SPARSE_ASSETS=1) omits the art tree; elsewhere the folder is lost.
+            if os.environ.get("RS_SPARSE_ASSETS") != "1":
+                self.fail(f"{folder} has no manifest.json (RS_SPARSE_ASSETS=1 is only for sparse checkouts)")
             self.skipTest("Preview assets are absent from this sparse checkout")
         manifest = json.loads((folder / "manifest.json").read_text(encoding="utf-8"))
-        self.assertEqual(set(manifest["images"]), {"plane", "archery", "bowling", "skate", "ski", "basketball"})
+        self.assertLessEqual(set(catalog.game_ids()), set(manifest["images"]))
+        self.assertLessEqual(set(manifest["images"]), set(catalog.game_ids(include_hidden=True)))
         for game, row in manifest["images"].items():
             with self.subTest(game=game):
                 encoded = (folder / (game + ".jpg")).read_bytes()

@@ -14,6 +14,7 @@ import sys
 import tempfile
 from pathlib import Path
 
+import catalog
 from engine_process import run_engine, silence_native_crash_dialogs
 from test_storage import run_storage
 
@@ -62,6 +63,19 @@ def main() -> int:
         # Godot sometimes returns 0 after a script error; also require our explicit completion marker.
         output = result.stdout + result.stderr
         if not suite_passed(output, result.returncode, "RS_SHELL_TESTS: 0 failures"):
+            return 1
+        # The game's own manifest discovery (RSCatalog) must match what the tools read (tools/catalog.py).
+        dump = Path(temp) / "catalog.json"
+        result = run_engine([find_godot(args.godot), "--headless", "--path", str(ROOT / "game"),
+                             "--log-file", str(Path(temp) / "catalog.log"), "--", f"--dump-catalog={dump}"],
+                            env=env, timeout=60)
+        output = result.stdout + result.stderr
+        if not suite_passed(output, result.returncode, f"RS_CATALOG_DONE: {len(catalog.modules(True))}"):
+            print(output)
+            return 1
+        errors = catalog.compare(json.loads(dump.read_text(encoding="utf-8")))
+        print("\n".join(errors) or "RS_CATALOG: game and tools agree")
+        if errors:
             return 1
     if run_storage(find_godot(args.godot)) != 0:
         return 1
