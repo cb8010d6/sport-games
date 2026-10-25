@@ -156,10 +156,10 @@ func _paths_and_ads() -> void:
 		var arrays := mesh.surface_get_arrays(1)
 		var vertices: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
 		var uv: PackedVector2Array = arrays[Mesh.ARRAY_TEX_UV]
-		var expected_count := [2, 1, 1]
+		var expected_count: Array[int] = [2, 1, 1]
 		dimensions_ok = dimensions_ok and vertices.size() == expected_count[i] * 6
-		for j in expected_count[i]:
-			var offset := j * 6
+		for j: int in expected_count[i]:
+			var offset: int = j * 6
 			var lo := float(board % 3) / 3.0
 			var hi := float(board % 3 + 1) / 3.0
 			uv_ok = uv_ok and absf(uv[offset].x - lo) < 1e-6 and absf(uv[offset + 2].x - hi) < 1e-6
