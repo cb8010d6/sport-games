@@ -44,7 +44,7 @@ func _init(game_id: String) -> void:
 
 static func _watch_swing(lesson: RSTutorial) -> void:
 	# The lesson owns the detector; its signal must not keep the lesson alive.
-	var target := weakref(lesson)
+	var target: WeakRef = weakref(lesson)
 	lesson._swing.swing_peaked.connect(func(_c: RSController, swing: Dictionary) -> void:
 		var current := target.get_ref() as RSTutorial
 		if current != null:

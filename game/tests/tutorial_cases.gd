@@ -296,7 +296,7 @@ static func _swing_cases(check: Callable) -> void:
 	c = _controller()
 	lesson = _swing_lesson(c)
 	_demo(lesson, c)
-	var cancel_ref := weakref(lesson._swing)
+	var cancel_ref: WeakRef = weakref(lesson._swing)
 	lesson._swing.swing_peaked.connect(func(_c: RSController, _swing: Dictionary) -> void:
 		var detector := cancel_ref.get_ref() as RSSwingDetector
 		if detector != null:
@@ -304,7 +304,7 @@ static func _swing_cases(check: Callable) -> void:
 	)
 	_swing_motion(lesson, c)
 	check.call(not lesson.finished, "a candidate cancelled during batch processing must still match the final detector epoch")
-	var lesson_ref := weakref(lesson)
-	var detector_ref := weakref(lesson._swing)
+	var lesson_ref: WeakRef = weakref(lesson)
+	var detector_ref: WeakRef = weakref(lesson._swing)
 	lesson = null
 	check.call(lesson_ref.get_ref() == null and detector_ref.get_ref() == null, "releasing a tutorial also releases its signal-connected swing detector")
