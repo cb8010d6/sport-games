@@ -416,7 +416,11 @@ func _disconnect_release_check(game: Variant) -> void:
 		var snapshot: Array = []
 		if _game_id == "archery":
 			var state: Variant = game._archer(p)
-			_check(state.drawing, "archery really draws before " + route)
+			for _charge in 120:
+				if state.power() >= game.MIN_POWER:
+					break
+				await _frames(1)
+			_check(state.drawing and state.power() >= game.MIN_POWER, "archery is charged enough to expose an unintended shot before " + route)
 			snapshot = [state.arrows_left, state.arrows.size(), state.hits.size()]
 		elif _game_id == "basketball":
 			_check(game._sh(p).st == game.St.SET, "basketball really raises the ball before " + route)
@@ -424,7 +428,7 @@ func _disconnect_release_check(game: Variant) -> void:
 		elif _game_id == "bowling":
 			_check(game._bowler(p).step == game.Step.SWING, "bowling really swings before " + route)
 			snapshot = [game._bowler(p).rolls.size()]
-		var previous := cancels[0]
+		var previous: int = cancels[0]
 		for _repeat in 2:
 			if route == "event":
 				await _send_event(2, "disconnected")
