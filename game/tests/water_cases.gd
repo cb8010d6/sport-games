@@ -25,6 +25,7 @@ static func run(check: Callable) -> void:
 		_preset(check, p)
 	_shader_contract(check)
 	_surface(check)
+	_wake(check)
 
 
 static func _single_wave(check: Callable) -> void:
@@ -195,3 +196,69 @@ static func _surface(check: Callable) -> void:
 	RSSettings.quality = old_quality
 	RSSettings.views = old_views
 	surface.free()
+
+
+static func _wake(check: Callable) -> void:
+	var old_quality := RSSettings.quality
+	var old_views := RSSettings.views
+	RSSettings.quality = 0
+	RSSettings.views = 1
+	var surface := RSWaterSurface.new(RSWater.preset_bay(), Vector2(20, 20))
+	for quality in 4:
+		RSSettings.quality = quality
+		for views in [1, 4]:
+			RSSettings.views = views
+			var budget := RSWaterWake.new(surface)
+			var expected := int(RSWaterWake.CAPACITY[quality])
+			if views >= RSSettings.SPLIT_TIER_VIEWS:
+				expected = floori(expected * 0.5)
+			check.call(budget.multimesh.instance_count == expected, "water wake: quality and split tier set fixed capacity at construction")
+			budget.free()
+	RSSettings.quality = 0
+	RSSettings.views = 1
+	var wake := RSWaterWake.new(surface)
+	var capacity := wake.multimesh.instance_count
+	for i in capacity + 3:
+		wake.emit(Vector3(i, 999, 0), Vector3.FORWARD, 1.0, 1.0, i * 0.001)
+	wake.update(0.5)
+	check.call(wake.multimesh.instance_count == capacity and wake.multimesh.visible_instance_count == capacity, "water wake: overflow keeps a fixed instance budget")
+	var oldest := INF
+	var newest := -INF
+	for i in capacity:
+		var xf := wake.multimesh.get_instance_transform(i)
+		oldest = minf(oldest, xf.origin.x)
+		newest = maxf(newest, xf.origin.x)
+		check.call(absf(xf.origin.y - surface.height_at(xf.origin.x, xf.origin.z)) < 0.000001, "water wake: every patch follows current surface height, ignoring emitted Y")
+		check.call(xf.basis.z.distance_to(RSWater.normal_at(surface.preset, xf.origin.x, xf.origin.z, 0.5)) < 0.000001 and absf(xf.basis.y.normalized().dot(xf.basis.z)) < 0.000001, "water wake: tangent plane and height share the same surface time")
+	check.call(oldest == 3.0 and newest == capacity + 2, "water wake: overflow overwrites the oldest records")
+	var initial := wake.multimesh.get_instance_custom_data(0)
+	wake.update(2.0)
+	var aged := wake.multimesh.get_instance_custom_data(0)
+	check.call(aged.r > initial.r and aged.g < initial.g, "water wake: patches widen and fade with age")
+	wake.update(10.0)
+	for i in capacity:
+		check.call(wake.multimesh.get_instance_custom_data(i).g == 0.0, "water wake: expired patches have zero opacity")
+	wake.clear()
+	check.call(wake.multimesh.visible_instance_count == 0, "water wake: clear hides all instances")
+	wake.emit(Vector3.ZERO, Vector3.ZERO, 1.0, 1.0, 20.0)
+	wake.emit(Vector3(0.3, 100, 0), Vector3.RIGHT, 1.0, 1.0, 20.1)
+	check.call(wake.multimesh.visible_instance_count == 1, "water wake: sub-spacing emits are rejected by horizontal distance")
+	wake.emit(Vector3(1.2, 0, 0), Vector3.RIGHT, 1.0, 1.0, 20.2)
+	wake.update(20.2)
+	check.call(wake.multimesh.visible_instance_count == 2, "water wake: clear resets spacing and sufficiently spaced emits add records")
+	wake.lifetime = 0.0
+	wake.update(20.2)
+	check.call(wake.multimesh.get_instance_custom_data(1).g == 0.0, "water wake: a zero lifetime is immediately transparent")
+	wake.free()
+	var parent := Node3D.new()
+	RSSettings.views = 4
+	RSWaterWake.splash(parent, Vector3(2, 3, 4), 1.0)
+	var splash := parent.get_child(0) as GPUParticles3D
+	check.call(splash != null and splash.one_shot and splash.emitting and splash.top_level and splash.position == Vector3(2, 3, 4), "water splash: an off-tree parent supports a world-positioned one-shot without global access")
+	check.call(splash.amount == 4, "water splash: low quality split views keep a small particle budget")
+	RSWaterWake.splash(parent, Vector3.ZERO, 0.0)
+	check.call(parent.get_child_count() == 1, "water splash: zero strength creates no particle node")
+	parent.free()
+	surface.free()
+	RSSettings.quality = old_quality
+	RSSettings.views = old_views
