@@ -183,8 +183,8 @@ class ReginaBleSource:
             if legacy:
                 controller = await self._setup_legacy(client, addr, name)
                 if controller is None:
-                    self._active.pop(addr, None)
-                    await client.disconnect()
+                    close_connection()
+                    await self._disconnect(client)
                 elif closed:
                     self.hub.detach(controller)
                 return
@@ -192,10 +192,9 @@ class ReginaBleSource:
             transport.set_rotation(self.screen_rotation)
             controller = self.hub.attach("regina", f"regina:{addr}", name, transport, rate_hint_hz=200.0, wrap_bits=32)
             if controller is None:
-                log.warning("%s refused: controller registry full", name)
-                transport.close()
-                self._active.pop(addr, None)
-                await client.disconnect()
+                log.warning("Regina controller refused: controller registry full")
+                close_connection()
+                await self._disconnect(client)
                 return
             controller.extra["mtu"] = client.mtu_size
             c = controller
@@ -253,7 +252,7 @@ class ReginaBleSource:
 
         controller = self.hub.attach("regina", f"regina:{addr}", name, NullTransport(), rate_hint_hz=20.0, wrap_bits=None)
         if controller is None:
-            log.warning("%s refused: controller registry full", name)
+            log.warning("Regina controller refused: controller registry full")
             return None
         controller.extra["fw"] = "legacy"
         c = controller

@@ -180,12 +180,12 @@ class Hub:
         if cid is None:
             self._prune_registry()
             if len(self.controllers) >= MAX_CONTROLLERS:
-                log.warning("attach refused for %s: registry full (%d controllers)", key, len(self.controllers))
+                log.warning("attach refused: registry full (%d controllers)", len(self.controllers))
                 return None
             used = set(self.controllers)
             cid = next((i for i in range(1, MAX_CONTROLLER_ID + 1) if i not in used), None)
             if cid is None:
-                log.warning("attach refused for %s: no free controller id in 1..%d", key, MAX_CONTROLLER_ID)
+                log.warning("attach refused: no free controller id in 1..%d", MAX_CONTROLLER_ID)
                 return None
             self._ids_by_key[key] = cid
         old = self.controllers.get(cid)
@@ -257,7 +257,7 @@ class Hub:
         if self._ids_by_key.get(c.key) == c.id:
             del self._ids_by_key[c.key]
         self._refresh_next_id()
-        log.info("controller %d forgotten: %s (disconnected)", c.id, c.key)
+        log.info("controller %d forgotten (disconnected)", c.id)
         self._roster_dirty = True
 
     def _prune_registry(self, now: float | None = None) -> None:
@@ -333,9 +333,9 @@ class Hub:
     def _drop_bad_packer(self, c: Controller, exc: Exception) -> None:
         """A controller whose state cannot be packed for the game (e.g. an out-of-range
         id) must not take its source down with an exception per message (#45). Warn
-        once and detach it; the source notices the disconnect through its usual path."""
+        once, mark it offline and suppress further binary uplink for this attachment."""
         c.pack_failed = True
-        log.warning("controller %d (%s): game packet packing failed (%s); detaching", c.id, c.key, exc)
+        log.warning("controller %d: game packet packing failed (%s); detaching", c.id, type(exc).__name__)
         if c.connected:
             self.detach(c)
 
@@ -425,14 +425,30 @@ class Hub:
         if size > ROSTER_MAX_BYTES:
             # One oversized datagram would be dropped whole and the game would lose
             # every controller; disconnected entries are the expendable part (#45).
+            connected = [c for c in controllers if c.connected]
             payload = {
                 "type": "roster",
                 "controllers": [e for c, e in zip(controllers, entries, strict=True) if c.connected],
                 "phone_url": self.phone_url,
             }
+            if len(json.dumps(payload, separators=(",", ":")).encode("utf-8")) > ROSTER_MAX_BYTES:
+                # Online metadata can also be oversized (e.g. an old recording's
+                # device name). Keep every live id so trimming never fabricates a
+                # disconnect; bounded identity fields fit even at the registry cap.
+                payload["controllers"] = []
+                for c in connected:
+                    profile_name = c.extra.get("profile_name", "")
+                    payload["controllers"].append({
+                        "id": c.id, "kind": c.kind[:16], "name": c.name[:32],
+                        "player": c.player, "connected": True,
+                        "profile_name": profile_name[:20] if isinstance(profile_name, str) else "",
+                    })
+                if len(json.dumps(payload, separators=(",", ":")).encode("utf-8")) > ROSTER_MAX_BYTES:
+                    payload["phone_url"] = None
+            trimmed_size = len(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
             now = _now()
             if now - self._roster_trim_warned_at > 60.0:
                 self._roster_trim_warned_at = now
-                log.warning("roster of %d bytes trimmed to connected controllers only (%d of %d entries)",
-                            size, len(payload["controllers"]), len(entries))
+                log.warning("roster of %d bytes reduced to %d bytes (%d of %d entries)",
+                            size, trimmed_size, len(payload["controllers"]), len(entries))
         return payload

@@ -7,10 +7,10 @@ WebSocket connection cap.
 
 import json
 import socket
+import struct
 import time
 
 import aiohttp
-import pytest
 
 from regina_hub import hub as hub_mod
 from regina_hub.controller import NullTransport
@@ -25,6 +25,8 @@ def _attach(hub: Hub, key: str):
 
 def test_registry_stays_bounded_over_300_connect_cycles():
     hub = Hub()
+    sent = []
+    hub.game.send = sent.append
     last = None
     for i in range(300):
         last = _attach(hub, f"phone:client-{i}")
@@ -36,8 +38,11 @@ def test_registry_stays_bounded_over_300_connect_cycles():
     # input still flows (packing must not raise).
     c = _attach(hub, "phone:fresh")
     assert c is not None and 1 <= c.id <= hub_mod.MAX_CONTROLLER_ID
+    sent.clear()
     hub.on_input(c, 1, 0, 0)
-    hub.on_imu(c, [(1000.0, (0.0, 0.0, 0.0), (0.0, 0.0, 9.81))])
+    hub.on_imu(c, [(timestamp, (0.0, 0.0, 0.0), (0.0, 0.0, 9.81)) for timestamp in (1000.0, 2000.0)])
+    assert any(packet[0] == hub_mod.P.MSG_INPUT for packet in sent)
+    assert any(packet[0] == hub_mod.P.MSG_SAMPLES for packet in sent)
 
 
 def test_player_pref_cache_bounded_under_churn():
@@ -49,6 +54,7 @@ def test_player_pref_cache_bounded_under_churn():
     assert len(hub.controllers) <= hub_mod.MAX_CONTROLLERS
     assert len(hub._ids_by_key) <= hub_mod.MAX_CONTROLLERS
     assert len(hub._players_by_key) <= hub_mod.MAX_PLAYER_PREFS
+    assert set(hub._prefs_seen) == set(hub._players_by_key)
     assert "phone:churn-0" not in hub._players_by_key  # least recently attached go first
     assert f"phone:churn-{hub_mod.MAX_PLAYER_PREFS + 199}" in hub._players_by_key
 
@@ -131,6 +137,33 @@ def test_oversized_roster_is_trimmed_to_connected_entries():
     assert {e["id"] for e in payload["controllers"]} == connected_ids
 
 
+def test_oversized_connected_metadata_keeps_every_live_id_within_roster_budget():
+    hub = Hub()
+    connected_ids = set()
+    for i in range(hub_mod.MAX_CONTROLLERS):
+        c = _attach(hub, f"phone:live-{i}")
+        assert c is not None
+        c.extra.update(blob="x" * 4000, profile_name="Player")
+        connected_ids.add(c.id)
+    payload = hub.roster()
+    size = len(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+    assert size <= hub_mod.ROSTER_MAX_BYTES
+    assert {entry["id"] for entry in payload["controllers"]} == connected_ids
+    assert all(entry["connected"] and entry["profile_name"] == "Player" for entry in payload["controllers"])
+
+
+def test_oversized_recorded_names_and_url_fit_the_roster_budget():
+    hub = Hub()
+    hub.phone_url = "https://example.invalid/" + "x" * hub_mod.ROSTER_MAX_BYTES
+    c = _attach(hub, "replay:large-name")
+    assert c is not None
+    c.name = "Recorded name " * hub_mod.ROSTER_MAX_BYTES
+    payload = hub.roster()
+    assert len(json.dumps(payload, separators=(",", ":")).encode("utf-8")) <= hub_mod.ROSTER_MAX_BYTES
+    assert [entry["id"] for entry in payload["controllers"]] == [c.id]
+    assert payload["phone_url"] is None
+
+
 def test_packing_failure_detaches_instead_of_raising(monkeypatch):
     hub = Hub()
     c = _attach(hub, "phone:bad")
@@ -147,6 +180,29 @@ def test_packing_failure_detaches_instead_of_raising(monkeypatch):
     assert not c.connected
     hub.on_input(c, 1, 0, 0)  # and must stay quiet on later messages
     monkeypatch.setattr(hub_mod.P, "build_game_input", original_build)
+
+
+def test_sample_struct_error_detaches_once_and_suppresses_later_packets(monkeypatch, caplog):
+    hub = Hub()
+    sent = []
+    hub.game.send = sent.append
+    c = _attach(hub, "phone:bad-sample")
+    assert c is not None
+    sent.clear()
+    attempts = []
+
+    def boom(*args):
+        attempts.append(args)
+        raise struct.error("cannot pack sample")
+
+    monkeypatch.setattr(hub_mod.P, "build_game_samples", boom)
+    for timestamp in (1000.0, 2000.0, 3000.0):
+        hub.on_imu(c, [(timestamp, (0.0, 0.0, 0.0), (0.0, 0.0, 9.81))])
+    hub.on_input(c, 1, 0, 0)
+    assert c.pack_failed and not c.connected and len(attempts) == 1
+    assert [json.loads(packet)["name"] for packet in sent] == ["disconnected"]
+    assert sum("game packet packing failed" in message for message in caplog.messages) == 1
+    assert c.key not in caplog.text
 
 
 def _free_port() -> int:

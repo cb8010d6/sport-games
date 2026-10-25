@@ -85,7 +85,7 @@ async def replay(hub: Hub, path: Path, loop_forever: bool = True, speed: float =
             if c is None:
                 c = hub.attach("replay", key, "REPLAY " + rec.get("n", "?"), NullTransport(), rate_hint_hz=200.0, wrap_bits=32)
                 if c is None:
-                    log.warning("replay: controller registry full, skipping %s", key)
+                    log.warning("replay: controller registry full, skipping input")
                     continue
                 controllers[key] = c
             if rec["k"] == "imu":

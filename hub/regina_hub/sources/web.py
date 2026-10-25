@@ -303,7 +303,7 @@ class WebSource:
                     name = clean_profile_name(str(data.get("name") or kind), limit=32) or kind
                     controller = self.hub.attach(kind, f"{kind}:{client_id}", name, transport, rate_hint_hz=60.0 if kind == "phone" else 100.0, wrap_bits=None)
                     if controller is None:
-                        log.warning("hello refused for %s: controller registry full", client_id)
+                        log.warning("hello refused: controller registry full")
                         await ws.send_str(json.dumps({"t": "error", "reason": "hub full"}))
                         await ws.close(code=1013)
                         break

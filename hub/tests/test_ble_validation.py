@@ -10,6 +10,7 @@ from types import SimpleNamespace
 import pytest
 
 from regina_hub import protocol as P
+from regina_hub.controller import NullTransport
 from regina_hub.hub import Hub
 from regina_hub.sources import ble
 
@@ -196,3 +197,32 @@ async def test_connection_cancellation_during_subscription_detaches_controller(f
     await asyncio.sleep(0)
     assert not source._active and not source._close_connections
     assert not hub.controllers[1].connected and not client.connected
+
+
+@pytest.mark.parametrize("legacy", [False, True])
+@pytest.mark.parametrize("disconnect_mode", ["ok", "error", "hang", "silent"])
+async def test_registry_full_clears_rejected_ble_connection(fake_bleak, monkeypatch, caplog, legacy, disconnect_mode):
+    source, hub, _sent = make_source()
+    monkeypatch.setattr("regina_hub.hub.MAX_CONTROLLERS", 1)
+    resident = hub.attach("phone", "phone:resident", "Resident", NullTransport(), 60.0, None)
+    assert resident is not None
+    monkeypatch.setattr(ble, "DISCONNECT_TIMEOUT_S", 0.01)
+    original_client = sys.modules["bleak"].BleakClient
+
+    def rejected_client(*args, **kwargs):
+        client = original_client(*args, **kwargs)
+        client.disconnect_error = disconnect_mode == "error"
+        client.disconnect_hang = disconnect_mode == "hang"
+        if disconnect_mode == "silent":
+            client.disconnected_callback = lambda _client: None
+        return client
+
+    monkeypatch.setattr(sys.modules["bleak"], "BleakClient", rejected_client)
+    await asyncio.wait_for(source._connect(fixture_device(), "private-rejected-device", legacy=legacy), 0.5)
+    await asyncio.sleep(0)
+    client = fake_bleak[0][-1]
+    assert not source._active and not source._close_connections
+    assert not client.callbacks and not client.connected
+    assert hub.controllers == {resident.id: resident} and resident.connected
+    assert "private-rejected-device" not in caplog.text
+    assert fixture_device().address not in caplog.text
