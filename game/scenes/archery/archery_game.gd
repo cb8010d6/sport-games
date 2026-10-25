@@ -534,6 +534,17 @@ func _player_button(p: Player, button: int, pressed: bool) -> void:
 		_release(p)
 
 
+func _player_cancel_hold(p: Player, button: int) -> void:
+	# Paused or disconnected mid-draw: put the bow down, do not loose the arrow.
+	if button != RSController.BTN_A:
+		return
+	var s := _archer(p)
+	if s.drawing:
+		s.drawing = false
+		s.draw_t = 0.0
+		send_ui(p, {"bar": null})
+
+
 func _start_draw(p: Player) -> void:
 	var s := _archer(p)
 	if phase != Phase.PLAY or _stage != Stage.SHOOT or s.arrows_left <= 0 or _arrow_in_flight(s):

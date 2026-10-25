@@ -13,6 +13,10 @@ signal controller_disconnected(controller: RSController)
 signal controller_event(controller: RSController, event_name: String)
 signal button_pressed(controller: RSController, button: int)
 signal button_released(controller: RSController, button: int)
+## A held button whose release will never arrive because the controller
+## disconnected: the hold must be *cancelled*, not completed, so this is a
+## separate signal from button_released (#55).
+signal button_cancelled(controller: RSController, button: int)
 signal dial_changed(controller: RSController, small_delta: int, big_delta: int)
 signal samples_received(controller: RSController, count: int)
 signal qr_received(url: String, rows: PackedStringArray)
@@ -272,13 +276,14 @@ func _handle_json(pkt: PackedByteArray) -> void:
 			elif ev == "disconnected":
 				c.connected = false
 				# A button still held at disconnect never sends its own release
-				# (and must not surface as a late release after reconnecting):
-				# synthesize each release exactly once, then clear (#55).
+				# (and must not surface as a late release after reconnecting).
+				# Report each held button as cancelled exactly once, then clear:
+				# the game cancels the held action instead of completing it (#55).
 				var held := c.buttons
 				c.buttons = 0
 				for bit in [RSController.BTN_A, RSController.BTN_B, RSController.BTN_C, RSController.BTN_D]:
 					if held & bit:
-						button_released.emit(c, bit)
+						button_cancelled.emit(c, bit)
 				controller_disconnected.emit(c)
 			controller_event.emit(c, ev)
 		"qr":

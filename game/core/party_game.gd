@@ -34,6 +34,7 @@ class Player:
 	var cam: Camera3D
 	var hud: PlayerHud
 	var oled_key := ""           ## last OLED update, to skip identical ones
+	var oled_sent := ""          ## JSON of the last ui send_ui() actually sent (framework dedup)
 
 	func popup(text: String, color: Color = Color.WHITE) -> void:
 		hud.popups.append([text, color, float(hud.game.get("_clock"))])
@@ -191,6 +192,14 @@ func _player_button(_p: Player, _button: int, _pressed: bool) -> void:
 	pass
 
 
+func _player_cancel_hold(_p: Player, _button: int) -> void:
+	## A hold that ended without the player's intent: the pause menu opened
+	## mid-hold, or the controller disconnected while a button was down (#55).
+	## Cancel the held action (drop the draw / lower the ball) instead of
+	## completing it the way a real release would. Default: nothing is held.
+	pass
+
+
 func _lobby_extra(_col: VBoxContainer) -> void:
 	## Add game options (e.g. a map picker) to the lobby panel, under the how-to-play text.
 	pass
@@ -288,6 +297,7 @@ func _ready() -> void:
 	_music = RSMusic.attach(self)
 	ControllerHub.button_pressed.connect(_on_button.bind(true))
 	ControllerHub.button_released.connect(_on_button.bind(false))
+	ControllerHub.button_cancelled.connect(_on_button_cancelled)
 	ControllerHub.controller_event.connect(_on_event)
 	ControllerHub.qr_received.connect(ui.set_qr)
 	if not ControllerHub.qr_rows.is_empty():
@@ -297,7 +307,7 @@ func _ready() -> void:
 		c.id = 200 + i
 		c.player = i + 1
 		c.kind = "replay"
-		c.display_name = "Bot-%d" % (i + 1)
+		c.display_name = tr("机器人 %d") % (i + 1)
 		c.connected = true
 		_add_player(c, true)
 	if solo_mode:
@@ -566,6 +576,7 @@ func _start_countdown() -> void:
 	for p: Player in players.values():
 		p.score = 0
 		p.oled_key = ""
+		p.oled_sent = ""
 		p.hud.popups.clear()
 	_apply_pending_map()
 	ui.lobby_panel.visible = false
@@ -576,6 +587,9 @@ func _start_countdown() -> void:
 
 
 func finish_round() -> void:
+	# Subclasses that prepare replay/podium state before calling super must
+	# return early when _result_committed is already set (see skate/ski/
+	# basketball): this guard alone runs too late for their preparation.
 	if _result_committed:
 		return
 	_result_committed = true
@@ -640,9 +654,13 @@ func _on_button(c: RSController, button: int, pressed: bool) -> void:
 	if ui.pause.is_open():
 		if pressed:
 			ui.pause.on_button(button)
-			return
-		# Releases still fall through to the game while paused: letting go of a
-		# held button here must not leave it "held" after resuming (#55).
+		else:
+			# A release inside the pause menu cancels the hold instead of
+			# completing it: the player let go without meaning to act (#55).
+			var held_p: Player = players.get(c.id)
+			if held_p != null:
+				_player_cancel_hold(held_p, button)
+		return
 	if pressed and button == RSController.BTN_C and phase in [Phase.LOBBY, Phase.RESULTS]:
 		go_menu()
 		return
@@ -684,6 +702,15 @@ func _on_button(c: RSController, button: int, pressed: bool) -> void:
 		_player_button(p, button, pressed)
 
 
+func _on_button_cancelled(c: RSController, button: int) -> void:
+	## The controller went away mid-hold: cancel, never complete (#55).
+	if benchmark_mode:
+		return
+	var p: Player = players.get(c.id)
+	if p != null:
+		_player_cancel_hold(p, button)
+
+
 func _on_event(c: RSController, ev: String) -> void:
 	if benchmark_mode:
 		return
@@ -695,8 +722,20 @@ func _on_event(c: RSController, ev: String) -> void:
 # --------------------------------------------------------------------------- OLED ----
 
 func send_ui(p: Player, ui: Dictionary) -> void:
-	if not p.fake:
-		ControllerHub.send_ui(p.c.id, ui)
+	if p.fake:
+		return
+	if not ui.has("toast"):
+		# ARCHITECTURE promises send_ui dedups: identical state is not resent.
+		# Projects may keep their own cheap oled_key checks on top; this is the
+		# safety net for callers that don't. An emptied oled_key (pause menu,
+		# new round) means "whatever the screen shows now is stale": resend.
+		var key := JSON.stringify(ui)
+		if p.oled_key.is_empty():
+			p.oled_sent = ""
+		if key == p.oled_sent:
+			return
+		p.oled_sent = key
+	ControllerHub.send_ui(p.c.id, ui)
 
 
 func vibrate(p: Player, ms: int) -> void:
@@ -752,6 +791,8 @@ func _apply_pending_map() -> void:
 		map_index = m
 		_last_map[get_script().resource_path] = m
 		_load_map(m)
+		# The new map's environment and sun carry scene values; re-apply the quality gates (#54).
+		RSSettings.apply_world(self)
 	_update_map_card()
 
 
