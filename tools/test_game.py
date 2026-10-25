@@ -63,6 +63,16 @@ def main() -> int:
         output = result.stdout + result.stderr
         if not suite_passed(output, result.returncode, "RS_SHELL_TESTS: 0 failures"):
             return 1
+    with tempfile.TemporaryDirectory(prefix="rs-teams-tests-") as temp:
+        env = dict(os.environ, RS_TEST_MODE="1", APPDATA=temp, XDG_DATA_HOME=temp,
+                   XDG_CONFIG_HOME=temp, XDG_CACHE_HOME=temp)
+        result = run_engine([find_godot(args.godot), "--headless", "--path", str(ROOT / "game"),
+                             "res://tests/test_teams.tscn", "--log-file", str(Path(temp) / "game.log")],
+                            env=env, timeout=60)
+        output = result.stdout + result.stderr
+        print(output)
+        if not suite_passed(output, result.returncode, "RS_TEAMS_TESTS: 0 failures"):
+            return 1
     if run_storage(find_godot(args.godot)) != 0:
         return 1
     if args.party:

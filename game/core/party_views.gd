@@ -53,8 +53,9 @@ func remove(p: RSPartyGame.Player) -> void:
 
 
 func layout() -> void:
-	## Place the cells in player order, with a thin gap between them.
-	var list := game.ordered()
+	## Place the cells in player order (with sides, side by side: _view_order), with a thin gap
+	## between them.
+	var list := game._view_order()
 	var n := list.size()
 	var sz := get_viewport().get_visible_rect().size
 	for i in n:

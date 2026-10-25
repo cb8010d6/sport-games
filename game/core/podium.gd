@@ -1,7 +1,9 @@
 class_name RSPodium
 extends Node3D
 ## Shared three-step podium and optional tied fourth step. Dimensions are metres in local
-## space; spot() returns world coordinates. Scores arrive in ranked_players() order.
+## space; spot() returns world coordinates. Scores arrive in ranked_players() order. Games
+## with sides (RSTeams) pass RSTeams.podium_scores() and RSTeams.places(), so teammates share
+## their side's step (2v2: two on gold, two on silver).
 
 const TRIMS := [Color(1.0, 0.78, 0.25), Color(0.78, 0.8, 0.84), Color(0.8, 0.5, 0.28)]
 const BAND_HEIGHT := 0.06
@@ -72,8 +74,9 @@ func reset() -> void:
 	_bounds.clear()
 
 
-func present(scores: PackedInt64Array) -> void:
-	assert(scores.size() <= 4)
+func present(scores: PackedInt64Array, places := PackedInt32Array()) -> void:
+	## `places`, when given, overrides the places derived from the scores (RSTeams.places).
+	assert(scores.size() <= 4 and (places.is_empty() or places.size() == scores.size()))
 	_ranks.clear()
 	for i in scores.size():
 		assert(i == 0 or scores[i - 1] >= scores[i])
@@ -82,7 +85,7 @@ func present(scores: PackedInt64Array) -> void:
 		for other in scores:
 			if other > score:
 				place += 1
-		_ranks.append(place)
+		_ranks.append(clampi(places[i], 1, i + 1) if not places.is_empty() else place)
 	for i in 4:
 		var place := rank(i)
 		var enabled := i < 3 or (i < scores.size() and place <= 3)

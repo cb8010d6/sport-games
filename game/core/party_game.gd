@@ -34,6 +34,8 @@ class Player:
 	var cam: Camera3D
 	var hud: PlayerHud
 	var oled_key := ""           ## last OLED update, to skip identical ones
+	var team := -1               ## RSTeams side (0 / 1) from the countdown on; -1 = on its own
+	var filler := false          ## a computer RSTeams added to complete the sides (also fake)
 
 	func popup(text: String, color: Color = Color.WHITE) -> void:
 		hud.popups.append([text, color, float(hud.game.get("_clock"))])
@@ -215,6 +217,31 @@ func _draw_hud(_h: PlayerHud, _p: Player, _k: float) -> void:
 
 func _draw_overlay(_o: Overlay, _k: float) -> void:
 	pass
+
+
+func _team_mode() -> int:
+	## RSTeams.Mode: FFA (everyone for themselves, the default), VERSUS (1v1) or TEAMS (2v2).
+	return RSTeams.Mode.FFA
+
+
+func _team_size(_count: int) -> int:
+	## Players per side for `_count` players (RSTeams fills the rest with computers).
+	return RSTeams.default_size(_team_mode())
+
+
+func _assign_teams(list: Array, size: int) -> void:
+	## Set p.team (0 / 1) for everyone in `list` (RSTeams.lineup order), `size` per side.
+	RSTeams.assign(list, size)
+
+
+func _team_score(members: Array) -> int:
+	## A side's score from its members (RSTeams.shared_score when they all carry the side's).
+	return RSTeams.sum_score(members)
+
+
+func _view_order() -> Array:
+	## Split-screen order; with sides, each side's views sit together (RSTeams.view_order).
+	return RSTeams.view_order(self)
 
 
 # ---------------------------------------------------------------------- lifecycle ----
@@ -430,7 +457,7 @@ func ordered() -> Array:
 
 
 func color_of(p: Player) -> Color:
-	return RSProfiles.player_color(p.c.player)
+	return RSTeams.BOT_COLOR if p.filler else RSProfiles.player_color(p.c.player)
 
 
 func avatar_of(p: Player) -> int:
@@ -496,16 +523,19 @@ func game_id() -> String:
 
 func ranked_players() -> Array:
 	## Unified ranking hook. Future games with different win rules may override this.
+	if RSTeams.teamed(self):
+		return RSTeams.ranked_players(self)   # teammates together, sides by _team_score
 	var list := ordered()
 	list.sort_custom(func(a: Player, b: Player) -> bool:
 		return a.score > b.score if a.score != b.score else a.c.player < b.c.player)
 	return list
 
 
-func _add_player(c: RSController, fake: bool) -> Player:
+func _add_player(c: RSController, fake: bool, filler := false) -> Player:
 	var p := Player.new()
 	p.c = c
 	p.fake = fake
+	p.filler = filler
 	if not fake and c.kind == "phone":
 		RSProfiles.import_phone_name(c.player, str(c.info.get("profile_name", "")))
 	views.add(p)
@@ -551,6 +581,7 @@ func _to_lobby() -> void:
 	phase_time = 0.0
 	views.visible = false
 	lobby_cam.current = true
+	RSTeams.clear(self)
 	ui.show_lobby()
 	for p: Player in players.values():
 		p.ready = false
@@ -563,6 +594,7 @@ func _start_countdown() -> void:
 	phase = Phase.COUNTDOWN
 	phase_time = 0.0
 	_beat = -1
+	RSTeams.fill(self)
 	for p: Player in players.values():
 		p.score = 0
 		p.oled_key = ""
@@ -583,25 +615,27 @@ func finish_round() -> void:
 	phase = Phase.RESULTS
 	phase_time = 0.0
 	var list := ranked_players()
-	var lines := PackedStringArray()
+	var places := RSTeams.places(self, list)
+	var grouped := RSTeams.grouped(self)
+	var lines := RSTeams.result_lines(self) if grouped else PackedStringArray()
 	var results: Array = []
-	var rank := 1
 	for i in list.size():
 		var p: Player = list[i]
-		if i > 0 and p.score != (list[i - 1] as Player).score:
-			rank = i + 1
+		var rank := places[i]
 		var fresh := false
 		if can_record(p):
 			fresh = RSRecords.submit(game_id(), map_index, p.c.player, p.score)
 		var medal: Color = RSPodium.TRIMS[rank - 1] if rank <= RSPodium.TRIMS.size() else RSUi.TEXT_MUTED
-		lines.append(tr("[font_size=30][color=#%s]第 %d 名[/color]  [color=#%s]P%d[/color]  %d 分[/font_size]\n[color=#%s]%s[/color]") % [
-			medal.to_html(false), rank, color_of(p).to_html(false), p.c.player, p.score,
-			RSUi.TEXT_MUTED.to_html(false), RSProfiles.bbcode(name_of(p)) + " · " + _result_detail(p)])
+		if not grouped:
+			lines.append(tr("[font_size=30][color=#%s]第 %d 名[/color]  [color=#%s]P%d[/color]  %d 分[/font_size]\n[color=#%s]%s[/color]") % [
+				medal.to_html(false), rank, color_of(p).to_html(false), p.c.player, p.score,
+				RSUi.TEXT_MUTED.to_html(false), RSProfiles.bbcode(name_of(p)) + " · " + _result_detail(p)])
 		if fresh:
-			lines.append("[color=#%s]" % RSUi.HIGHLIGHT.to_html(false) + tr("新纪录！") + "[/color]")
+			lines.append("[color=#%s]" % RSUi.HIGHLIGHT.to_html(false) + (tr("P%d 新纪录！") % p.c.player if grouped else tr("新纪录！")) + "[/color]")
 		if solo_mode and can_record(p) and map_index == 0:
 			lines.append(tr("挑战星数：%d / 3（地图 1 个人最佳）") % RSSolo.stars(game_id(), p.c.player))
-		results.append({"slot": p.c.player, "rank": rank, "score": p.score})
+		if not p.filler:
+			results.append({"slot": p.c.player, "rank": rank, "score": p.score})
 		send_ui(p, {"clear": true, "title": "RESULT", "main": "#%d" % rank, "sub": "%d PTS" % p.score,
 			"legends": ["NEXT" if RSTournament.active() else "AGAIN", "", "MENU", null]})
 		haptic(p, "win" if rank == 1 else "hit")
