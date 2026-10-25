@@ -99,6 +99,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 | 大厅教学 | 清单的 `lessons` 引用 `RSTutorial` 的步骤常量；新动作先在 `RSTutorial` 加通用步骤 | 项目自己做教学流程 |
 | 手柄状态、按键 | `ControllerHub` 的信号，`RSController`（`orientation`、`forward()`、`pitch()`、`is_pressed()`） | 自己连 UDP 或解析协议 |
 | 体感手势 | `RSMotionGestures` → `RSMotionControls`（倾斜转向、甩动起跳、翻转、转体）；`RSSwingDetector`（挥动）；`RSTiltStick`（倾斜当摇杆） | 在项目里重写阈值和滤波 |
+| 球类飞行与击球 | `RSBallFlight`：固定步长受力与连续碰撞、拍面响应、只读预测、落点瞄准 | 项目重复积分球路、预测推进真实球或在物理类里判规则 |
 | 震动 | `haptic(p, "hit")`、`haptic_all(name)`（名称表是 `ControllerHub.HAPTICS`，新名称加在那里） | 直接 `ControllerHub.vibrate`（ARCH-HAPTIC） |
 | 手柄屏幕 | `send_ui(p, {...})`（自动去重） | 每帧发同样的内容 |
 | 音效 | `RSSfx.play(node, id)`、`RSSfx.loop(node, id)`，加载时 `RSSfx.warm_up([...])` | 自己 new AudioStreamPlayer（ARCH-AUDIO）；所有声音必须走 `RSAudio` 的总线，音量设置才有效 |

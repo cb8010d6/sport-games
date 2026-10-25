@@ -58,14 +58,38 @@ class Surface:
 	var friction := 0.5             ## Coulomb coefficient
 	var spin_grip := 0.0            ## extra contact slip reversal for grippy materials
 	var rolling := 0.03             ## rolling resistance / normal load
-	var mass := INF                 ## kg; reserved for the moving hitters in 39-06
-	var dwell := 0.0                ## reserved for 39-06
+	var mass := INF                 ## kg, effective hitter mass; INF for a fixed surface
+	var dwell := 0.0                ## 0..1, turn outgoing motion towards the hitter's path
 
 	func _init(e := 0.8, mu := 0.5, grip := 0.0, roll := 0.03) -> void:
 		restitution = e
 		friction = mu
 		spin_grip = grip
 		rolling = roll
+
+
+class Prediction:
+	var bounces := PackedVector3Array()
+	var bounce_times := PackedFloat64Array()
+	var bounce_ids: Array[StringName] = []
+	var bounce_velocities := PackedVector3Array()
+	var net_crossed := false
+	var net_clearance := INF        ## first crossing, or first touch if the net blocks crossing
+	var net_time := -1.0            ## seconds from predict(), at that crossing/touch
+	var net_hit := false
+	var end_position := Vector3.ZERO
+	var end_velocity := Vector3.ZERO
+	var end_time := 0.0
+	var settled := false
+
+	func landed() -> bool:
+		return not bounces.is_empty()
+
+	func land_point() -> Vector3:
+		return bounces[0] if landed() else end_position
+
+	func land_time() -> float:
+		return bounce_times[0] if landed() else -1.0
 
 
 class _Plane:
@@ -131,6 +155,15 @@ var _rect_kind := 0
 var _rect_index := 0
 var _rect_key := ""                # no-i18n
 var _one_sided := true
+var _record: Prediction
+var _record_tick := 0
+var _record_limit := 0
+var _elapsed := 0.0                ## elapsed time within the current fixed step
+var _ignore_nets := false          ## aim copies only; world arrays remain shared/read-only
+var _horizon := INF                ## prediction/query cutoff; live steps always consume the full chord
+var _query := PackedFloat64Array() ## normal (3), plane offset, crossing direction (-1/0/+1)
+var _query_time := -1.0
+var _query_point := Vector3.ZERO
 
 
 func _init(b: Ball = null) -> void:
@@ -187,6 +220,42 @@ static func surface_net() -> Surface:
 
 static func surface_net_cord() -> Surface:
 	return Surface.new(0.35, 0.30)
+
+
+static func racket_table_tennis() -> Surface:
+	var s := Surface.new(0.88, 0.80, 0.25)
+	s.restitution_drop = 0.004
+	s.mass = 0.15
+	s.dwell = 0.15
+	return s
+
+
+static func racket_tennis() -> Surface:
+	var s := Surface.new(0.86, 0.45, 0.10)
+	s.restitution_drop = 0.002
+	s.mass = 0.30
+	s.dwell = 0.20
+	return s
+
+
+static func hands_bump() -> Surface:
+	var s := Surface.new(0.50, 0.60)
+	s.mass = 3.0
+	return s
+
+
+static func hands_set() -> Surface:
+	var s := Surface.new(0.25, 0.70)
+	s.mass = 2.0
+	s.dwell = 0.6
+	return s
+
+
+static func hands_spike() -> Surface:
+	var s := Surface.new(0.60, 0.70)
+	s.mass = 1.5
+	s.dwell = 0.1
+	return s
 
 
 func add_plane(id: StringName, surface: Surface, point: Vector3, normal := Vector3.UP,
@@ -355,6 +424,7 @@ func copy() -> RSBallFlight:
 	f._nets = _nets
 	f.restore(snapshot())
 	f.emit_events = false
+	f._ignore_nets = _ignore_nets
 	return f
 
 
@@ -380,6 +450,7 @@ func step() -> void:
 	_qy = _py
 	_qz = _pz
 	tick += 1
+	_elapsed = 0.0
 	_contacts_left = MAX_CONTACTS
 	if resting:
 		_roll(STEP)
@@ -426,14 +497,19 @@ func _fly(dt: float) -> void:
 		var dy := my * left
 		var dz := mz * left
 		var f := _sweep(dx, dy, dz)
-		if f > 1.0:
-			_px += dx
-			_py += dy
-			_pz += dz
-			_vx = nx
-			_vy = ny
-			_vz = nz
+		var limit := _horizon_fraction(left)
+		if f > limit:
+			_record_segment(dx * limit, dy * limit, dz * limit, left * limit)
+			_elapsed += left * limit
+			_px += dx * limit
+			_py += dy * limit
+			_pz += dz * limit
+			_vx = nx if limit == 1.0 else _vx + (nx - _vx) * limit
+			_vy = ny if limit == 1.0 else _vy + (ny - _vy) * limit
+			_vz = nz if limit == 1.0 else _vz + (nz - _vz) * limit
 			return
+		_record_segment(dx * f, dy * f, dz * f, left * f)
+		_elapsed += left * f
 		_px += dx * f
 		_py += dy * f
 		_pz += dz * f
@@ -454,7 +530,7 @@ func _sweep(dx: float, dy: float, dz: float, skip_plane := -1) -> float:
 		if i != skip_plane:
 			var pl := _planes[i]
 			_sweep_rectangle(pl.p, dx, dy, dz, CONTACT_SURFACE, i, pl.key, true)
-	for i in _nets.size():
+	for i in (0 if _ignore_nets else _nets.size()):
 		var net := _nets[i]
 		_sweep_rectangle(net.p, dx, dy, dz, CONTACT_NET, i, net.key, false)
 	return _hit_fraction
@@ -570,6 +646,19 @@ func _resolve() -> void:
 		var net := _nets[_hit_index]
 		surface = net.cord if _hit_kind == CONTACT_CORD else net.surface
 		id = net.id
+	if _record != null:
+		var at := (tick - 1 - _record_tick) * STEP + _elapsed
+		if _hit_kind == CONTACT_SURFACE and _record.bounces.size() < _record_limit:
+			_record.bounces.append(position())
+			_record.bounce_times.append(at)
+			_record.bounce_ids.append(id)
+			_record.bounce_velocities.append(velocity())
+		elif _hit_kind != CONTACT_SURFACE:
+			_record.net_hit = true
+			if _record.net_time < 0.0:
+				# A blocked ball never crosses the plane: report first-touch clearance/time instead.
+				_record.net_clearance = _py - ball.radius - _nets[_hit_index].c[5]
+				_record.net_time = at
 	var speed := _impact(_hnx, _hny, _hnz, surface)
 	resting = false
 	_rest_plane = -1
@@ -591,20 +680,24 @@ func _resolve() -> void:
 	_pz += _hnz * EPS
 
 
-func _impact(nx: float, ny: float, nz: float, surface: Surface) -> float:
-	var vn := _vx * nx + _vy * ny + _vz * nz
+func _impact(nx: float, ny: float, nz: float, surface: Surface, ux := 0.0, uy := 0.0, uz := 0.0) -> float:
+	var rx := _vx - ux
+	var ry := _vy - uy
+	var rz := _vz - uz
+	var vn := rx * nx + ry * ny + rz * nz
 	if vn >= 0.0:
 		return 0.0
 	var e := clampf(surface.restitution + surface.restitution_drop * vn, surface.restitution_min, 1.0)
-	var jn := -(1.0 + e) * vn
+	var mass_ratio := ball.mass / surface.mass
+	var jn := -(1.0 + e) * vn / (1.0 + mass_ratio)
 	var r := ball.radius
-	var sx := _vx - vn * nx - r * (_wy * nz - _wz * ny)
-	var sy := _vy - vn * ny - r * (_wz * nx - _wx * nz)
-	var sz := _vz - vn * nz - r * (_wx * ny - _wy * nx)
+	var sx := rx - vn * nx - r * (_wy * nz - _wz * ny)
+	var sy := ry - vn * ny - r * (_wz * nx - _wx * nz)
+	var sz := rz - vn * nz - r * (_wx * ny - _wy * nx)
 	var slip := sqrt(sx * sx + sy * sy + sz * sz)
 	var jt := 0.0
 	if slip > EPS:
-		jt = minf(surface.friction * jn, (1.0 + surface.spin_grip) * slip * ball.inertia / (1.0 + ball.inertia))
+		jt = minf(surface.friction * jn, (1.0 + surface.spin_grip) * slip * ball.inertia / (1.0 + ball.inertia * (1.0 + mass_ratio)))
 		sx /= slip
 		sy /= slip
 		sz /= slip
@@ -615,12 +708,29 @@ func _impact(nx: float, ny: float, nz: float, surface: Surface) -> float:
 	_wx += gain * (ny * sz - nz * sy)
 	_wy += gain * (nz * sx - nx * sz)
 	_wz += gain * (nx * sy - ny * sx)
+	var moving := sqrt(ux * ux + uy * uy + uz * uz)
+	var outgoing := sqrt(_vx * _vx + _vy * _vy + _vz * _vz)
+	if surface.dwell > 0.0 and moving > EPS and outgoing > EPS:
+		var bx := _vx / outgoing * (1.0 - surface.dwell) + ux / moving * surface.dwell
+		var by := _vy / outgoing * (1.0 - surface.dwell) + uy / moving * surface.dwell
+		var bz := _vz / outgoing * (1.0 - surface.dwell) + uz / moving * surface.dwell
+		var length := sqrt(bx * bx + by * by + bz * bz)
+		if length > EPS and bx * nx + by * ny + bz * nz > 0.0:
+			_vx = bx * outgoing / length
+			_vy = by * outgoing / length
+			_vz = bz * outgoing / length
 	return -vn
 
 
 func _roll(dt: float) -> void:
 	if dt <= 0.0 or _contacts_left <= 0:
 		return
+	var limit := _horizon_fraction(dt)
+	if limit <= 0.0:
+		return
+	var vx := _vx
+	var vy := _vy
+	var vz := _vz
 	var p := _planes[_rest_plane].p
 	# Gravity projected into the support plane, including rotational inertia.
 	var g := GRAVITY / (1.0 + ball.inertia)
@@ -637,16 +747,24 @@ func _roll(dt: float) -> void:
 	var dy := _vy * dt
 	var dz := _vz * dt
 	var f := _sweep(dx, dy, dz, _rest_plane)
-	if f <= 1.0:
+	if f <= limit:
+		_record_segment(dx * f, dy * f, dz * f, dt * f)
+		_elapsed += dt * f
 		_px += dx * f
 		_py += dy * f
 		_pz += dz * f
 		_resolve()
 		_fly(dt * (1.0 - f))
 		return
-	_px += dx
-	_py += dy
-	_pz += dz
+	_record_segment(dx * limit, dy * limit, dz * limit, dt * limit)
+	_elapsed += dt * limit
+	_px += dx * limit
+	_py += dy * limit
+	_pz += dz * limit
+	if limit < 1.0:
+		_vx = vx + (_vx - vx) * limit
+		_vy = vy + (_vy - vy) * limit
+		_vz = vz + (_vz - vz) * limit
 	_wx = (p[4] * _vz - p[5] * _vy) / ball.radius
 	_wy = (p[5] * _vx - p[3] * _vz) / ball.radius
 	_wz = (p[3] * _vy - p[4] * _vx) / ball.radius
@@ -656,3 +774,177 @@ func _roll(dt: float) -> void:
 	if absf(x * p[6] + y * p[7] + z * p[8]) > p[12] or absf(x * p[9] + y * p[10] + z * p[11]) > p[13]:
 		resting = false
 		_rest_plane = -1
+
+
+func hit(contact_point: Vector3, face_normal: Vector3, hitter_velocity: Vector3, hitter: Surface) -> bool:
+	var length := sqrt(face_normal.x * face_normal.x + face_normal.y * face_normal.y + face_normal.z * face_normal.z)
+	if length <= EPS:
+		return false
+	var nx := face_normal.x / length
+	var ny := face_normal.y / length
+	var nz := face_normal.z / length
+	if _impact(nx, ny, nz, hitter, hitter_velocity.x, hitter_velocity.y, hitter_velocity.z) <= 0.0:
+		return false
+	_px = contact_point.x + nx * ball.radius
+	_py = contact_point.y + ny * ball.radius
+	_pz = contact_point.z + nz * ball.radius
+	_qx = _px
+	_qy = _py
+	_qz = _pz
+	resting = false
+	_rest_plane = -1
+	return true
+
+
+func _horizon_fraction(duration: float) -> float:
+	return clampf((_horizon - (tick - 1 - _record_tick) * STEP - _elapsed) / duration, 0.0, 1.0)
+
+
+func _record_segment(dx: float, dy: float, dz: float, duration: float) -> void:
+	if not _query.is_empty() and _query_time < 0.0:
+		var d0 := _px * _query[0] + _py * _query[1] + _pz * _query[2] - _query[3]
+		var delta := dx * _query[0] + dy * _query[1] + dz * _query[2]
+		if delta != 0.0 and d0 * (d0 + delta) <= 0.0 and (_query[4] == 0.0 or delta * _query[4] > 0.0):
+			var f := -d0 / delta
+			_query_time = (tick - 1 - _record_tick) * STEP + _elapsed + duration * f
+			_query_point = Vector3(_px + dx * f, _py + dy * f, _pz + dz * f)
+	if _record == null or _ignore_nets or _record.net_crossed:
+		return
+	var best := 2.0
+	var clearance := INF
+	for net: _Net in _nets:
+		var c := net.c
+		var d0 := (_px - c[0]) * c[2] + (_pz - c[1]) * c[3]
+		var d1 := d0 + dx * c[2] + dz * c[3]
+		if d0 == d1 or d0 * d1 > 0.0:
+			continue
+		var f := d0 / (d0 - d1)
+		var along := (_px + dx * f - c[0]) * -c[3] + (_pz + dz * f - c[1]) * c[2]
+		if f < best and absf(along) <= c[4]:
+			best = f
+			clearance = _py + dy * f - ball.radius - c[5]
+	if best <= 1.0:
+		_record.net_crossed = true
+		if _record.net_time < 0.0:
+			_record.net_clearance = clearance
+			_record.net_time = (tick - 1 - _record_tick) * STEP + _elapsed + duration * best
+
+
+func predict(max_time := 3.0, max_bounces := 1) -> Prediction:
+	var result := Prediction.new()
+	var f := copy()
+	f._record = result
+	f._record_tick = f.tick
+	f._record_limit = max_bounces
+	f._horizon = maxf(max_time, 0.0)
+	if max_bounces > 0:
+		for _i in maxi(0, ceili(max_time * HZ)):
+			if f.resting:
+				break
+			f.step()
+			if result.bounces.size() >= max_bounces:
+				break
+	result.settled = f.resting
+	result.end_position = f.position()
+	result.end_velocity = f.velocity()
+	result.end_time = minf((f.tick - f._record_tick) * STEP, f._horizon)
+	return result
+
+
+func time_to_height(height: float, max_time := 3.0, descending := true) -> float:
+	return copy()._time_to_crossing(PackedFloat64Array([0.0, 1.0, 0.0, height, -1.0 if descending else 1.0]), max_time)
+
+
+func time_to_plane(point: Vector3, normal: Vector3, max_time := 3.0) -> float:
+	if normal.length_squared() <= EPS * EPS:
+		return -1.0
+	var n := normal.normalized()
+	var offset := point.x * n.x + point.y * n.y + point.z * n.z
+	return copy()._time_to_crossing(PackedFloat64Array([n.x, n.y, n.z, offset, 0.0]), max_time)
+
+
+func _time_to_crossing(plane: PackedFloat64Array, max_time: float) -> float:
+	_query = plane
+	_record_tick = tick
+	_horizon = maxf(max_time, 0.0)
+	if plane[4] == 0.0 and _px * plane[0] + _py * plane[1] + _pz * plane[2] == plane[3] and max_time >= 0.0:
+		_query_point = position()
+		return 0.0
+	for _i in maxi(0, ceili(max_time * HZ)):
+		step()
+		if _query_time >= 0.0 or resting:
+			break
+	return _query_time
+
+
+func probe(seconds: float) -> RSBallFlight:
+	var f := copy()
+	f.advance_to_tick(f.tick + maxi(0, floori(seconds * HZ + CLOCK_EPS)))
+	return f
+
+
+func aim(from: Vector3, target: Vector3, speed: float, spin := Vector3.ZERO, lob := false, iterations := 8) -> Vector3:
+	## Solve heading/pitch at target height, then validate the real first surface contact.
+	## Targets are surface points; their ball centres are one radius above them. Nets are ignored.
+	## Trigonometry is not bit-exact across machines: transmit the resulting snapshot, not aim inputs.
+	var flat := Vector2(target.x - from.x, target.z - from.z)
+	var distance := flat.length()
+	if distance < 0.01 or speed <= 0.0 or iterations <= 0:
+		return Vector3.ZERO
+	var heading := atan2(flat.x, flat.y)
+	var vertical := target.y + ball.radius - from.y
+	var v2 := speed * speed
+	var disc := v2 * v2 - GRAVITY * (GRAVITY * distance * distance + 2.0 * vertical * v2)
+	if disc < 0.0 and spin.length_squared() == 0.0:
+		return Vector3.ZERO
+	var pitch := atan((v2 + (1.0 if lob else -1.0) * sqrt(maxf(disc, 0.0))) / (GRAVITY * distance))
+	var horizon := 2.0 * speed / GRAVITY + 2.0 * sqrt(2.0 * absf(vertical) / GRAVITY) + 3.0
+	var goal := target + Vector3.UP * ball.radius
+	var height := target.y + ball.radius + EPS # cross just before a supporting plane, without Vector3 rounding
+	var best := Vector3.ZERO
+	var error := INF
+	const DIFFERENCE := 0.002        ## rad; large enough to exceed Vector3 output rounding
+	for _i in iterations:
+		var landed := _aim_point(from, heading, pitch, speed, spin, horizon, height)
+		if not landed.is_finite():
+			break
+		var miss := landed.distance_to(goal)
+		if miss < error:
+			error = miss
+			best = _launch(heading, pitch, speed)
+		if error < 0.005:
+			break
+		var h := _aim_point(from, heading + DIFFERENCE, pitch, speed, spin, horizon, height)
+		var p := _aim_point(from, heading, pitch + DIFFERENCE, speed, spin, horizon, height)
+		if not h.is_finite() or not p.is_finite():
+			break
+		var hx := (h.x - landed.x) / DIFFERENCE
+		var hz := (h.z - landed.z) / DIFFERENCE
+		var px := (p.x - landed.x) / DIFFERENCE
+		var pz := (p.z - landed.z) / DIFFERENCE
+		var det := hx * pz - hz * px
+		if absf(det) < EPS:
+			break
+		var ex := landed.x - goal.x
+		var ez := landed.z - goal.z
+		heading -= clampf((ex * pz - ez * px) / det, -0.35, 0.35)
+		pitch = clampf(pitch - clampf((hx * ez - hz * ex) / det, -0.25, 0.25), -1.4, 1.55)
+	if error >= 0.04:
+		return Vector3.ZERO
+	var f := copy()
+	f._ignore_nets = true
+	f.set_state(from, best, spin)
+	var result := f.predict(horizon, 1)
+	return best if result.landed() and result.land_point().distance_to(goal) < 0.04 else Vector3.ZERO
+
+
+static func _launch(heading: float, pitch: float, speed: float) -> Vector3:
+	return Vector3(sin(heading) * cos(pitch), sin(pitch), cos(heading) * cos(pitch)) * speed
+
+
+func _aim_point(from: Vector3, heading: float, pitch: float, speed: float, spin: Vector3, horizon: float, height: float) -> Vector3:
+	var f := copy()
+	f._ignore_nets = true
+	f.set_state(from, _launch(heading, pitch, speed), spin)
+	var at := f._time_to_crossing(PackedFloat64Array([0.0, 1.0, 0.0, height, -1.0]), horizon)
+	return f._query_point if at >= 0.0 else Vector3(INF, INF, INF)
