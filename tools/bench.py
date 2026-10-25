@@ -14,11 +14,12 @@ from dataclasses import asdict, dataclass
 from pathlib import Path
 from typing import Any
 
+import catalog
 from engine_process import run_engine
 from test_game import find_godot
 
 ROOT = Path(__file__).resolve().parents[1]
-GAMES = ("plane", "archery", "bowling", "skate", "ski", "basketball")
+GAMES = catalog.game_ids()   # the menu games (tools/catalog.py)
 RESOLUTION = [1600, 900]
 # Godot 4.7.2 (ed1daf0bf): Logger prefixes include parse/fatal errors; native
 # crash handlers print these markers. A gameplay event may also contain CRASH.

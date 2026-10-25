@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="RSGameModule" format=3]
+
+[ext_resource type="Script" path="res://core/game_module.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "plane"
+name = "螺旋桨飞机"
+oled = "PLANE"
+scene = "res://scenes/plane/plane_game.tscn"
+desc = "倾斜手柄控制俯仰和滚转，穿过尽量多的圆环。1–4 人分屏。"
+maps_script = ""
+lessons = PackedStringArray("TILT_RIGHT", "TILT_FORWARD", "BOOST")
+solo_goals = PackedInt32Array(3000, 8000, 15000)
+players = Vector2i(1, 4)
+mode = "individual"
+ambience = ""
+preview = "res://assets/previews/plane.jpg"
+ready = true
+order = 10
