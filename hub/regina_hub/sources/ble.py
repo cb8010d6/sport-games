@@ -325,6 +325,7 @@ class ReginaBleSource:
                 raise ConnectionError("controller disconnected during setup")
 
         def on_disconnect(_client: Any) -> None:
+            log.info("Regina controller disconnected")
             close_connection()
 
         client = BleakClient(device, disconnected_callback=on_disconnect, timeout=GATT_TIMEOUT_S)

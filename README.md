@@ -46,7 +46,7 @@ hub/run_hub.bat
 | `--no-ble` | 不扫描 Regina |
 | `--lan-ip <电脑局域网IP>` | 自动识别的局域网地址不对时手动指定（装了 VPN、虚拟机网卡时容易认错） |
 | `--https-host <本机IP>` | 仅在指定网卡上开放手机连接（默认监听所有 IPv4 网卡）；模拟器与管理接口始终只在本机开放 |
-| `--record data.jsonl` | 录下所有手柄的原始数据 |
+| `--record data.jsonl` | 录下所有手柄的原始数据；使用本次录制的匿名编号，不保存设备名称、MAC 或手机 client_id |
 | `--replay data.jsonl` | 把录好的数据当成一个虚拟手柄循环回放，用来调手势识别 |
 | `-v` | 输出详细日志 |
 
