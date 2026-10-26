@@ -8,8 +8,9 @@
 ## 固定引擎与证据范围
 
 当前实验固定个人 fork `cb8010d6/godot` 的
-`a73826e8c0fd90351a1bae5095ce87bc6210be7f`（下称 A738），运行库为 Streamline 2.14.16。
-这是实验版本，不能称为 RC。当前材质复验的机器可读脱敏摘要见
+`d29e7065306d670a643ca0ea7a362c4b38cea3c5`（D29），运行库为 Streamline 2.14.16。
+这是实验版本，不能称为 RC。最新预热、导出和兼容性摘要见
+[rtx-d29e706530.json](validation/rtx-d29e706530.json)。材质专用 A738 的独立历史记录保留为
 [rtx-a73826e8c0.json](validation/rtx-a73826e8c0.json)；
 [rtx-c1fc0252a9.json](validation/rtx-c1fc0252a9.json) 保留为旧 C1
 `c1fc0252a98913d3be394417b6977a8c5aa4d77d` 的历史记录，其中保留原始验收 JSON 与截图的 SHA-256。
@@ -21,6 +22,11 @@
 只增加了 `EditorHelp::load_script_doc_cache` 的六行退出保护，另有诊断文档；这不能代替重跑严格验证。
 
 ## A738 实测：短时材质复验
+
+以下 A738 数据保持原生提交与范围；D29 的新结果不覆盖它们。D29 已独立完成六目标构建、
+两种编辑器冒烟、四种 installed-template 导出和实际游戏 Vulkan/D3D12 生产入口自然退出。
+单人/四人 RR-D 兼容严格测试使用带只读诊断的原生 8b，工作区为 D29；两个身份均记录在摘要中。
+自动/F 的严格错误仍保留，未将单纯的 `eOk` 或截图当作同步正确或模型身份确认。
 
 RTX 4060 Laptop GPU 上的 Vulkan 真实游戏检查已完成：6 个 PT 关闭 / 开启 RR 用例、4 个
 分屏 PT / RR 用例、2 个 DDGI 用例均通过。PT 与 DDGI 分别运行，没有将两个光照模式混为同一结果。

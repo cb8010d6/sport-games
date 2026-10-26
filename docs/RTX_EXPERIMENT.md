@@ -6,11 +6,24 @@
 实验目标是 `experiment/nvidia-rtx`，不向 `dev` / `main` 推送。
 
 当前实验引擎来源与版本见 [rtx_engine.json](../tools/rtx_engine.json)，固定个人 fork
-`cb8010d6/godot` 的 `a73826e8c0fd90351a1bae5095ce87bc6210be7f`（A738）。
+`cb8010d6/godot` 的 `d29e7065306d670a643ca0ea7a362c4b38cea3c5`（D29）。
 这是经过审查的个人引擎补丁系列，不是 NVIDIA 上游已有提交。
 编辑器、导出模板和 Streamline 2.14.16 运行库必须成套，不能用标准模板导出实验工程。
 SDK 与运行库按 NVIDIA 自身许可分发，本游戏仓库不收录 SDK 或二进制构建产物。
-本文保留的 C1 构建、游戏画面和导出记录属于历史验收，不自动转为 A738 的通过记录。
+本文保留的 C1/A738 记录属于历史验收，不自动转为 D29 的通过记录。
+
+## 最新预热与 Vulkan 复验
+
+D29 的六种 Windows 目标、标准/.NET 冒烟、四种安装模板导出与实际游戏 PCK 启动均通过。
+游戏程序输入固定为 `3d51851c6eec09ff4cb8a2b0f818e837d06ca4e8`，后补的文档提交不重标 GPU SHA。
+[机器可读摘要](validation/rtx-d29e706530.json) 与
+[完整引擎报告](https://github.com/cb8010d6/godot/blob/ce8ae17454f2c4ce43223d3a416a47492b182b1c/devtools/RT_WARMUP_ACCEPTANCE_2026_10_27.md)
+分别保留每项输入、实际运行、失败和未执行范围。
+
+RR 自动/F 预设的 Vulkan 严格同步验证仍失败。独立请求 D、启动时不初始化 FG 插件、锐化为 0 的
+兼容组合，在真实单人/四人场景中通过严格验证；普通 FG 在该进程不可用。D 是请求值，API 没有
+实际预设或模型权重读回；SDK getter 仅采样 ID 1/2，其余真实求值由原生 trace 记录。
+此兼容选项没有修改引擎或游戏的默认自动 RR 策略，也不代表 F 已修复或画质与 F 等同。
 
 ## 画面设置
 
