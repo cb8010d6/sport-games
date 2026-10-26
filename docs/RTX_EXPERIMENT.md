@@ -6,10 +6,11 @@
 实验目标是 `experiment/nvidia-rtx`，不向 `dev` / `main` 推送。
 
 当前实验引擎来源与版本见 [rtx_engine.json](../tools/rtx_engine.json)，固定个人 fork
-`cb8010d6/godot` 的 `c1fc0252a98913d3be394417b6977a8c5aa4d77d`（C1）。
+`cb8010d6/godot` 的 `a73826e8c0fd90351a1bae5095ce87bc6210be7f`（A738）。
 这是经过审查的个人引擎补丁系列，不是 NVIDIA 上游已有提交。
 编辑器、导出模板和 Streamline 2.14.16 运行库必须成套，不能用标准模板导出实验工程。
 SDK 与运行库按 NVIDIA 自身许可分发，本游戏仓库不收录 SDK 或二进制构建产物。
+本文保留的 C1 构建、游戏画面和导出记录属于历史验收，不自动转为 A738 的通过记录。
 
 ## 画面设置
 
@@ -66,10 +67,26 @@ Recommended 预设、锐化 0、FG 关闭；光栅为原生、MSAA / FXAA 关闭
 
 ## 验收边界与来源
 
+当前 A738 在 RTX 4060 Laptop GPU 上完成短时真实游戏材质复验：Vulkan 的 6 个 PT 关闭 / 开启
+RR 用例、4 个分屏 PT / RR 用例、2 个 DDGI 用例均通过。游戏的导数兼容分支与引擎的真实实例数据、
+实例位移缓存隔离及受限不透明顶点色修复一起受测；范围与剩余限制见
+[PT_MATERIAL_COMPATIBILITY.md](PT_MATERIAL_COMPATIBILITY.md) 和
+[A738 验证摘要](validation/rtx-a73826e8c0.json)。官方 4.7.2 另完成 2 / 4 人真实启动烟测，
+不代表官方引擎具备 RTX 功能。
+
+A738 标准 / Mono 仓库烟测另已通过，分别耗时 31.031 / 27.078 秒，退出码均为 0。
+standard / Mono × debug / release 四种 installed template 物理夹具导出及 D3D12 运行也全部通过。
+这些是匹配 A738 模板的 PhysX / C# PhysX 夹具检查，不是 Regina 本体的 PT / RR 导出验收；
+Regina 本体另以 A738 标准安装模板完成冷导入、release 导出及两例生产入口运行：D3D12 双人滑冰
+光栅请求、Vulkan 单人滑冰 PT + RR 请求，各保存三张 1600×900 PNG 后自然退出，退出码均为 0。
+命令没有 `--path`、外部 `--script` 或 `--quit-after`；PCK 中 RT include 的实际内容已与源文件校验相同。
+这验证启动、截图、自然退出与打包内容，不证明完整比赛、生产入口的 PT/RR 状态读回或模型身份。
+冷异步编译仍可能短暂显示灰色占位；严格 GPU 验证尚未干净。
+
 [RTX_VALIDATION.json](RTX_VALIDATION.json) 是 2026-10-21 的历史验证，针对旧上游
 `135dff3887a3d2ccf45cafbd9bdffa7b718e1e76`，不代表新引擎或本次迁移已经完成 GPU 验收。
-实测范围见 [RTX_MIGRATION.md](RTX_MIGRATION.md) 与
-[脱敏验证摘要](validation/rtx-c1fc0252a9.json)。C1 六种 Windows 构建、17 个真实游戏画面用例及
+各提交的实测范围见 [RTX_MIGRATION.md](RTX_MIGRATION.md)。以下为
+[C1 历史脱敏验证摘要](validation/rtx-c1fc0252a9.json) 的结果：C1 六种 Windows 构建、17 个真实游戏画面用例及
 四种 installed template 物理测试工程导出 / 运行通过。Regina 本体另以匹配的 installed template
 完成 Windows release 导出，并从 EXE / PCK 通过 D3D12 中文双人滑冰、Vulkan 英文四人篮球：
 每例保存三张 1600×900 原始 PNG 后由生产 `RSExit` 自然退出，退出码 0，Job 清理后无 NGX 残留。

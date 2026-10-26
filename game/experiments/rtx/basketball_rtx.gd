@@ -1,7 +1,7 @@
 extends "res://scenes/basketball/basketball_game.gd"
 ## Isolated experiment: shared gameplay, fork properties accessed through reflection.
 
-const FORK_COMMIT := "c1fc0252a98913d3be394417b6977a8c5aa4d77d"
+const FORK_COMMIT := "a73826e8c0fd90351a1bae5095ce87bc6210be7f"
 var _mode := "rtx"
 var _warmup := 12.0
 var _duration := 20.0

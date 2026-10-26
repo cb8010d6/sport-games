@@ -4,12 +4,21 @@
   "upstreamBranch": "nvidia-pt-dlss",
   "previousExperimentCommit": "135dff3887a3d2ccf45cafbd9bdffa7b718e1e76",
   "patchBranch": "stabilization/4.8-beta1-sl214",
-  "commit": "c1fc0252a98913d3be394417b6977a8c5aa4d77d",
-  "status": "experimental; functional captures and fixture exports passed; not a release candidate",
+  "commit": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+  "status": "experimental; A738 bounded material GPU, standard/Mono smoke, installed-template physics exports and production game startup/screenshots/natural-exit checks passed; strict validation not clean; not a release candidate",
+  "materialGpuTestedCommit": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+  "materialGpuTestedCommitScope": "Short real-game Vulkan material checks: 6 PT without/with RR, 4 split-screen PT/RR, and 2 DDGI cases; not strict-validation, model-identity, frame-generation, performance, or full-game acceptance",
   "cpuTestedCommit": "1000baebdaccc35a6dfb9511c7fe9209cdc8295b",
   "cpuTestedCommitScope": "Earlier headless adapter checks only; not a C1 rerun or GPU validation",
   "strictGpuTestedCommit": "d37b63e72bd5b0b72c8d72adb7cceb1b20e1b1f8",
-  "validationSummary": "../docs/validation/rtx-c1fc0252a9.json",
+  "validationSummary": "../docs/validation/rtx-a73826e8c0.json",
+  "validationSummaryHistory": [
+    {
+      "commit": "c1fc0252a98913d3be394417b6977a8c5aa4d77d",
+      "validationSummary": "../docs/validation/rtx-c1fc0252a9.json",
+      "scope": "Historical C1 game captures and exports; these results are not A738 reruns"
+    }
+  ],
   "commitLocation": "Reviewed personal-fork patch series; not an upstream NVIDIA commit",
   "version": "4.8.beta1",
   "streamlineSdkVersion": "2.14.16",
