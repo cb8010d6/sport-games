@@ -108,6 +108,7 @@ var _ambience: AudioStreamPlayer
 var _crowd: AudioStreamPlayer
 var _rng := RandomNumberGenerator.new()
 var _podium: RSPodium
+var _near: Array = [[], [], [], []]  ## reused world-position lists, one per RSBallCourt.COURTS
 var _podium_on := false
 var _podium_at := 0.0
 var _podium_order: Array = []
@@ -582,14 +583,15 @@ func _launch(p: Player, s: Shooter) -> void:
 func _physics_process(delta: float) -> void:
 	if _court == null or phase != Phase.PLAY and phase != Phase.COUNTDOWN:
 		return
-	var near: Array = [[], [], [], []]
+	for balls: Array in _near:
+		balls.clear()
 	for p: Player in players.values():
 		var s := _sh(p)
 		var rim := RSBallCourt.rim(s.court)
 		var net := _court.nets[s.court]
 		for b: RSBasketball in s.flying:
 			var at := b.global_position
-			near[s.court].append(at)
+			_near[s.court].append(at)
 			if not b.live:
 				continue
 			var prev: Vector3 = b.get_meta("prev", at)
@@ -608,7 +610,7 @@ func _physics_process(delta: float) -> void:
 				v.z = v.z * exp(-7.0 * k * delta) + c.z * 6.0 * k * delta
 				b.linear_velocity = v
 		if s.held:
-			near[s.court].append(s.held.global_position)
+			_near[s.court].append(s.held.global_position)
 		# Balls long resolved and out of the way go.
 		for j in range(s.flying.size() - 1, -1, -1):
 			var b := s.flying[j]
@@ -616,7 +618,7 @@ func _physics_process(delta: float) -> void:
 				b.queue_free()
 				s.flying.remove_at(j)
 	for i in RSBallCourt.COURTS:
-		_court.nets[i].advance(delta, near[i])
+		_court.nets[i].advance(delta, _near[i])
 
 
 # ------------------------------------------------------------------------ scoring ----
