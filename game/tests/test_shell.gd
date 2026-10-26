@@ -108,6 +108,7 @@ func _run() -> void:
 	RSSettings.load_once()
 	_check(RSSettings.volumes == [9, 0, 6, 5] and RSSettings.color_safe, "settings round trip")
 	_quality_cases()
+	_local_shadow_cases()
 	# Menu glyph discs come from the RSUi factory (#57).
 	var glyph := RSUi.glyph_style()
 	_check(glyph.bg_color == RSUi.TEXT and glyph.corner_radius_top_left == 14, "menu glyph style comes from RSUi (#57)")
@@ -227,6 +228,40 @@ func _quality_cases() -> void:
 	_check(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT) == orphan_count, "quality probes release all owned nodes (#57)")
 	RSSettings.quality = saved_quality
 	RSSettings.upscale = saved_upscale
+
+
+func _local_shadow_cases() -> void:
+	var saved_quality := RSSettings.quality
+	var saved_views := RSSettings.views
+	var probe := Node.new()
+	var spot := SpotLight3D.new()
+	spot.shadow_enabled = true
+	var omni := OmniLight3D.new()
+	omni.shadow_enabled = false
+	var sun := DirectionalLight3D.new()
+	sun.shadow_enabled = true
+	probe.add_child(spot)
+	probe.add_child(omni)
+	probe.add_child(sun)
+	add_child(probe)
+	RSSettings.views = 2
+	for quality: int in RSSettings.QUALITY_NAMES.size():
+		RSSettings.quality = quality
+		RSSettings.apply_world(probe)
+		_check(spot.shadow_enabled == (quality >= 1) and not omni.shadow_enabled, "local shadows follow scene values and quality (#57-05)")
+		RSSettings.set_views(3, probe)
+		_check(spot.shadow_enabled == (quality >= 2) and not omni.shadow_enabled, "local shadows reduce at three views (#57-05)")
+		RSSettings.set_views(4, probe)
+		_check(spot.shadow_enabled == (quality >= 2), "local shadows retain their tier at four views (#57-05)")
+		RSSettings.apply_world(probe)
+		_check(spot.shadow_enabled == (quality >= 2) and not omni.shadow_enabled, "world quality refresh respects split local shadows (#57-05)")
+		RSSettings.set_views(2, probe)
+		_check(spot.shadow_enabled == (quality >= 1) and not omni.shadow_enabled, "local shadows restore after leaving the split tier (#57-05)")
+	_check(bool(spot.get_meta("shadow_enabled")) and not bool(omni.get_meta("shadow_enabled")), "local shadow metadata retains each scene value (#57-05)")
+	_check(sun.shadow_enabled and not sun.has_meta("shadow_enabled"), "directional lights bypass local shadow gating (#57-05)")
+	probe.free()
+	RSSettings.quality = saved_quality
+	RSSettings.views = saved_views
 
 
 func _font_cases() -> void:
