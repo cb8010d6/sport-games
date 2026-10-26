@@ -37,7 +37,7 @@ class Truth:
         f_world = (lin_world[0], lin_world[1] + GRAVITY, lin_world[2])
         accel = q_rotate(q_conj(self.q), f_world)
         n = lambda: self.rng.gauss(0.0, self.noise)  # noqa: E731
-        gyro = tuple(w + b + n() for w, b in zip(omega_body, self.bias))
+        gyro = tuple(w + b + n() for w, b in zip(omega_body, self.bias, strict=False))
         accel = tuple(a + 5 * n() for a in accel)
         return self.t, gyro, accel
 
@@ -61,7 +61,7 @@ def test_initial_tilt_from_accel():
     run(pipe, truth, 0.5)
     up_est = q_rotate(pipe.orientation, (0.0, 0.0, -1.0))
     up_true = q_rotate(tilt, (0.0, 0.0, -1.0))
-    assert math.degrees(math.acos(max(-1, min(1, sum(a * b for a, b in zip(up_est, up_true)))))) < 1.0
+    assert math.degrees(math.acos(max(-1, min(1, sum(a * b for a, b in zip(up_est, up_true, strict=False)))))) < 1.0
 
 
 def test_accel_correction_pulls_wrong_tilt_back():
@@ -107,7 +107,7 @@ def test_bias_is_estimated_and_removed():
     run(pipe, truth, 2.0)
     assert pipe.bias.calibrated
     assert "calibrated" in pipe.events and "recentered" in pipe.events
-    for est, b in zip(pipe.bias.bias, bias):
+    for est, b in zip(pipe.bias.bias, bias, strict=False):
         assert abs(est - b) < 0.003
     yaw0 = q_yaw(pipe.orientation)
     run(pipe, truth, 20.0)

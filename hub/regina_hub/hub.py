@@ -6,6 +6,7 @@ import asyncio
 import json
 import logging
 import socket
+import struct
 import sys
 import threading
 import time
@@ -19,6 +20,16 @@ from .quat import Vec3, q_from_rotvec, q_mul, q_normalize, v_scale
 log = logging.getLogger("hub")
 
 MAX_PLAYERS = 4
+BAD_COMMAND_WARNING_S = 60.0
+
+# Registry limits (#45): the registry used to grow without bound -- every new
+# client_id kept its entry (and its ever-increasing id) forever, until ids no
+# longer fit the u8 game protocol and the roster JSON outgrew one UDP datagram.
+MAX_CONTROLLERS = 32            ## live + recently disconnected controllers kept in the registry
+MAX_CONTROLLER_ID = 255         ## game protocol packs controller ids as u8
+REGISTRY_IDLE_EVICT_S = 300.0   ## a disconnected controller is forgotten after 5 minutes
+ROSTER_MAX_BYTES = 60000        ## roster JSON stays below the 65507-byte UDP datagram limit
+MAX_PLAYER_PREFS = 512          ## remembered device->player preferences; LRU-evicted past this, registry keys pinned
 
 EVENT_FEEDBACK = {
     # event -> (toast text, beep freq, beep ms)
@@ -41,7 +52,7 @@ class GameLink:
     unreachable" error, which happens every time the game exits while samples are streaming.
     """
 
-    def __init__(self, hub: "Hub", game_addr: tuple[str, int]):
+    def __init__(self, hub: Hub, game_addr: tuple[str, int]):
         self.hub = hub
         self.game_addr = game_addr
         self.sock: socket.socket | None = None
@@ -69,7 +80,7 @@ class GameLink:
         while not self._closing:
             try:
                 data, addr = self.sock.recvfrom(65536)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 if self._closing:
@@ -120,14 +131,22 @@ class Hub:
     def __init__(self, game_port: int = P.GAME_PORT, hub_port: int = P.HUB_PORT, recorder: Any = None):
         self.controllers: dict[int, Controller] = {}
         self._ids_by_key: dict[str, int] = {}
-        self._players_by_key: dict[str, int] = {}
+        # The id the next attach would hand out: ids are recycled smallest-free
+        # (#45), so this is a derived hint, refreshed whenever ids are taken or
+        # freed (the pairing tests assert a refused hello never advances it).
         self._next_id = 1
+        self._players_by_key: dict[str, int] = {}
+        self._prefs_seen: dict[str, int] = {}   # key -> attach sequence, for LRU pruning of the cache above
+        self._prefs_seq = 0
+        self._roster_trim_warned_at = 0.0
         self.game = GameLink(self, ("127.0.0.1", game_port))
         self.hub_port = hub_port
         self.recorder = recorder
         self.phone_url: str | None = None
         self.qr: dict[str, Any] | None = None
+        self.ble_state = "disabled"
         self._roster_dirty = True
+        self._last_bad_command_warning: float | None = None
 
     # ------------------------------------------------------------- lifecycle ----
 
@@ -140,6 +159,7 @@ class Hub:
         last_roster = 0.0
         while True:
             now = _now()
+            self._prune_registry(now)
             for c in list(self.controllers.values()):
                 if c.connected:
                     self._dispatch_events(c, c.tick(now))
@@ -152,13 +172,30 @@ class Hub:
     def close(self) -> None:
         self.game.close()
 
+    def set_ble_state(self, state: str) -> None:
+        """Optional BLE diagnostic; older game clients can ignore the roster field."""
+        if state not in ("disabled", "scanning", "connected", "no_adverts", "unavailable"):
+            raise ValueError("unknown BLE state")
+        if state != self.ble_state:
+            self.ble_state = state
+            self._roster_dirty = True
+
     # ------------------------------------------------------------ registry ----
 
-    def attach(self, kind: str, key: str, name: str, transport: Transport, rate_hint_hz: float, wrap_bits: int | None) -> Controller:
+    def attach(self, kind: str, key: str, name: str, transport: Transport, rate_hint_hz: float, wrap_bits: int | None) -> Controller | None:
+        """Returns None when the registry is full and no disconnected entry can be
+        evicted; callers must refuse the connection gracefully (#45)."""
         cid = self._ids_by_key.get(key)
         if cid is None:
-            cid = self._next_id
-            self._next_id += 1
+            self._prune_registry()
+            if len(self.controllers) >= MAX_CONTROLLERS:
+                log.warning("attach refused: registry full (%d controllers)", len(self.controllers))
+                return None
+            used = set(self.controllers)
+            cid = next((i for i in range(1, MAX_CONTROLLER_ID + 1) if i not in used), None)
+            if cid is None:
+                log.warning("attach refused: no free controller id in 1..%d", MAX_CONTROLLER_ID)
+                return None
             self._ids_by_key[key] = cid
         old = self.controllers.get(cid)
         c = Controller(cid, kind, key, name, transport, rate_hint_hz, wrap_bits)
@@ -172,9 +209,11 @@ class Hub:
             c.player = wanted
         else:
             c.player = next((p for p in range(1, MAX_PLAYERS + 1) if p not in taken), 0)
-        self._players_by_key[key] = c.player
+        self._remember_player(key, c.player)
+        self._prune_player_prefs()
 
-        log.info("controller %d attached: %s %s (player %d)", cid, kind, name, c.player)
+        self._refresh_next_id()
+        log.info("controller %d attached: %s (player %d)", cid, kind, c.player)
         transport.set_player(c.player)
         if c.ui.fields:
             transport.send_ui(c.ui.snapshot())
@@ -183,12 +222,70 @@ class Hub:
         return c
 
     def detach(self, c: Controller) -> None:
-        if self.controllers.get(c.id) is not c:
+        if self.controllers.get(c.id) is not c or not c.connected:
             return
         c.connected = False
-        log.info("controller %d detached: %s", c.id, c.name)
+        c.disconnected_at = _now()
+        log.info("controller %d detached", c.id)
         self._emit_event(c, "disconnected")
         self._roster_dirty = True
+
+    def _remember_player(self, key: str, player: int) -> None:
+        self._players_by_key[key] = player
+        self._prefs_seq += 1
+        self._prefs_seen[key] = self._prefs_seq
+
+    def _prune_player_prefs(self) -> None:
+        """Bound the device->player preference cache (#45): it outlives the
+        registry entry on purpose (a returning device gets its player number
+        back), but the key is client-controlled, so past MAX_PLAYER_PREFS the
+        least recently attached unpinned entries are forgotten. Keys still in
+        the registry are never pruned."""
+        excess = len(self._players_by_key) - MAX_PLAYER_PREFS
+        if excess <= 0:
+            return
+        by_age = sorted(
+            (k for k in self._players_by_key if k not in self._ids_by_key),
+            key=lambda k: self._prefs_seen.get(k, 0),
+        )
+        for key in by_age[:excess]:
+            del self._players_by_key[key]
+            self._prefs_seen.pop(key, None)
+
+    def _refresh_next_id(self) -> None:
+        used = set(self.controllers)
+        self._next_id = next((i for i in range(1, MAX_CONTROLLER_ID + 1) if i not in used), MAX_CONTROLLER_ID + 1)
+
+    def _evict(self, c: Controller) -> None:
+        """Forget a disconnected controller entirely. The game already received its
+        disconnected event at detach time; the entry simply stops appearing in the
+        roster. _players_by_key is kept (bounded by _prune_player_prefs), so a
+        returning device gets its old player number back while its preference
+        survives in the cache."""
+        self.controllers.pop(c.id, None)
+        if self._ids_by_key.get(c.key) == c.id:
+            del self._ids_by_key[c.key]
+        self._refresh_next_id()
+        log.info("controller %d forgotten (disconnected)", c.id)
+        self._roster_dirty = True
+
+    def _prune_registry(self, now: float | None = None) -> None:
+        """Evict disconnected controllers past REGISTRY_IDLE_EVICT_S; if the registry
+        is still at MAX_CONTROLLERS, evict longest-disconnected first (#45)."""
+        now = _now() if now is None else now
+        for c in list(self.controllers.values()):
+            if not c.connected and c.disconnected_at is not None and now - c.disconnected_at > REGISTRY_IDLE_EVICT_S:
+                self._evict(c)
+        if len(self.controllers) >= MAX_CONTROLLERS:
+            disconnected = sorted(
+                (c for c in self.controllers.values() if not c.connected),
+                key=lambda c: c.disconnected_at or 0.0,
+            )
+            for c in disconnected:
+                if len(self.controllers) < MAX_CONTROLLERS:
+                    break
+                self._evict(c)
+        self._prune_player_prefs()
 
     def assign_player(self, cid: int, player: int) -> None:
         c = self.controllers.get(cid)
@@ -198,10 +295,10 @@ class Hub:
             for other in self.controllers.values():
                 if other is not c and other.player == player:
                     other.player = c.player  # swap
-                    self._players_by_key[other.key] = other.player
+                    self._remember_player(other.key, other.player)
                     other.transport.set_player(other.player)
         c.player = player
-        self._players_by_key[c.key] = player
+        self._remember_player(c.key, player)
         c.transport.set_player(player)
         self._roster_dirty = True
 
@@ -218,8 +315,13 @@ class Hub:
             # sees where the controller is now rather than where it was when the sample left.
             for s in fused:
                 s.q = q_normalize(q_mul(s.q, q_from_rotvec(v_scale(s.gyro, c.predict_s))))
-        if fused:
-            for dgram in P.build_game_samples(c.id, fused):
+        if fused and not c.pack_failed:
+            try:
+                datagrams = P.build_game_samples(c.id, fused)
+            except (struct.error, OverflowError, ValueError) as exc:
+                self._drop_bad_packer(c, exc)
+                return fused
+            for dgram in datagrams:
                 self.game.send(dgram)
         self._dispatch_events(c, c.tick(_now()))
         return fused
@@ -228,7 +330,23 @@ class Hub:
         if self.recorder is not None:
             self.recorder.input(c, buttons, small, big, analog)
         c.ingest_input(buttons, small, big, analog, _now())
-        self.game.send(P.build_game_input(c.id, buttons, small, big, analog[0], analog[1]))
+        if c.pack_failed:
+            return
+        try:
+            packet = P.build_game_input(c.id, buttons, small, big, analog[0], analog[1])
+        except (struct.error, OverflowError, ValueError) as exc:
+            self._drop_bad_packer(c, exc)
+            return
+        self.game.send(packet)
+
+    def _drop_bad_packer(self, c: Controller, exc: Exception) -> None:
+        """A controller whose state cannot be packed for the game (e.g. an out-of-range
+        id) must not take its source down with an exception per message (#45). Warn
+        once, mark it offline and suppress further binary uplink for this attachment."""
+        c.pack_failed = True
+        log.warning("controller %d: game packet packing failed (%s); detaching", c.id, type(exc).__name__)
+        if c.connected:
+            self.detach(c)
 
     def on_status(self, c: Controller, battery: int | None, charging: bool, **extra: Any) -> None:
         events = c.ingest_status(battery, charging)
@@ -302,12 +420,45 @@ class Hub:
                     self.game.send_json(self.qr)
             else:
                 log.warning("unknown game command: %r", msg)
-        except (KeyError, TypeError, ValueError) as exc:
-            log.warning("bad game command %r: %s", msg, exc)
+        except (KeyError, TypeError, ValueError, OverflowError, struct.error) as exc:
+            now = _now()
+            if self._last_bad_command_warning is None or now - self._last_bad_command_warning >= BAD_COMMAND_WARNING_S:
+                self._last_bad_command_warning = now
+                log.warning("invalid game command ignored (%s)", type(exc).__name__)
 
     def roster(self) -> dict[str, Any]:
-        return {
-            "type": "roster",
-            "controllers": [c.roster_entry() for c in sorted(self.controllers.values(), key=lambda c: c.id)],
-            "phone_url": self.phone_url,
-        }
+        controllers = sorted(self.controllers.values(), key=lambda c: c.id)
+        entries = [c.roster_entry() for c in controllers]
+        payload: dict[str, Any] = {"type": "roster", "controllers": entries, "phone_url": self.phone_url, "ble_state": self.ble_state}
+        size = len(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+        if size > ROSTER_MAX_BYTES:
+            # One oversized datagram would be dropped whole and the game would lose
+            # every controller; disconnected entries are the expendable part (#45).
+            connected = [c for c in controllers if c.connected]
+            payload = {
+                "type": "roster",
+                "controllers": [e for c, e in zip(controllers, entries, strict=True) if c.connected],
+                "phone_url": self.phone_url,
+                "ble_state": self.ble_state,
+            }
+            if len(json.dumps(payload, separators=(",", ":")).encode("utf-8")) > ROSTER_MAX_BYTES:
+                # Online metadata can also be oversized (e.g. an old recording's
+                # device name). Keep every live id so trimming never fabricates a
+                # disconnect; bounded identity fields fit even at the registry cap.
+                payload["controllers"] = []
+                for c in connected:
+                    profile_name = c.extra.get("profile_name", "")
+                    payload["controllers"].append({
+                        "id": c.id, "kind": c.kind[:16], "name": c.name[:32],
+                        "player": c.player, "connected": True,
+                        "profile_name": profile_name[:20] if isinstance(profile_name, str) else "",
+                    })
+                if len(json.dumps(payload, separators=(",", ":")).encode("utf-8")) > ROSTER_MAX_BYTES:
+                    payload["phone_url"] = None
+            trimmed_size = len(json.dumps(payload, separators=(",", ":")).encode("utf-8"))
+            now = _now()
+            if now - self._roster_trim_warned_at > 60.0:
+                self._roster_trim_warned_at = now
+                log.warning("roster of %d bytes reduced to %d bytes (%d of %d entries)",
+                            size, trimmed_size, len(payload["controllers"]), len(entries))
+        return payload

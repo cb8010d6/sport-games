@@ -1,7 +1,37 @@
 {
-  "repository": "https://github.com/NVIDIA-RTX/godot",
-  "branch": "nvidia-pt-dlss",
-  "commit": "135dff3887a3d2ccf45cafbd9bdffa7b718e1e76",
-  "version": "4.8.dev",
-  "standardRelease": false
+  "repository": "https://github.com/cb8010d6/godot",
+  "upstreamRepository": "https://github.com/NVIDIA-RTX/godot",
+  "upstreamBranch": "nvidia-pt-dlss",
+  "previousExperimentCommit": "135dff3887a3d2ccf45cafbd9bdffa7b718e1e76",
+  "patchBranch": "stabilization/4.8-beta1-sl214",
+  "commit": "d29e7065306d670a643ca0ea7a362c4b38cea3c5",
+  "status": "experimental; bounded warm-up acceptance passed; automatic/F Vulkan RR strict validation still fails; not a release candidate",
+  "materialGpuTestedCommit": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+  "materialGpuTestedCommitScope": "Short real-game Vulkan material checks: 6 PT without/with RR, 4 split-screen PT/RR, and 2 DDGI cases; not strict-validation, model-identity, frame-generation, performance, or full-game acceptance",
+  "cpuTestedCommit": "1000baebdaccc35a6dfb9511c7fe9209cdc8295b",
+  "cpuTestedCommitScope": "Earlier headless adapter checks only; not a C1 rerun or GPU validation",
+  "strictGpuTestedCommit": "8b1055662793954959fe5ce8b11843437af0adc3",
+  "validationSummary": "../docs/validation/rtx-d29e706530.json",
+  "validationSummaryHistory": [
+    {
+      "commit": "c1fc0252a98913d3be394417b6977a8c5aa4d77d",
+      "validationSummary": "../docs/validation/rtx-c1fc0252a9.json",
+      "scope": "Historical C1 game captures and exports; these results are not A738 reruns"
+    },
+    {
+      "commit": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+      "validationSummary": "../docs/validation/rtx-a73826e8c0.json",
+      "scope": "Historical A738 bounded material checks and exports, retained at their original native SHA"
+    }
+  ],
+  "commitLocation": "Reviewed personal-fork patch series; not an upstream NVIDIA commit",
+  "version": "4.8.beta1",
+  "streamlineSdkVersion": "2.14.16",
+  "gameBaselineCommit": "209897f4573208e02df52c4c929731a27d3527b1",
+  "preservedExperimentHead": "e3f954c",
+  "standardRelease": false,
+  "strictGpuTestedCommitScope": "Actual diagnostic default/F FAIL; requested D plus startup FG omission strictly clean in bounded 1/4-player scenes; no model identity claim",
+  "warmupGameProgramCommit": "3d51851c6eec09ff4cb8a2b0f818e837d06ca4e8",
+  "publicAcceptanceReport": "https://github.com/cb8010d6/godot/blob/ce8ae17454f2c4ce43223d3a416a47492b182b1c/devtools/RT_WARMUP_ACCEPTANCE_2026_10_27.md",
+  "publicEvidenceCommit": "ce8ae17454f2c4ce43223d3a416a47492b182b1c"
 }

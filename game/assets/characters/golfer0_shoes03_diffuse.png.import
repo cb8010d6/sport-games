@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bknop0rfrvtdv"
-path="res://.godot/imported/golfer0_shoes03_diffuse.png-5c7c5b75dd880b5b4e1e6061fc2138ec.ctex"
+path.s3tc="res://.godot/imported/golfer0_shoes03_diffuse.png-5c7c5b75dd880b5b4e1e6061fc2138ec.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "bac0c28ad7356af09995cf6519cf22b2"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/characters/golfer0_shoes03_diffuse.png"
-dest_files=["res://.godot/imported/golfer0_shoes03_diffuse.png-5c7c5b75dd880b5b4e1e6061fc2138ec.ctex"]
+dest_files=["res://.godot/imported/golfer0_shoes03_diffuse.png-5c7c5b75dd880b5b4e1e6061fc2138ec.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +40,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=2048
 detect_3d/compress_to=1

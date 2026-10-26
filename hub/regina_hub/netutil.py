@@ -5,8 +5,10 @@ from __future__ import annotations
 import datetime as dt
 import ipaddress
 import logging
+import os
 import socket
 import ssl
+import tempfile
 from pathlib import Path
 
 log = logging.getLogger("net")
@@ -58,37 +60,69 @@ def lan_ip() -> str:
     return lan_ips()[0]
 
 
-def _cert_covers(cert_path: Path, ips: list[str]) -> bool:
-    from cryptography import x509
-
+def _write_pem(path: Path, data: bytes) -> None:
+    """Replace one complete PEM file; interrupted writes leave the previous file intact."""
+    pending: Path | None = None
     try:
-        cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
-        san = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
-        have = {str(ip) for ip in san.get_values_for_type(x509.IPAddress)}
-        not_expired = cert.not_valid_after_utc > dt.datetime.now(dt.timezone.utc) + dt.timedelta(days=7)
-        return not_expired and all(ip in have for ip in ips)
-    except Exception:  # noqa: BLE001 - any parse problem means regenerate
-        return False
+        with tempfile.NamedTemporaryFile(dir=path.parent, prefix=".pem-", delete=False) as stream:
+            pending = Path(stream.name)
+            stream.write(data)
+            stream.flush()
+            os.fsync(stream.fileno())
+        pending.replace(path)
+    finally:
+        if pending is not None:
+            pending.unlink(missing_ok=True)
 
 
 def ensure_cert(cert_dir: Path, ips: list[str]) -> tuple[Path, Path]:
-    """Create (or reuse) a self-signed certificate valid for the given IPs and localhost."""
+    """Cover selected addresses without rotating a valid key or unrelated network changes."""
     from cryptography import x509
+    from cryptography.exceptions import InvalidSignature, UnsupportedAlgorithm
     from cryptography.hazmat.primitives import hashes, serialization
     from cryptography.hazmat.primitives.asymmetric import ec
     from cryptography.x509.oid import NameOID
 
+    requested = {ipaddress.ip_address(ip) for ip in ips + ["127.0.0.1"]}
     cert_dir.mkdir(parents=True, exist_ok=True)
     cert_path = cert_dir / "cert.pem"
     key_path = cert_dir / "key.pem"
-    if cert_path.exists() and key_path.exists() and _cert_covers(cert_path, ips):
-        return cert_path, key_path
+    cert: x509.Certificate | None = None
+    key: ec.EllipticCurvePrivateKey | None = None
+    previous_ips: set[ipaddress.IPv4Address | ipaddress.IPv6Address] = set()
+    previous_dns: set[str] = set()
+    now = dt.datetime.now(dt.UTC)
+    try:
+        loaded = serialization.load_pem_private_key(key_path.read_bytes(), password=None)
+        if isinstance(loaded, ec.EllipticCurvePrivateKey):
+            key = loaded
+    except (OSError, ValueError, TypeError, UnsupportedAlgorithm):
+        pass  # Missing or corrupt key: generate a replacement below.
+    try:
+        cert = x509.load_pem_x509_certificate(cert_path.read_bytes())
+        san = cert.extensions.get_extension_for_class(x509.SubjectAlternativeName).value
+        previous_ips = set(san.get_values_for_type(x509.IPAddress))
+        previous_dns = set(san.get_values_for_type(x509.DNSName))
+        if key is not None:
+            public_key = key.public_key()
+            # A readable certificate is not necessarily the certificate for this private key.
+            public_key.verify(cert.signature, cert.tbs_certificate_bytes, ec.ECDSA(cert.signature_hash_algorithm))
+            matches_key = public_key.public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo) == cert.public_key().public_bytes(serialization.Encoding.DER, serialization.PublicFormat.SubjectPublicKeyInfo)
+            if (matches_key and cert.issuer == cert.subject
+                    and cert.not_valid_before_utc <= now
+                    and cert.not_valid_after_utc > now + dt.timedelta(days=7)
+                    and requested <= previous_ips and "localhost" in previous_dns):
+                return cert_path, key_path
+    except (OSError, ValueError, TypeError, InvalidSignature, UnsupportedAlgorithm, x509.ExtensionNotFound, x509.DuplicateExtension):
+        pass  # Expired, mismatched or invalid certificate: reissue using the reusable key.
 
-    log.info("generating self-signed certificate for %s", ", ".join(ips))
-    key = ec.generate_private_key(ec.SECP256R1())
+    log.info("updating self-signed certificate for selected addresses")
+    new_key = key is None
+    if key is None:
+        key = ec.generate_private_key(ec.SECP256R1())
     name = x509.Name([x509.NameAttribute(NameOID.COMMON_NAME, "Regina Sports Hub")])
-    now = dt.datetime.now(dt.timezone.utc)
-    san = [x509.DNSName("localhost")] + [x509.IPAddress(ipaddress.ip_address(ip)) for ip in sorted(set(ips + ["127.0.0.1"]))]
+    san = ([x509.DNSName(dns) for dns in sorted(previous_dns | {"localhost"})]
+           + [x509.IPAddress(ip) for ip in sorted(previous_ips | requested, key=str)])
     cert = (
         x509.CertificateBuilder()
         .subject_name(name)
@@ -101,10 +135,9 @@ def ensure_cert(cert_dir: Path, ips: list[str]) -> tuple[Path, Path]:
         .add_extension(x509.BasicConstraints(ca=False, path_length=None), critical=True)
         .sign(key, hashes.SHA256())
     )
-    key_path.write_bytes(
-        key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption())
-    )
-    cert_path.write_bytes(cert.public_bytes(serialization.Encoding.PEM))
+    if new_key:
+        _write_pem(key_path, key.private_bytes(serialization.Encoding.PEM, serialization.PrivateFormat.PKCS8, serialization.NoEncryption()))
+    _write_pem(cert_path, cert.public_bytes(serialization.Encoding.PEM))
     return cert_path, key_path
 
 
@@ -132,7 +165,7 @@ def qr_ascii(text: str) -> str:
         top = rows[y]
         bot = rows[y + 1] if y + 1 < len(rows) else "0" * len(top)
         line = []
-        for a, b in zip(top, bot):
+        for a, b in zip(top, bot, strict=False):
             # Dark modules are drawn as spaces on a light background so phone cameras read it.
             if a == "1" and b == "1":
                 line.append(" ")

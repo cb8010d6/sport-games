@@ -13,6 +13,10 @@ signal controller_disconnected(controller: RSController)
 signal controller_event(controller: RSController, event_name: String)
 signal button_pressed(controller: RSController, button: int)
 signal button_released(controller: RSController, button: int)
+## A held button whose release will never arrive because the controller
+## disconnected: the hold must be *cancelled*, not completed, so this is a
+## separate signal from button_released (#55).
+signal button_cancelled(controller: RSController, button: int)
 signal dial_changed(controller: RSController, small_delta: int, big_delta: int)
 signal samples_received(controller: RSController, count: int)
 signal qr_received(url: String, rows: PackedStringArray)
@@ -32,19 +36,45 @@ var qr_rows := PackedStringArray()
 
 var _udp := PacketPeerUDP.new()
 var _bound := false
+var _port := 0
+var _hub_port := 0
 var _hello_timer := 0.0
 var _last_rx_msec := -100000
+var _ble_state := "disabled"
+var _ble_roster_msec := -100000
 
 
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS  # menus pause the tree; hub input/OLED must keep flowing (#56)
 	RSSettings.load_once()       # sets the interface language before the first scene's UI
 	process_priority = -100  # update before game nodes read controller state
-	var err := _udp.bind(LISTEN_PORT, "127.0.0.1")
+	# Bind before any scene parses arguments; see docs/ARCHITECTURE.md (test-mode ports).
+	var ports := ports_for(OS.get_cmdline_user_args(), OS.get_environment("RS_TEST_MODE") == "1")  # allow: ARCH-ARGS
+	if ports.x < 0:
+		push_error("ControllerHub: --hub-port must be 2-65535")
+		return
+	var err := _udp.bind(ports.x, "127.0.0.1")
 	_bound = err == OK
 	if not _bound:
-		push_error("ControllerHub: cannot bind UDP %d (another game instance running?)" % LISTEN_PORT)
-	_udp.set_dest_address("127.0.0.1", HUB_PORT)
+		push_error("ControllerHub: cannot bind UDP %d (another game instance running?)" % ports.x)
+		return
+	_port = _udp.get_local_port()
+	_hub_port = ports.y
+	if _hub_port > 0:
+		_udp.set_dest_address("127.0.0.1", _hub_port)
 	_send({"cmd": "hello"})
+
+
+static func ports_for(args: PackedStringArray, test_mode: bool) -> Vector2i:
+	## (listen, hub). Normal play: 47800 / 47801. Test mode: an OS-assigned port and no hub,
+	## so parallel instances never collide or reach a real hub. --hub-port=N talks to a hub
+	## on N and listens on N - 1 (regina_hub --hub-port N --game-port N-1). x < 0 = invalid.
+	for a: String in args:
+		if a.begins_with("--hub-port="):
+			var value := a.trim_prefix("--hub-port=")
+			var hub := int(value)
+			return Vector2i(hub - 1, hub) if value.is_valid_int() and hub >= 2 and hub <= 65535 else Vector2i(-1, 0)
+	return Vector2i(0, 0) if test_mode else Vector2i(LISTEN_PORT, HUB_PORT)
 
 
 func _process(delta: float) -> void:
@@ -76,8 +106,25 @@ func _exit_tree() -> void:
 
 # ------------------------------------------------------------------------ queries ----
 
+func listen_port() -> int:
+	## The bound local UDP port (0 = not bound). Tests send synthetic hub packets here.
+	return _port
+
+
 func is_hub_connected() -> bool:
 	return Time.get_ticks_msec() - _last_rx_msec < int(HUB_TIMEOUT * 1000.0)
+
+
+func ble_warning() -> String:
+	## Diagnostics expire with their roster even if another input source still sends samples.
+	if not is_hub_connected() or Time.get_ticks_msec() - _ble_roster_msec >= int(HUB_TIMEOUT * 1000.0):
+		return ""
+	match _ble_state:
+		"no_adverts":
+			return RSLang.t("蓝牙未发现广播，请尝试关闭再打开电脑蓝牙。")
+		"unavailable":
+			return RSLang.t("蓝牙不可用，请检查适配器；手机手柄仍可使用。")
+	return ""
 
 
 func get_controller(id: int) -> RSController:
@@ -169,7 +216,7 @@ func request_qr() -> void:
 # ----------------------------------------------------------------------- internals ----
 
 func _send(msg: Dictionary) -> void:
-	if _bound:
+	if _bound and _hub_port > 0:
 		_udp.put_packet(JSON.stringify(msg).to_utf8_buffer())
 
 
@@ -236,9 +283,13 @@ func _handle_json(pkt: PackedByteArray) -> void:
 			var c := _ensure(int(msg.get("controller", 0)))
 			var ev := str(msg.get("name", ""))
 			if ev == "connected":
+				var was_connected := c.connected
 				c.connected = true
+				if not was_connected:
+					controller_connected.emit(c)
 			elif ev == "disconnected":
 				c.connected = false
+				_cancel_held_buttons(c)
 				controller_disconnected.emit(c)
 			controller_event.emit(c, ev)
 		"qr":
@@ -247,20 +298,54 @@ func _handle_json(pkt: PackedByteArray) -> void:
 			qr_received.emit(phone_url, qr_rows)
 
 
+func _cancel_held_buttons(c: RSController) -> void:
+	## A button still held when the controller goes away never sends its own
+	## release (and must not surface as a late release after reconnecting).
+	## Report each held button as cancelled exactly once, then clear: the game
+	## cancels the held action instead of completing it (#55). Idempotent --
+	## clearing first makes repeats (event + roster) no-ops.
+	var held := c.buttons
+	c.buttons = 0
+	for bit in [RSController.BTN_A, RSController.BTN_B, RSController.BTN_C, RSController.BTN_D]:
+		if held & bit:
+			button_cancelled.emit(c, bit)
+
+
 func _apply_roster(msg: Dictionary) -> void:
+	_ble_state = str(msg.get("ble_state", "disabled"))
+	_ble_roster_msec = Time.get_ticks_msec()
 	var url = msg.get("phone_url")
 	if url != null and str(url) != phone_url:
 		phone_url = str(url)
 		if qr_rows.is_empty():
 			request_qr()
+	var present := {}
 	for entry in msg.get("controllers", []):
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
 		var c := _ensure(int(entry.get("id", 0)))
-		var was_connected := c.connected and c.kind != ""
+		present[c.id] = true
+		var was_connected := c.connected  # the event handler may already have emitted for this connection
 		c.apply_roster(entry)
 		if c.connected and not was_connected:
 			controller_connected.emit(c)
+		elif was_connected and not c.connected:
+			# The roster alone reports it offline (the disconnected event was
+			# lost or reordered): same cancellation as the event path, or a
+			# held button would surface as a late release on reconnect (#55).
+			_cancel_held_buttons(c)
+			controller_disconnected.emit(c)
+	# A controller that drops out of the roster is only marked disconnected,
+	# never deleted: RSPartyGame keys player state to the RSController object,
+	# and the same id coming back must get the same object (a mid-game dropout
+	# keeps its score and slot). Hub-side id recycling bounds this dictionary
+	# to at most 255 entries (#45).
+	for id in controllers.keys():
+		var c := controllers[id] as RSController
+		if not present.has(id) and c.connected:
+			c.connected = false
+			_cancel_held_buttons(c)
+			controller_disconnected.emit(c)
 	roster_changed.emit()
 
 

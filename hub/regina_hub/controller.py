@@ -60,6 +60,8 @@ class Controller:
         self.clock = TimeMapper(wrap_bits=wrap_bits)
         self.extra: dict[str, Any] = {}
         self.predict_s = 0.0           ## orientation sent this far ahead (hides link latency)
+        self.disconnected_at: float | None = None   ## hub clock; set by Hub.detach, used for registry eviction (#45)
+        self.pack_failed = False                    ## game packet packing failed once; uplink is dropped (#45)
         self._d_since: float | None = None
         self._d_fired = False
         self._low_batt_sent = False
@@ -89,7 +91,7 @@ class Controller:
             return out
         dev_times = [self.clock.device_seconds(raw_us) for raw_us, _, _ in items]
         self.clock.observe(dev_times[-1], hub_now)
-        for dev_s, (_, gyro, accel) in zip(dev_times, items):
+        for dev_s, (_, gyro, accel) in zip(dev_times, items, strict=False):
             if not all(math.isfinite(v) for v in (*gyro, *accel)):
                 continue
             # Integrate on the device clock (exact dt); only the reported time is hub-mapped.

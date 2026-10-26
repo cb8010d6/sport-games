@@ -5,6 +5,10 @@
 // The ground floor is shops: lit display windows or roller shutters.
 shader_type spatial;
 
+#if defined(RT)
+#include "res://shaders/rt_pixel_footprint.gdshaderinc"
+#endif
+
 uniform sampler2D plaster_albedo : source_color, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D plaster_normal : hint_normal, filter_linear_mipmap_anisotropic, repeat_enable;
 uniform sampler2D plaster_orm : hint_default_white, filter_linear_mipmap_anisotropic, repeat_enable;
@@ -38,8 +42,13 @@ float vnoise(vec2 p) {
 	return mix(mix(hash(i), hash(i + vec2(1, 0)), f.x), mix(hash(i + vec2(0, 1)), hash(i + vec2(1, 1)), f.x), f.y);
 }
 
-float box(vec2 p, vec2 lo, vec2 hi) {
+float box(vec2 p, vec2 lo, vec2 hi, vec2 rt_footprint) {
+#if defined(RT)
+	vec2 w = rt_footprint * 0.75;
+#else
+	// The supplied RT footprint is unused here; preserve the raster derivative.
 	vec2 w = fwidth(p) * 0.75;
+#endif
 	vec2 a = smoothstep(lo - w, lo + w, p) * (1.0 - smoothstep(hi - w, hi + w, p));
 	return a.x * a.y;
 }
@@ -136,11 +145,21 @@ void fragment() {
 	// Tangent frame in world space: n out of the wall, up, and u's direction along it.
 	vec3 n_w = normalize((INV_VIEW_MATRIX * vec4(NORMAL, 0.0)).xyz);
 	vec3 up = vec3(0.0, 1.0, 0.0);
+	// Unused on raster; the box helper still computes fwidth(p).
+	vec2 box_footprint = vec2(0.0);
+#if defined(RT)
+	// RSSkateCourse generates tangents from each facade's explicit UVs. This follows
+	// increasing U on both street sides and end walls, including mirrored UV frames.
+	vec3 t_w = normalize((INV_VIEW_MATRIX * vec4(TANGENT, 0.0)).xyz);
+	box_footprint = rs_rt_pixel_footprint(wpos, n_w, t_w, up,
+		CAMERA_POSITION_WORLD, INV_VIEW_MATRIX, PROJECTION_MATRIX, VIEWPORT_SIZE);
+#else
 	vec3 t_w = normalize(cross(up, n_w));
 	vec3 dpx = dFdx(wpos);
 	vec3 dpy = dFdy(wpos);
 	float su = dot(dpx, t_w) * dFdx(uv.x) + dot(dpy, t_w) * dFdy(uv.x);
 	t_w *= su < 0.0 ? -1.0 : 1.0;
+#endif
 	vec3 ray = normalize(wpos - CAMERA_POSITION_WORLD);
 	vec3 rd = vec3(dot(ray, t_w), dot(ray, up), -dot(ray, n_w));
 
@@ -159,19 +178,19 @@ void fragment() {
 		vec2 id = vec2(floor(uv.x / shop_w), 7.0);
 		vec2 c = vec2(fract(uv.x / shop_w) * shop_w, uv.y);
 		float seed = hash(id + floor(wpos.x * 0.01));
-		float plinth = box(c, vec2(-1.0, -1.0), vec2(shop_w + 1.0, 0.45));
-		float sign_band = box(c, vec2(0.0, 3.25), vec2(shop_w, 3.9));
+		float plinth = box(c, vec2(-1.0, -1.0), vec2(shop_w + 1.0, 0.45), box_footprint);
+		float sign_band = box(c, vec2(0.0, 3.25), vec2(shop_w, 3.9), box_footprint);
 		vec2 g0 = vec2(0.45, 0.5);
 		vec2 g1 = vec2(shop_w - 0.45, 3.05);
-		float glass = box(c, g0, g1);
-		float frame = box(c, g0 - 0.1, g1 + 0.1) - glass;
+		float glass = box(c, g0, g1, box_footprint);
+		float frame = box(c, g0 - 0.1, g1 + 0.1, box_footprint) - glass;
 		bool shutter = seed < 0.3;
 		if (!shutter) {
 			// Shopfront joinery: two mullions (one side of the door) and a transom over it.
-			float m1 = box(c, vec2(shop_w * 0.36 - 0.05, g0.y), vec2(shop_w * 0.36 + 0.05, g1.y));
-			float m2 = box(c, vec2(shop_w * 0.64 - 0.05, g0.y), vec2(shop_w * 0.64 + 0.05, g1.y));
-			float tr = box(c, vec2(shop_w * 0.36, 2.45), vec2(shop_w * 0.64, 2.55));
-			float handle = box(c, vec2(shop_w * 0.6 - 0.03, 1.0), vec2(shop_w * 0.6, 1.5));
+			float m1 = box(c, vec2(shop_w * 0.36 - 0.05, g0.y), vec2(shop_w * 0.36 + 0.05, g1.y), box_footprint);
+			float m2 = box(c, vec2(shop_w * 0.64 - 0.05, g0.y), vec2(shop_w * 0.64 + 0.05, g1.y), box_footprint);
+			float tr = box(c, vec2(shop_w * 0.36, 2.45), vec2(shop_w * 0.64, 2.55), box_footprint);
+			float handle = box(c, vec2(shop_w * 0.6 - 0.03, 1.0), vec2(shop_w * 0.6, 1.5), box_footprint);
 			float bars = clamp(m1 + m2 + tr + handle, 0.0, 1.0) * glass;
 			glass -= bars;
 			frame += bars;
@@ -211,13 +230,13 @@ void fragment() {
 		float bseed = hash(vec2(floor(wpos.x * 0.01), floor(uv.x / 37.0)));
 		vec2 g0 = vec2(0.85, 0.8);
 		vec2 g1 = vec2(cell_w - 0.85, cell_h - 0.55);
-		float glass = box(c, g0, g1);
-		float frame = box(c, g0 - 0.09, g1 + 0.09) - glass;
-		float mullion = box(c, vec2(cell_w * 0.5 - 0.03, g0.y), vec2(cell_w * 0.5 + 0.03, g1.y)) * glass;
-		float sill = box(c, vec2(g0.x - 0.18, g0.y - 0.2), vec2(g1.x + 0.18, g0.y - 0.06));
-		float lintel = box(c, vec2(g0.x - 0.12, g1.y + 0.09), vec2(g1.x + 0.12, g1.y + 0.24));
+		float glass = box(c, g0, g1, box_footprint);
+		float frame = box(c, g0 - 0.09, g1 + 0.09, box_footprint) - glass;
+		float mullion = box(c, vec2(cell_w * 0.5 - 0.03, g0.y), vec2(cell_w * 0.5 + 0.03, g1.y), box_footprint) * glass;
+		float sill = box(c, vec2(g0.x - 0.18, g0.y - 0.2), vec2(g1.x + 0.18, g0.y - 0.06), box_footprint);
+		float lintel = box(c, vec2(g0.x - 0.12, g1.y + 0.09), vec2(g1.x + 0.12, g1.y + 0.24), box_footprint);
 		// Louvred shutters each side on some buildings, open flat against the wall.
-		float sh = step(0.45, bseed) * (box(c, vec2(g0.x - 0.62, g0.y), vec2(g0.x - 0.12, g1.y)) + box(c, vec2(g1.x + 0.12, g0.y), vec2(g1.x + 0.62, g1.y)));
+		float sh = step(0.45, bseed) * (box(c, vec2(g0.x - 0.62, g0.y), vec2(g0.x - 0.12, g1.y), box_footprint) + box(c, vec2(g1.x + 0.12, g0.y), vec2(g1.x + 0.62, g1.y), box_footprint));
 		vec3 sh_col = mix(vec3(0.16, 0.38, 0.3), vec3(0.2, 0.33, 0.5), step(0.7, bseed));
 		sh_col = mix(sh_col, vec3(0.55, 0.32, 0.2), step(0.85, bseed));
 		float slats = sin(c.y * 48.0);
@@ -248,7 +267,7 @@ void fragment() {
 		// Sills stand out of the wall a little: tilt their normal.
 		nrm = mix(nrm, vec3(0.5, 0.15, 1.0), sill * 0.5);
 		// Faint line at each floor.
-		alb *= 1.0 - 0.07 * box(c, vec2(-1.0, 0.0), vec2(cell_w + 1.0, 0.12));
+		alb *= 1.0 - 0.07 * box(c, vec2(-1.0, 0.0), vec2(cell_w + 1.0, 0.12), box_footprint);
 	}
 
 	ALBEDO = alb;

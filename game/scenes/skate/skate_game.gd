@@ -56,7 +56,7 @@ class Rider:
 	var clip: Array = []
 	var clip_pts := 0
 	var clip_names := ""
-	var rp_i := 0
+	var replay := RSReplay.new()
 	var rp_side := Vector3.RIGHT
 
 
@@ -68,7 +68,7 @@ var _lobby_s := 0.0
 var _beep := 4
 var _crowd: AudioStreamPlayer
 var _rng := RandomNumberGenerator.new()
-var _podium: Node3D
+var _podium: RSPodium
 var _podium_on := false
 var _podium_at := 0.0
 var _podium_order: Array = []
@@ -133,7 +133,7 @@ func _lobby_process(delta: float) -> void:
 func _player_added(p: Player) -> void:
 	var r := Rider.new()
 	p.data = r
-	r.sk = RSSkater.new(_course, color_of(p), p.c.player - 1, p.c.player)
+	r.sk = RSSkater.new(_course, color_of(p), avatar_of(p), p.c.player)
 	add_child(r.sk)
 	r.sk.visible = false
 	r.sk.combo_banked.connect(_on_banked.bind(p))
@@ -169,11 +169,11 @@ func _player_removed(p: Player) -> void:
 
 func _player_ready(p: Player, is_ready: bool) -> void:
 	if is_ready:
-		_rider(p).gest.capture(p.c.orientation)
+		_rider(p).gest.capture(p.c.motion_orientation())
 
 
 func _player_recentered(p: Player) -> void:
-	_rider(p).gest.capture(p.c.orientation)
+	_rider(p).gest.capture(p.c.motion_orientation())
 	p.popup(tr("已重设“平”的姿势"))
 
 
@@ -183,6 +183,7 @@ func _player_button(p: Player, button: int, pressed: bool) -> void:
 
 
 func _round_started(list: Array) -> void:
+	_podium.reset()
 	_time_left = TIME_LIMIT
 	_finishers = 0
 	_all_done_t = -1.0
@@ -204,6 +205,7 @@ func _round_started(list: Array) -> void:
 		r.pend.clear()
 		r.post = -1.0
 		r.clip = []
+		r.replay.reset(r.clip)
 		r.clip_pts = 0
 		r.combo_from = 0.0
 		r.sk.rig.cheer = 0.0
@@ -212,14 +214,14 @@ func _round_started(list: Array) -> void:
 		for l in r.letter_nodes:
 			l.visible = true
 		if p.fake:
-			r.bot = RSSkateBot.new(r.sk, 77 + p.c.player * 13 + _rng.randi_range(0, 9999))
+			r.bot = RSSkateBot.new(r.sk, 77 + p.c.player * 13 + _rng.randi_range(0, 9999), bot_ability())
 		send_ui(p, {"clear": true, "title": "SKATE", "main": "0", "sub": "READY", "legends": ["", "PUSH", "", null]})
 		_camera(p, r, 0.0, true)
 
 
 func _to_lobby() -> void:
 	super._to_lobby()
-	_podium.visible = false
+	_podium.reset()
 	_podium_on = false
 	for p: Player in players.values():
 		var r := _rider(p)
@@ -330,7 +332,7 @@ func _on_banked(points: int, names: PackedStringArray, sketchy: bool, p: Player)
 	r.banked_names = _trick_line(names)
 	# Best so far: cut the replay from the recording once the landing has run on a little.
 	if points > maxi(r.clip_pts, r.pend_pts if r.post >= 0.0 else 0):
-		r.pend = r.rec.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= r.combo_from - PRE_ROLL)
+		r.pend = RSReplay.since(r.rec, r.combo_from - PRE_ROLL)
 		r.pend_pts = points
 		r.pend_names = _trick_line(names, 3)
 		r.post = POST_ROLL
@@ -411,6 +413,7 @@ func _fmt(n: int) -> String:
 
 func _camera(p: Player, r: Rider, dt: float, snap: bool) -> void:
 	var sk := r.sk
+	var at := sk.draw_pos   # drawn (smoothed) position, as the rider mesh
 	var fwd := Vector3(-sin(sk.heading), 0.0, -cos(sk.heading))
 	if sk.mode == RSSkater.Mode.AIR and Vector2(sk.vel.x, sk.vel.z).length() > 0.5:
 		fwd = Vector3(sk.vel.x, 0.0, sk.vel.z).normalized()
@@ -418,15 +421,15 @@ func _camera(p: Player, r: Rider, dt: float, snap: bool) -> void:
 	r.cam_fwd = fwd if snap else r.cam_fwd.lerp(fwd, 1.0 - exp(-dt * 3.0)).normalized()
 	var spd := sk.current_speed()
 	var dist := 4.6 + clampf(spd - 8.0, 0.0, 6.0) * 0.16
-	var want := sk.pos - r.cam_fwd * dist + Vector3.UP * 1.9
-	var look := sk.pos + r.cam_fwd * 3.2 + Vector3.UP * 0.9
+	var want := at - r.cam_fwd * dist + Vector3.UP * 1.9
+	var look := at + r.cam_fwd * 3.2 + Vector3.UP * 0.9
 	if sk.mode == RSSkater.Mode.BAIL:
-		want = r.cam_pos.lerp(sk.pos - r.cam_fwd * 5.5 + Vector3.UP * 2.6, 0.02)
-		look = sk.pos + Vector3.UP * 0.5
+		want = r.cam_pos.lerp(at - r.cam_fwd * 5.5 + Vector3.UP * 2.6, 0.02)
+		look = at + Vector3.UP * 0.5
 	elif sk.finished and spd < 2.0:
 		r.orbit += dt * 0.35
-		want = sk.pos + Vector3(sin(r.orbit) * 4.0, 1.7, cos(r.orbit) * 4.0)
-		look = sk.pos + Vector3.UP * 0.9
+		want = at + Vector3(sin(r.orbit) * 4.0, 1.7, cos(r.orbit) * 4.0)
+		look = at + Vector3.UP * 0.9
 	want.x = clampf(want.x, -RSSkateCourse.BOUND + 0.6, RSSkateCourse.BOUND - 0.6)
 	want.y = maxf(want.y, _course.top(want.x, -want.z) + 0.8)
 	if snap:
@@ -438,6 +441,9 @@ func _camera(p: Player, r: Rider, dt: float, snap: bool) -> void:
 		r.cam_look = r.cam_look.lerp(look, minf(k * 1.4, 1.0))
 	r.shake = maxf(r.shake - dt * 1.6, 0.0)
 	var jitter := Vector3(_rng.randf() - 0.5, _rng.randf() - 0.5, _rng.randf() - 0.5) * r.shake * 0.35
+	# Consume the same RNG values so this visual option cannot change gameplay.
+	if not RSSettings.camera_shake:
+		jitter = Vector3.ZERO
 	p.cam.global_position = r.cam_pos + jitter
 	if p.cam.global_position.distance_to(r.cam_look) > 0.1:
 		p.cam.look_at(r.cam_look + jitter * 0.5)
@@ -445,14 +451,10 @@ func _camera(p: Player, r: Rider, dt: float, snap: bool) -> void:
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
 		# Intro: from high over the start, looking down the street to the sea, swooping in
 		# behind the rider.
-		var u := smoothstep(0.0, INTRO, phase_time)
-		var p0 := sk.pos + Vector3(0.0, 26.0, 36.0)
-		var p1 := sk.pos + Vector3(5.0 * signf(sk.pos.x + 0.01), 5.0, 13.0)
-		var at := p0.lerp(p1, u).lerp(p1.lerp(r.cam_pos, u), u)
-		var lk := (sk.pos + Vector3(0.0, -8.0, -120.0)).lerp(r.cam_look, smoothstep(0.25, 1.0, u))
-		p.cam.global_position = at
-		p.cam.look_at(lk)
-		p.cam.fov = lerpf(50.0, 66.0, u)
+		var p0 := at + Vector3(0.0, 26.0, 36.0)
+		var p1 := at + Vector3(5.0 * signf(at.x + 0.01), 5.0, 13.0)
+		RSIntro.apply(p.cam, phase_time, INTRO, p0, p1, r.cam_pos,
+			at + Vector3(0.0, -8.0, -120.0), r.cam_look, 50.0, 66.0)
 
 
 # ------------------------------------------------------------------- hints / OLED ----
@@ -533,12 +535,13 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 	for i in 5:
 		var box := Rect2(Vector2(20 + i * 31, 66) * k, Vector2(27, 27) * k)
 		var got: bool = sk.letters[i]
-		h.draw_rect(box, col if got else Color(0, 0, 0, 0.35))
+		draw_box(h, box, col if got else Color(0.02, 0.03, 0.05, 0.7), RSUi.RADIUS)
 		draw_text(h, LETTERS[i], box.position + Vector2(13.5, 21) * k, 19 * k, Color.WHITE if got else Color(1, 1, 1, 0.35), true)
 
 	# Run progress: everyone's position on the way to the finish.
 	var bar := Rect2(Vector2(sz.x - 250 * k, 30 * k), Vector2(220 * k, 8 * k))
-	h.draw_rect(bar, Color(0, 0, 0, 0.35))
+	h.draw_style_box(_pill, Rect2(bar.position - Vector2(16, 16) * k, bar.size + Vector2(32 * k, 56 * k)))
+	draw_box(h, bar, Color(1, 1, 1, 0.25), 0)
 	for q: Player in players.values():
 		var f := clampf(_rider(q).sk.s() / RSSkateCourse.FINISH_S, 0.0, 1.0)
 		var at := bar.position + Vector2(bar.size.x * f, bar.size.y * 0.5)
@@ -563,7 +566,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 
 	# Balance meter above the rider while grinding or in a manual.
 	if sk.mode in [RSSkater.Mode.GRIND, RSSkater.Mode.MANUAL]:
-		var head := sk.pos + Vector3.UP * 2.35
+		var head := sk.draw_pos + Vector3.UP * 2.35
 		if not p.cam.is_position_behind(head):
 			_draw_balance(h, p.cam.unproject_position(head), 58 * k, sk.needle, k)
 
@@ -575,19 +578,19 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 			names.append(str(e["name"]))
 		draw_text(h, _trick_line(names), Vector2(sz.x * 0.5, y - 40 * k), 21 * k, Color.WHITE, true)
 		var pulse := 1.0 + 0.04 * sin(_clock * 12.0)
-		draw_text(h, "%s × %d" % [_fmt(sk.combo_base()), sk.combo.size()], Vector2(sz.x * 0.5, y), 38 * k * pulse, GOLD, true)
+		draw_text(h, "%s × %d" % [_fmt(sk.combo_base()), sk.combo.size()], Vector2(sz.x * 0.5, y), 38 * k * pulse, GOLD, true, false, RSUi.font_bold())
 	elif _clock - r.banked_t < 1.6:
 		var a := clampf(1.6 - (_clock - r.banked_t), 0.0, 1.0)
 		var c1 := Color(1.0, 0.7, 0.35, a) if r.banked_sketchy else Color(GOLD, a)
 		draw_text(h, r.banked_names, Vector2(sz.x * 0.5, y - 40 * k), 19 * k, Color(1, 1, 1, a * 0.85), true)
-		draw_text(h, (tr("勉强落地  +%s") if r.banked_sketchy else "+%s") % _fmt(r.banked_pts), Vector2(sz.x * 0.5, y), 44 * k, c1, true)
+		draw_text(h, (tr("勉强落地  +%s") if r.banked_sketchy else "+%s") % _fmt(r.banked_pts), Vector2(sz.x * 0.5, y), 44 * k, c1, true, false, RSUi.font_bold())
 
 	if r.hint_t > 0.0 and not sk.finished:
 		var a := clampf(r.hint_t, 0.0, 1.0)
 		draw_pill(h, r.hint, Vector2(sz.x * 0.5, sz.y * 0.2), 17 * k, Color(1, 1, 1, a))
 
 	if sk.finished:
-		draw_text(h, tr("完成！第 %d 名") % r.place if players.size() > 1 else tr("完成！"), Vector2(sz.x * 0.5, sz.y * 0.3), 46 * k, GOLD, true)
+		draw_text(h, tr("完成！第 %d 名") % r.place if players.size() > 1 else tr("完成！"), Vector2(sz.x * 0.5, sz.y * 0.3), 46 * k, GOLD, true, false, RSUi.font_bold())
 		var waiting := false
 		for q: Player in players.values():
 			waiting = waiting or not _rider(q).sk.finished
@@ -614,10 +617,8 @@ func _draw_balance(h: Control, at: Vector2, radius: float, needle: float, k: flo
 
 func _draw_overlay(o: Overlay, k: float) -> void:
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
-		var a := clampf(phase_time / 0.6, 0.0, 1.0) * clampf((INTRO - phase_time) / 0.6, 0.0, 1.0)
-		draw_text(o, tr("海滨大坡"), Vector2(o.size.x * 0.5, o.size.y * 0.4), 84 * k, Color(1, 1, 1, a), true)
-		draw_text(o, tr("SEASIDE DOWNHILL  ·  %d 米滑到海边") % roundi(RSSkateCourse.FINISH_S - RSSkateCourse.START_S),
-			Vector2(o.size.x * 0.5, o.size.y * 0.4 + 56 * k), 24 * k, Color(1, 0.9, 0.6, a), true)
+		var a := RSIntro.fade(phase_time, INTRO)
+		draw_title_card(o, tr("海滨大坡"), tr("SEASIDE DOWNHILL  ·  %d 米滑到海边") % roundi(RSSkateCourse.FINISH_S - RSSkateCourse.START_S), a, k)
 	elif phase == Phase.COUNTDOWN:
 		draw_text(o, tr("倾斜手柄转向，快速往上一抬就能起跳"), Vector2(o.size.x * 0.5, o.size.y * 0.45 + 60 * k), 26 * k, Color(0.92, 0.95, 1.0), true)
 	elif phase == Phase.PLAY:
@@ -630,12 +631,10 @@ func _draw_overlay(o: Overlay, k: float) -> void:
 
 func _record(r: Rider, dt: float) -> void:
 	var rig := r.sk.rig
-	r.rec.append({"t": _clock, "xf": rig.global_transform, "imp": rig.impacts, "in": [rig.crouch, rig.lean,
+	RSReplay.record(r.rec, {"t": _clock, "xf": rig.global_transform, "imp": rig.impacts, "in": [rig.crouch, rig.lean,
 		rig.yaw, rig.flip, rig.board_pitch, rig.board_lift, rig.feet_lift, rig.arms, rig.balance, rig.push,
-		rig.grab, rig.wheel_speed]})
+		rig.grab, rig.wheel_speed]}, CLIP_MAX + PRE_ROLL + POST_ROLL + 1.0)
 	rig.impacts = 0.0
-	while not r.rec.is_empty() and _clock - float(r.rec[0]["t"]) > CLIP_MAX + PRE_ROLL + POST_ROLL + 1.0:
-		r.rec.pop_front()
 	if r.post >= 0.0:
 		r.pend.append(r.rec.back())
 		r.post -= dt
@@ -647,7 +646,7 @@ func _record(r: Rider, dt: float) -> void:
 
 func _keep_clip(r: Rider) -> void:
 	var end := float(r.pend.back()["t"]) if not r.pend.is_empty() else 0.0
-	r.clip = r.pend.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= end - CLIP_MAX - POST_ROLL)
+	r.clip = RSReplay.since(r.pend, end - CLIP_MAX - POST_ROLL)
 	r.clip_pts = r.pend_pts
 	r.clip_names = r.pend_names
 	r.pend = []
@@ -655,18 +654,16 @@ func _keep_clip(r: Rider) -> void:
 	r.post = -1.0
 
 
-func _clip_len(r: Rider) -> float:
-	return float(r.clip.back()["t"]) - float(r.clip[0]["t"]) if r.clip.size() > 1 else 0.0
-
-
 func finish_round() -> void:
+	if _result_committed:
+		return  # a second call must not reset the replay/podium state below (#57)
 	var longest := 0.0
 	for p: Player in players.values():
 		var r := _rider(p)
 		if r.post >= 0.0:
 			_keep_clip(r)
-		longest = maxf(longest, _clip_len(r) / SLOW)
-		r.rp_i = 0
+		longest = maxf(longest, RSReplay.duration(r.clip) / SLOW)
+		r.replay.reset(r.clip)
 		r.sk.quiet()
 		r.sk.rig.end_bail()
 		if r.clip.size() > 1:
@@ -681,7 +678,7 @@ func finish_round() -> void:
 				r.rp_side = -r.rp_side
 			r.cam_pos = a + r.rp_side * 3.6 + Vector3.UP * 1.0
 			r.cam_look = a + Vector3.UP * 0.8
-	_podium_at = minf(longest, 8.5) + (0.3 if longest > 0.0 else 0.0)
+	_podium_at = RSReplay.lead_out(longest, 8.5)
 	results_delay = _podium_at + 1.6
 	_podium_on = false
 	super.finish_round()
@@ -690,22 +687,21 @@ func finish_round() -> void:
 func _replay_step(p: Player, delta: float) -> void:
 	var r := _rider(p)
 	var rig := r.sk.rig
-	if r.clip.size() < 2:
+	if not r.replay.sample(phase_time, SLOW):
 		rig.update(delta)
 		_camera(p, r, delta, false)
 		return
-	var t := float(r.clip[0]["t"]) + minf(phase_time * SLOW, _clip_len(r))
-	while r.rp_i + 1 < r.clip.size() and float(r.clip[r.rp_i + 1]["t"]) <= t:
-		r.rp_i += 1
-		var imp := float(r.clip[r.rp_i]["imp"])
+	var crossed := r.replay.crossed_from
+	while crossed <= r.replay.index:
+		var imp := float(r.clip[crossed]["imp"])
 		if imp > 0.0:
 			rig.impact(imp)
 			if imp > 0.9:
 				RSSfx.play(self, "land", -14.0 + r.sk.gain_db, 0.7)
-	var fa: Dictionary = r.clip[r.rp_i]
-	var fb: Dictionary = r.clip[mini(r.rp_i + 1, r.clip.size() - 1)]
-	var span := maxf(float(fb["t"]) - float(fa["t"]), 1e-4)
-	var u := clampf((t - float(fa["t"])) / span, 0.0, 1.0)
+		crossed += 1
+	var fa := r.replay.a
+	var fb := r.replay.b
+	var u := r.replay.weight
 	rig.global_transform = (fa["xf"] as Transform3D).interpolate_with(fb["xf"], u)
 	var ia: Array = fa["in"]
 	var ib: Array = fb["in"]
@@ -750,71 +746,37 @@ func _draw_replay(h: PlayerHud, p: Player, k: float) -> void:
 		return
 	if fmod(_clock, 1.0) < 0.6:
 		h.draw_circle(Vector2(sz.x - 150 * k, bar * 0.5), 7 * k, Color(1.0, 0.25, 0.2))
-	draw_text(h, "REPLAY", Vector2(sz.x - 136 * k, bar * 0.5 + 8 * k), 22 * k, Color.WHITE)
+	draw_text(h, tr("回放"), Vector2(sz.x - 136 * k, bar * 0.5 + 8 * k), 22 * k, Color.WHITE)
 	draw_text(h, tr("最佳连招  ") + r.clip_names, Vector2(sz.x * 0.5, sz.y - bar - 44 * k), 22 * k, Color.WHITE, true)
-	draw_text(h, "+" + _fmt(r.clip_pts), Vector2(sz.x * 0.5, sz.y - bar - 8 * k), 40 * k, GOLD, true)
+	draw_text(h, "+" + _fmt(r.clip_pts), Vector2(sz.x * 0.5, sz.y - bar - 8 * k), 40 * k, GOLD, true, false, RSUi.font_bold())
 
 
 # ------------------------------------------------------------------------- podium ----
 
 func _build_podium() -> void:
-	_podium = Node3D.new()
+	_podium = RSPodium.new()
 	_podium.position = _course.world(0.0, PODIUM_S, 0.0)
-	_podium.visible = false
 	add_child(_podium)
-	var body := StandardMaterial3D.new()
-	body.albedo_color = Color(0.93, 0.93, 0.92)
-	body.roughness = 0.35
-	var trims := [Color(1.0, 0.78, 0.25), Color(0.78, 0.8, 0.84), Color(0.8, 0.5, 0.28)]
-	for i in 3:
-		var x: float = PODIUM[i][0]
-		var hgt: float = PODIUM[i][1]
-		var box := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(1.3, hgt, 1.2)
-		box.mesh = bm
-		box.material_override = body
-		box.position = Vector3(x, hgt * 0.5, 0.0)
-		_podium.add_child(box)
-		var band := MeshInstance3D.new()
-		var band_mesh := BoxMesh.new()
-		band_mesh.size = Vector3(1.32, 0.06, 1.22)
-		band.mesh = band_mesh
-		var trim := StandardMaterial3D.new()
-		trim.albedo_color = trims[i]
-		trim.metallic = 0.9
-		trim.roughness = 0.25
-		band.material_override = trim
-		band.position = Vector3(x, hgt - 0.03, 0.0)
-		_podium.add_child(band)
-		var num := Label3D.new()
-		num.text = str(i + 1)
-		num.font = font
-		num.font_size = 120
-		num.pixel_size = 0.004
-		num.modulate = (trims[i] as Color).darkened(0.25)
-		num.outline_size = 10
-		num.outline_modulate = Color(0.25, 0.22, 0.2)
-		num.position = Vector3(x, hgt * 0.5, 0.61)
-		_podium.add_child(num)
+	_podium.configure(PODIUM, Vector2(1.3, 1.2), Vector3(2.4, 0, 0.6), 0.9, font, 0.0)
 
 
 func _podium_spot(i: int) -> Vector3:
-	if i < 3:
-		return _podium.position + Vector3(PODIUM[i][0], PODIUM[i][1], 0.0)
-	return _podium.position + Vector3(2.4 + (i - 3) * 0.9, 0.0, 0.6)
+	var at := _podium.spot(i)
+	return at
 
 
 func _podium_start() -> void:
 	_podium_on = true
-	_podium.visible = true
 	views.visible = false
 	lobby_cam.current = true
 	lobby_cam.fov = 42.0
 	# The results panel sits on the right half; the podium is framed on the left.
 	ui.results_on_right(true)
-	_podium_order = ordered()
-	_podium_order.sort_custom(func(a: Player, b: Player) -> bool: return a.score > b.score)
+	_podium_order = ranked_players()
+	var scores := PackedInt64Array()
+	for p: Player in _podium_order:
+		scores.append(p.score)
+	_podium.present(scores)
 	for i in _podium_order.size():
 		var rig := _rider(_podium_order[i]).sk.rig
 		rig.set_layers(1)
@@ -833,16 +795,13 @@ func _podium_start() -> void:
 		rig.push = -1.0
 		rig.grab = 0
 		rig.wheel_speed = 0.0
-		rig.cheer = 1.0 if i == 0 else (0.5 if i < 3 else 0.0)
+		rig.cheer = _podium.cheer(i)
 	RSSfx.play(self, "chime", -4.0)
 
 
 func _podium_step(delta: float) -> void:
-	var t := phase_time - _podium_at
-	var c := _podium.position
-	var d := 8.5 - minf(t, 6.0) * 0.3
-	lobby_cam.position = c + Vector3(1.6 - minf(t, 6.0) * 0.12, 1.7, d)
-	lobby_cam.look_at(c + Vector3(1.75 * d / 8.5, 1.35, 0.0))
+	_podium.apply_camera(lobby_cam, phase_time - _podium_at, 1.6, -0.12, 8.5, -0.3, 1.7, 1.75, 1.35)
+	_podium.fit_left(lobby_cam)
 	for p: Player in players.values():
 		_rider(p).sk.rig.update(delta)
 	_crowd.volume_db = lerpf(_crowd.volume_db, -9.0, 1.0 - exp(-delta * 1.5))

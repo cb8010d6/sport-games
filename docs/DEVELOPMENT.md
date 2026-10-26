@@ -2,15 +2,15 @@
 
 ## Repository boundary
 
-The repository root is `regina-sports/`. Only this directory belongs in the GitHub repository.
+The repository root is `sport-games/`. Only this directory belongs in the GitHub repository.
 The separate Regina hardware application, its dependencies, editor installations and backups
 in the parent directory must not be imported into this repository.
 
 ## Game and hub
 
 - Godot **4.7.2** standard build. Open `game/project.godot`, or run `godot --path game`.
-- Python **3.11+**, plus dependencies from `hub/requirements.txt`.
-- Node.js **20+** for restoring upstream assets: run `node tools/sync_assets.mjs` and
+- Python **3.11+**, plus the hashed dependencies in `hub/requirements-dev.txt`.
+- Node.js **22.23.4+ or 24.22.1+** (the 2026-10-21 security releases; Node 20 is end-of-life) for restoring upstream assets: run `node tools/sync_assets.mjs` and
   `node tools/sync_assets.mjs --check` from the repository root before opening Godot.
   Generated assets are ordinary Git files; no Git LFS or npm packages are required.
   See [ASSETS.md](ASSETS.md) and [PUBLICATION_AUDIT.md](PUBLICATION_AUDIT.md).
@@ -19,7 +19,7 @@ From the repository root on Windows:
 
 ```powershell
 python -m venv hub/.venv
-hub/.venv/Scripts/python -m pip install -r hub/requirements.txt
+hub/.venv/Scripts/python -m pip install --require-hashes -r hub/requirements-dev.txt
 ```
 
 Then enter `hub`, so Python can locate the source package:
@@ -36,7 +36,7 @@ sibling engine installation, but that installation is not part of this repositor
 
 Phone controllers load the local HTTPS page and stream through WSS. Certificates are
 generated locally and must not be committed. Keep personal device allowlists or network
-overrides in ignored `hub/config.local.json`, passed through `--config config.local.json`.
+overrides in ignored `hub/config.local.json`; the hub loads it automatically on top of `hub/config.json` (an explicit `--config` file is still overlaid by a `config.local.json` next to it). The axis wizard follows the same rule: its `--config` names the base config, it reads the effective configuration exactly like the hub, and it writes the solved axis map to that overlay.
 
 ## Checks
 
@@ -48,11 +48,14 @@ Set-Location hub
 From the repository root:
 
 ```powershell
+python tools/check_conventions.py
 python tools/i18n_check.py
+hub/.venv/Scripts/python -m ruff check --config hub/pyproject.toml hub tools
+hub/.venv/Scripts/python -m pytest -q tools/tests
 node tools/publication_audit.mjs --strict --write audit-output
 ```
 
-Node.js 20+ is a setup/developer dependency, not a game/runtime dependency. The audit scans publishable
+Node.js is a setup/developer dependency, not a game/runtime dependency. The audit scans publishable
 source and supported embedded metadata, reports relative filenames without secret values,
 and creates ignored `audit-output/privacy-scan.json` and `asset-manifest.json`.
 CI tests the downloader without contacting upstream hosts; it does not restore ignored raw assets.
@@ -60,6 +63,60 @@ Run `node --test tools/tests/asset_sync.test.mjs` to verify downloader behavior 
 
 Game changes require a visual check and a complete affected round. Headless startup alone
 does not verify rendering, controller feel or performance.
+
+## Updating Python dependencies
+
+`hub/pyproject.toml` owns the runtime and development minimum versions.
+`hub/requirements.txt` mirrors the runtime inputs for pip/Dependabot; keep both in sync.
+`hub/requirements-runtime.txt` locks only the runtime dependencies: `start.bat` and `hub/run_hub.bat`
+install it through `regina_hub.setup_env`, which records the lock's SHA-256 in `hub/.venv` and reinstalls
+when the lock changes, and refuses Python older than 3.11 (3.13+ only gets a warning: CI tests 3.11 and 3.12).
+`hub/requirements-windows.in` also pins the existing PyInstaller version from
+`tools/release_config.json`. The generated locks include transitive dependencies,
+platform/Python markers and distribution hashes. CI uses `--require-hashes` on both
+Python 3.11 and 3.12; Windows packaging uses its own lock with the same hash enforcement.
+The locks use `requirements-*.txt` names so Dependabot's pip updater discovers the
+actual installed pins and hashes as well as the input requirements.
+
+Install **uv 0.13.5** in a tooling environment, then run these commands from the repository root:
+
+```powershell
+python -m pip install uv==0.13.5
+uv pip compile hub/pyproject.toml --extra dev --universal --python-version 3.11 --generate-hashes --no-header --output-file hub/requirements-dev.txt
+uv pip compile hub/pyproject.toml --universal --python-version 3.11 --generate-hashes --no-header --output-file hub/requirements-runtime.txt
+uv pip compile hub/requirements-windows.in --universal --python-version 3.11 --generate-hashes --no-header --output-file hub/requirements-windows.txt
+```
+
+These commands reuse existing pins. Add `--upgrade` for an intentional full update or
+`--upgrade-package <name>` for a targeted update. Review and commit all regenerated
+locks, then test installation with `python -m pip install --require-hashes -r <lock>`.
+Dependabot checks Actions and `/hub` weekly against `dev`, grouping each ecosystem's
+updates into one PR. If a bot PR changes input requirements without updating a lock,
+regenerate and commit the affected locks before merging; the bot PR still needs CI.
+
+Ruff targets Python 3.11 and starts with `E`, `F`, `W`, `I`, `UP` and `B`.
+The nominal line width is 120; `E501` is ignored to preserve existing long lines.
+Pass `--config hub/pyproject.toml` when checking both `hub` and sibling `tools`.
+This migration uses lint fixes only; it does not run `ruff format`.
+
+## Actions upgrade notes
+
+All six official Actions are pinned to full commit SHAs with version comments.
+The [official release pages](https://github.com/actions/checkout/releases) were
+checked on 2026-10-22; the intermediate major-release notes were reviewed too:
+
+| Action | Previous | Pinned release | Compatibility notes |
+|---|---|---|---|
+| checkout | v4 | [v7.0.1](https://github.com/actions/checkout/releases/tag/v7.0.1) | v5 uses Node 24 (runner 2.327.1+); v6 moves persisted credentials under runner temp (container Git needs runner 2.329.0+); v7 uses ESM and blocks unsafe fork checkout in privileged `pull_request_target`/`workflow_run` events. Our workflows use ordinary push/PR events. |
+| setup-python | v5 | [v7.1.0](https://github.com/actions/setup-python/releases/tag/v7.1.0) | v6 uses Node 24; v7 uses ESM and removes `pip-install`, which we do not use. |
+| setup-node | v4 | [v7.1.0](https://github.com/actions/setup-node/releases/tag/v7.1.0) | v5 adds automatic package-manager caching and Node 24; v6 limits automatic caching to npm; v7 uses ESM and removes the dummy `NODE_AUTH_TOKEN`. We explicitly disable package-manager caching; our scripts have no npm dependencies. |
+| cache | v4 | [v6.1.0](https://github.com/actions/cache/releases/tag/v6.1.0) | v5 uses Node 24; v6 uses ESM. The Godot cache path/key stay the same. |
+| upload-artifact | v4 | [v7.0.2](https://github.com/actions/upload-artifact/releases/tag/v7.0.2) | v5 adds preliminary Node 24 support; v6 defaults to Node 24; v7 adds optional direct single-file uploads and ESM. We retain zipped multi-file artifacts, names, paths, overwrite and hidden-import inclusion. |
+| download-artifact | v4 | [v8.0.2](https://github.com/actions/download-artifact/releases/tag/v8.0.2) | v5 extracts a single artifact ID directly into `path`; all our downloads already use names, whose paths are unchanged. v6 adds preliminary Node 24 support; v7 defaults to Node 24; v8 adds ESM/direct-download support and fails digest mismatches by default. We retain normal extraction and the default separate-directory behavior for multiple artifacts. |
+
+The workflows use hosted runners supporting Node 24. Each Node setup requests `'24'`
+with `check-latest: true` to receive the patched 24.22.1+ line. Source-check names
+`hub (3.11)`, `hub (3.12)`, `privacy` and release jobs `game`, `windows` are unchanged.
 
 ## Optional firmware
 

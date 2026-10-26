@@ -10,6 +10,12 @@ Review date: 2026-10-21. The 39 formerly unresolved outputs are now classified u
 provider's explicit AI originality declaration. This is distinguished from independently documented
 third-party sources. See [PUBLICATION_AUDIT.md](PUBLICATION_AUDIT.md) and `tools/asset_policy.json`.
 
+## Procedural background music
+
+The separately documented [background music](../game/assets/music/CREDITS.md) is a new
+procedural contribution released as CC0-1.0, generated from the retained project score
+without external samples. It does not inherit the historical SFX source classification.
+
 ## Poly Haven
 
 Location: `game/assets/polyhaven/`.
@@ -99,6 +105,30 @@ parent Regina project is copied or assumed to cover the model.
   in the provenance history without overriding that current declaration.
 - `tools/regina_sports.ico`: the icon source/generation record has not been established;
   this optional desktop icon is excluded from publication. The editable game SVG is separate.
+
+## Scene-rendered menu previews
+
+`game/assets/previews/*.jpg` are 1600×900 exports of this project's actual game cameras,
+using project MIT code/geometry and the existing CC0 scene assets. They do not introduce
+external photographs, samples or AI-generated images. Source notices remain applicable;
+see [capture provenance](../game/assets/previews/CREDITS.md), the retained capture harness
+and SHA-256 manifest. UI evidence in `docs/screenshots/phase5-menu-*.png` additionally
+contains the project MIT menu. The combined scene exports are recorded as MIT AND CC0-1.0.
+
+`docs/screenshots/bowling-b1-*.png` are unmodified 1600×900 captures of the actual
+bowling scene and its existing MIT HUD, with isolated synthetic players. The pre-B1
+scene uses project procedural geometry; B1 additionally reuses the already documented
+Poly Haven CC0 plywood, metal, plaster, tile and rooftop-night HDRI assets. No external
+image, model, font or recording is introduced by these captures. They are recorded as
+MIT AND CC0-1.0; the [B1 evidence](BOWLING_B1_ENVIRONMENT.md#原生画面与来源) distinguishes
+high-quality before/after captures from medium-quality bilingual acceptance captures.
+
+## UI fonts
+
+`game/assets/fonts/` bundles Noto Sans SC (a subset of the variable font) and three Barlow
+Condensed styles from google/fonts, both under the SIL Open Font License 1.1. The license texts
+ship beside the fonts; source commit, subset method and Reserved Font Name notes are in the
+[font credits](../game/assets/fonts/CREDITS.md).
 
 ## Runtime and build dependencies
 

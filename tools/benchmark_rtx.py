@@ -1,8 +1,10 @@
 """Run raster/RTX comparisons without publishing a headless run as GPU evidence."""
 import argparse
 import json
-from pathlib import Path
 import subprocess
+from pathlib import Path
+
+from smoke_game import checked_run
 
 ROOT = Path(__file__).resolve().parents[1]
 parser = argparse.ArgumentParser()
@@ -16,14 +18,18 @@ for map_index in range(2):
         for mode in ["raster", "rtx"]:
             report = (args.output / f"map{map_index}-{players}p-{mode}.json").resolve()
             report.unlink(missing_ok=True)
-            result = subprocess.run([str(args.godot.resolve()), "--path", str(ROOT / "game"),
-                "--rendering-method", "forward_plus", "--rendering-driver", args.driver,
-                "--resolution", "1600x900", "res://experiments/rtx/basketball_rtx.tscn", "--",
-                f"--demo={players}", f"--map={map_index}", f"--render-mode={mode}",
-                "--warmup=12", "--duration=20", f"--report={report.as_posix()}"],
-                stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, timeout=150)
-            report.with_suffix(".txt").write_text(result.stdout, encoding="utf-8")
+            command = [str(args.godot.resolve()), "--path", str(ROOT / "game"),
+                       "--rendering-method", "forward_plus", "--rendering-driver", args.driver,
+                       "--resolution", "1600x900", "res://experiments/rtx/basketball_rtx.tscn", "--",
+                       f"--demo={players}", f"--map={map_index}", f"--render-mode={mode}",
+                       "--warmup=12", "--duration=20", f"--report={report.as_posix()}"]
+            try:
+                output = checked_run(command, timeout=150)
+            except (RuntimeError, subprocess.TimeoutExpired) as error:
+                report.with_suffix(".txt").write_text(str(error), encoding="utf-8")
+                raise SystemExit("Benchmark stopped: inspect the isolated report/log.") from error
+            report.with_suffix(".txt").write_text(output, encoding="utf-8")
             data = json.loads(report.read_text()) if report.exists() else {"status": "failed_no_report"}
             print(report.name, data["status"], flush=True)
-            if result.returncode or data.get("status") != "measured" or "ERROR:" in result.stdout:
+            if data.get("status") != "measured":
                 raise SystemExit("Benchmark stopped: inspect local report/log; no successful RTX result is claimed.")

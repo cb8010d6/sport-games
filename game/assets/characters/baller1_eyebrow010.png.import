@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dj32amyn622w"
-path="res://.godot/imported/baller1_eyebrow010.png-2c246120ded7574dfaefe87b8480c2e0.ctex"
+path.s3tc="res://.godot/imported/baller1_eyebrow010.png-2c246120ded7574dfaefe87b8480c2e0.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "5b6e3009c1ebb7b590e74c611bdfb0b0"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/characters/baller1_eyebrow010.png"
-dest_files=["res://.godot/imported/baller1_eyebrow010.png-2c246120ded7574dfaefe87b8480c2e0.ctex"]
+dest_files=["res://.godot/imported/baller1_eyebrow010.png-2c246120ded7574dfaefe87b8480c2e0.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +40,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

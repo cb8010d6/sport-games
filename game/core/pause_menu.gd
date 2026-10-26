@@ -9,19 +9,27 @@ extends Control
 ## the scene —, back to the main menu), display (frame rate incl. VRR, quality, upscaling,
 ## window mode, HDR) and sound (master, music, effects, ambience volume). Settings are
 ## RSSettings and are saved as soon as they change.
+## Accessibility contains cosmetic camera shake and the existing color-safe palette.
 
 signal restart_requested
 signal menu_requested
+signal tutorial_requested
+signal benchmark_requested
 
-var game: RSPartyGame
+var game: Node                  ## a party game, or the main menu's settings host
+var settings_only := false
 var can_restart := true          ## set by the game: restart makes sense right now
+var can_tutorial := false
 
 const PAGES := {
-	"main": ["resume", "restart", "display", "sound", "language", "menu"],
+	"main": ["resume", "restart", "tutorial", "display", "sound", "accessibility", "language", "menu"],
 	"display": ["fps", "quality", "upscale", "window", "hdr", "back"],
 	"sound": ["vol_master", "vol_music", "vol_sfx", "vol_ambience", "back"],
+	"settings": ["display", "sound", "accessibility", "benchmark", "language", "resume"],
+	"accessibility": ["camera_shake", "color_safe", "text_size", "back"],
+	"nvidia": ["nvidia_preset", "nvidia_sharpness", "nvidia_lighting", "nvidia_fg", "back"],
 }
-const VALUES := ["fps", "quality", "upscale", "window", "hdr", "language", "vol_master", "vol_music", "vol_sfx", "vol_ambience"]
+const VALUES := ["fps", "quality", "upscale", "window", "hdr", "language", "color_safe", "camera_shake", "text_size", "vol_master", "vol_music", "vol_sfx", "vol_ambience", "nvidia_preset", "nvidia_sharpness", "nvidia_lighting", "nvidia_fg"]
 const VOLUMES := ["vol_master", "vol_music", "vol_sfx", "vol_ambience"]   ## in RSAudio.BUSES order
 
 var _page := "main"
@@ -29,14 +37,17 @@ var _rows: Array[Button] = []
 var _index := 0
 var _saved_ui: Dictionary = {}   ## controller id -> its OLED state before the menu opened
 var _col: VBoxContainer
+var _panel: PanelContainer
 var _title: Label
 var _hint: Label
 var _normal: StyleBoxFlat
 var _focus: StyleBoxFlat
+var _status_elapsed := 0.0
 
 
-func _init(g: RSPartyGame) -> void:
+func _init(g: Node, menu_settings: bool = false) -> void:
 	game = g
+	settings_only = menu_settings
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	visible = false
 	set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -52,31 +63,38 @@ func _ready() -> void:
 	center.set_anchors_preset(Control.PRESET_FULL_RECT)
 	add_child(center)
 	var panel := PanelContainer.new()
-	panel.add_theme_stylebox_override("panel", RSUi.panel_style(24, Color(0.07, 0.09, 0.14, 0.96)))
+	_panel = panel
+	panel.add_theme_stylebox_override("panel", RSUi.modal_style())
 	panel.custom_minimum_size = Vector2(520, 0)
 	center.add_child(panel)
 	_col = VBoxContainer.new()
 	_col.add_theme_constant_override("separation", 10)
 	panel.add_child(_col)
 	_title = RSUi.label("", 40)
+	_title.add_theme_font_override("font", RSUi.font_bold())
 	_col.add_child(_title)
-	_col.add_child(RSUi.label(game._game_name(), 17, RSUi.TEXT_MUTED))
+	_col.add_child(RSUi.label("Regina Sports" if settings_only else game._game_name(), 17, RSUi.TEXT_MUTED))
 	var gap := Control.new()
 	gap.custom_minimum_size = Vector2(0, 6)
 	_col.add_child(gap)
-	_normal = RSUi.panel_style(14, Color(1, 1, 1, 0.04))
-	_normal.set_content_margin_all(14)
-	_focus = RSUi.panel_style(14, Color(1, 1, 1, 0.16))
-	_focus.set_content_margin_all(14)
-	_focus.set_border_width_all(3)
-	_focus.border_color = Color.WHITE
+	_normal = RSUi.button_style("normal")
+	_focus = RSUi.button_style("focus")
 	_hint = RSUi.label(tr("手柄：B / C 上下选，A 确定或切换，D 返回 / 关闭\n键盘：方向键 + 回车，← / → 改设置，Esc 返回 / 关闭"), 15, RSUi.TEXT_MUTED)
 	_col.add_child(_hint)
-	_show_page("main", 0)
+	_show_page(_home_page(), 0)
+
+
+func _home_page() -> String:
+	return "settings" if settings_only else "main"
 
 
 func is_open() -> bool:
 	return visible
+
+
+func focus_benchmark() -> void:
+	if settings_only:
+		_show_page("settings", (PAGES["settings"] as Array).find("benchmark"))
 
 
 func open() -> void:
@@ -85,10 +103,10 @@ func open() -> void:
 	visible = true
 	game.get_tree().paused = true
 	_saved_ui.clear()
-	for p: RSPartyGame.Player in game.players.values():
-		if not p.fake:
-			_saved_ui[p.c.id] = (p.c.ui_state as Dictionary).duplicate(true)
-	_show_page("main", 0)
+	for c: RSController in ControllerHub.connected_controllers():
+		_saved_ui[c.id] = c.ui_state.duplicate(true)
+	_show_page(_home_page(), 0)
+	RSUi.pop_in(_panel)
 	RSSfx.play(self, "ding", -10.0, 0.9)
 
 
@@ -98,24 +116,30 @@ func close() -> void:
 	visible = false
 	game.get_tree().paused = false
 	# Give every controller its game screen back.
-	for p: RSPartyGame.Player in game.players.values():
-		if p.fake or not _saved_ui.has(p.c.id):
+	for c: RSController in ControllerHub.connected_controllers():
+		if not _saved_ui.has(c.id):
 			continue
 		var ui := {"clear": true}
-		var st: Dictionary = _saved_ui[p.c.id]
+		var st: Dictionary = _saved_ui[c.id]
 		for key in ["title", "main", "sub", "bar", "legends"]:
 			if st.has(key):
 				ui[key] = st[key]
-		ControllerHub.send_ui(p.c.id, ui)
-		p.oled_key = ""
+		ControllerHub.send_ui(c.id, ui)
+	if not settings_only:
+		for p: RSPartyGame.Player in game.players.values():
+			p.oled_key = ""
+			p.oled_sent = ""
 
 
 func back() -> void:
 	## D / Esc: a settings page goes back to the main page, the main page closes the menu.
-	if _page == "main":
+	if _page == _home_page():
 		close()
 	else:
-		_show_page("main", (PAGES["main"] as Array).find(_page))
+		if _page == "nvidia":
+			_show_page("display", 5)
+		else:
+			_show_page(_home_page(), (PAGES[_home_page()] as Array).find(_page))
 		RSSfx.play(self, "beep", -18.0, 1.2)
 
 
@@ -147,7 +171,17 @@ func _unhandled_input(event: InputEvent) -> void:
 
 
 func _items() -> Array:
+	if _page == "display" and Engine.has_singleton("Streamline"):
+		return ["fps", "quality", "upscale", "window", "hdr", "nvidia", "back"]
 	return PAGES[_page]
+
+
+func _process(delta: float) -> void:
+	if visible and _page == "nvidia":
+		_status_elapsed += delta
+		if _status_elapsed >= 0.5:
+			_status_elapsed = 0.0
+			_refresh()
 
 
 func _show_page(page: String, focus: int) -> void:
@@ -159,7 +193,7 @@ func _show_page(page: String, focus: int) -> void:
 		var b := Button.new()
 		b.alignment = HORIZONTAL_ALIGNMENT_LEFT
 		b.custom_minimum_size = Vector2(0, 54)
-		b.add_theme_font_size_override("font_size", 24)
+		RSUi.set_text_size(b, 24)
 		b.add_theme_stylebox_override("normal", _normal)
 		b.add_theme_stylebox_override("hover", _normal)
 		b.add_theme_stylebox_override("pressed", _focus)
@@ -171,7 +205,7 @@ func _show_page(page: String, focus: int) -> void:
 		_col.add_child(b)
 		_rows.append(b)
 	_col.move_child(_hint, -1)
-	_title.text = {"main": tr("暂停"), "display": tr("画面设置"), "sound": tr("声音")}[page]
+	_title.text = {"main": tr("暂停"), "settings": tr("设置"), "display": tr("画面设置"), "sound": tr("声音"), "accessibility": tr("无障碍"), "nvidia": tr("NVIDIA 实验")}[page]
 	_index = clampi(focus, 0, _rows.size() - 1)
 	_refresh()
 	if visible:
@@ -201,7 +235,15 @@ func _choose(i: int) -> void:
 			if can_restart:
 				close()
 				restart_requested.emit()
-		"display", "sound":
+		"tutorial":
+			if can_tutorial:
+				close()
+				tutorial_requested.emit()
+		"benchmark":
+			if settings_only:
+				close()
+				benchmark_requested.emit()
+		"display", "sound", "accessibility", "nvidia":
 			_show_page(_items()[i], 0)
 			RSSfx.play(self, "beep", -18.0, 1.6)
 		"back":
@@ -224,9 +266,23 @@ func _change(i: int, step: int, wrap: bool) -> void:
 		"window":
 			RSSettings.window = posmod(RSSettings.window + step, RSSettings.WINDOW_NAMES.size())
 		"upscale":
-			RSSettings.upscale = posmod(RSSettings.upscale + step, RSSettings.UPSCALE_NAMES.size())
+			RSSettings.upscale = posmod(RSSettings.upscale + step, RSSettings.upscale_count())
+		"nvidia_preset":
+			RSSettings.nvidia_preset = posmod(RSSettings.nvidia_preset + step, RSNvidia.PRESETS.size())
+		"nvidia_sharpness":
+			RSSettings.nvidia_sharpness = posmod(RSSettings.nvidia_sharpness + step, 11) if wrap else clampi(RSSettings.nvidia_sharpness + step, 0, 10)
+		"nvidia_lighting":
+			RSSettings.nvidia_lighting = posmod(RSSettings.nvidia_lighting + step, RSNvidia.LIGHTING_NAMES.size())
+		"nvidia_fg":
+			RSSettings.nvidia_fg = not RSSettings.nvidia_fg
 		"hdr":
 			RSSettings.hdr = not RSSettings.hdr
+		"color_safe":
+			RSSettings.color_safe = not RSSettings.color_safe
+		"camera_shake":
+			RSSettings.camera_shake = not RSSettings.camera_shake
+		"text_size":
+			RSSettings.text_size = posmod(RSSettings.text_size + step, RSSettings.TEXT_SCALES.size())
 		"language":
 			# Every text in the scene was built in the old language: start it again.
 			RSSettings.next_language()
@@ -253,13 +309,19 @@ func _change(i: int, step: int, wrap: bool) -> void:
 func _label(item: String) -> String:
 	match item:
 		"resume":
-			return tr("继续游戏")
+			return tr("◀ 返回") if settings_only else tr("继续游戏")
 		"restart":
 			return tr("重新开始本局")
+		"tutorial":
+			return tr("新手教学")
 		"display":
 			return tr("画面设置　▸")
 		"sound":
 			return tr("声音　▸")
+		"accessibility":
+			return tr("无障碍　▸")
+		"benchmark":
+			return tr("性能测试　▸")
 		"back":
 			return tr("◀ 返回")
 		"fps":
@@ -268,10 +330,26 @@ func _label(item: String) -> String:
 			return tr("画质　　◀ %s ▶") % RSSettings.quality_name()
 		"upscale":
 			return tr("超分　　◀ %s ▶") % RSSettings.upscale_name()
+		"nvidia":
+			return tr("NVIDIA 实验　▸")
+		"nvidia_preset":
+			return tr("DLSS 预设　◀ %s ▶") % RSNvidia.PRESETS[RSSettings.nvidia_preset]
+		"nvidia_sharpness":
+			return tr("DLSS 锐化　◀ %d%% ▶") % (RSSettings.nvidia_sharpness * 10)
+		"nvidia_lighting":
+			return tr("光照　◀ %s ▶") % RSSettings.nvidia_lighting_name()
+		"nvidia_fg":
+			return tr("帧生成　◀ %s ▶") % RSNvidia.fg_name()
 		"window":
 			return tr("显示　　◀ %s ▶") % RSSettings.window_name()
 		"hdr":
 			return tr("HDR　　◀ %s ▶") % RSSettings.hdr_name()
+		"color_safe":
+			return tr("色弱友好配色　◀ %s ▶") % (tr("开") if RSSettings.color_safe else tr("关"))
+		"camera_shake":
+			return tr("镜头晃动　◀ %s ▶") % (tr("开") if RSSettings.camera_shake else tr("关"))
+		"text_size":
+			return tr("界面字号　◀ %s ▶") % RSSettings.text_size_name()
 		"language":
 			return tr("语言 Language　◀ %s ▶") % RSSettings.language_name()
 		"vol_master":
@@ -292,10 +370,16 @@ func _oled_label(item: String) -> Array:
 			return ["RESUME", ""]
 		"restart":
 			return ["RESTART", ""]
+		"tutorial":
+			return ["TUTORIAL", ""]
 		"display":
 			return ["DISPLAY", ">"]
 		"sound":
 			return ["SOUND", ">"]
+		"accessibility":
+			return ["ACCESS", ">"]
+		"benchmark":
+			return ["BENCHMARK", ">"]
 		"back":
 			return ["BACK", ""]
 		"fps":
@@ -303,11 +387,27 @@ func _oled_label(item: String) -> Array:
 		"quality":
 			return ["QUALITY", ["LOW", "MID", "HIGH", "ULTRA"][RSSettings.quality]]
 		"upscale":
-			return ["UPSCALE", ["NATIVE", "FSR Q", "FSR B", "FSR P", "FSR UP"][RSSettings.upscale]]
+			return ["UPSCALE", ["NATIVE", "FSR AA", "FSR Q", "FSR B", "FSR P", "FSR UP", "DLAA", "DLSS Q", "DLSS B", "DLSS P"][RSSettings.upscale]]
+		"nvidia":
+			return ["NVIDIA", ">"]
+		"nvidia_preset":
+			return ["DLSS MODEL", RSNvidia.PRESETS[RSSettings.nvidia_preset]]
+		"nvidia_sharpness":
+			return ["SHARPNESS", "%d%%" % (RSSettings.nvidia_sharpness * 10)]
+		"nvidia_lighting":
+			return ["LIGHTING", ["RASTER", "DDGI", "PT + RR"][RSSettings.nvidia_lighting]]
+		"nvidia_fg":
+			return ["FRAME GEN", "REQUESTED" if RSSettings.nvidia_fg else "OFF"]
 		"window":
 			return ["WINDOW", ["WINDOW", "FULL", "EXCL"][RSSettings.window]]
 		"hdr":
 			return ["HDR", RSSettings.hdr_oled()]
+		"color_safe":
+			return ["COLORS", "ACCESSIBLE" if RSSettings.color_safe else "DEFAULT"]
+		"camera_shake":
+			return ["CAM SHAKE", "ON" if RSSettings.camera_shake else "OFF"]
+		"text_size":
+			return ["TEXT SIZE", "125%" if RSSettings.text_size == 1 else "100%"]
 		"language":
 			return ["LANGUAGE", ["CHINESE", "ENGLISH"][RSSettings.language]]
 		"vol_master", "vol_music", "vol_sfx", "vol_ambience":
@@ -324,7 +424,7 @@ func _refresh() -> void:
 	for i in _rows.size():
 		var item: String = _items()[i]
 		_rows[i].text = "  " + _label(item)
-		_rows[i].disabled = item == "restart" and not can_restart
+		_rows[i].disabled = (item == "restart" and not can_restart) or (item == "tutorial" and not can_tutorial)
 	_send_oled()
 
 
@@ -333,7 +433,6 @@ func _send_oled() -> void:
 		return
 	var item: String = _items()[_index]
 	var o := _oled_label(item)
-	for p: RSPartyGame.Player in game.players.values():
-		if not p.fake:
-			ControllerHub.send_ui(p.c.id, {"clear": true, "title": "PAUSED", "main": o[0], "sub": o[1],
-				"legends": ["CHANGE" if item in VALUES else "OK", "NEXT", "PREV", "BACK" if _page != "main" else "CLOSE"]})
+	for c: RSController in ControllerHub.connected_controllers():
+		ControllerHub.send_ui(c.id, {"clear": true, "title": "SETTINGS" if settings_only else "PAUSED", "main": o[0], "sub": o[1],
+			"legends": ["CHANGE" if item in VALUES else "OK", "NEXT", "PREV", "BACK" if _page != _home_page() else "CLOSE"]})

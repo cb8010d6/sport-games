@@ -1,0 +1,112 @@
+{
+  "schema_version": 2,
+  "archive": {
+    "archive_id": "pr31-comment6392600213-20261025-A",
+    "storage": "Private local review-evidence; not in Git and not uploaded",
+    "archive_manifest_sha256": "99de0b89b0d80824872146b91b62dbec1be856085276b0eb7f7c5816106f4ae9"
+  },
+  "raw_files": [
+    {
+      "archived_name": "bowling-m0-p2-q2-r1.json",
+      "bytes": 1290059,
+      "archived_export_sha256": "e7723b970a34a786fde4dd749918d866fd5962869468844c61ee93fb114bcb32",
+      "original_private_raw_sha256": "cb691945605e7252a8d74f8e931ad90662be93e9943b182da504dfae48cb337e",
+      "frames": 2696,
+      "case": {
+        "game": "bowling",
+        "map": 0,
+        "players": 2,
+        "quality": 2,
+        "repeat": 1,
+        "execution_order": 1,
+        "seed": 20261023
+      },
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23"
+    },
+    {
+      "archived_name": "bowling-m0-p2-q2-r2.json",
+      "bytes": 1272270,
+      "archived_export_sha256": "3763d148b1e0892e04a7969644cd99a4f919ddefd63ead4831faf6f9307fcb9d",
+      "original_private_raw_sha256": "9a93e75f045eb5aa8f579373de7c7104dc4c48fb0b6c36683d42e6aca9dad82b",
+      "frames": 2662,
+      "case": {
+        "game": "bowling",
+        "map": 0,
+        "players": 2,
+        "quality": 2,
+        "repeat": 2,
+        "execution_order": 2,
+        "seed": 20261023
+      },
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23"
+    },
+    {
+      "archived_name": "bowling-m0-p2-q2-r3.json",
+      "bytes": 1267134,
+      "archived_export_sha256": "fdefabeca40a3c5a89b2a8068185d88b181c499cedd16088e19d8065ba743334",
+      "original_private_raw_sha256": "e7e3e97264c7c2683cf38e449f9cde0e71f9b24b752ce67205daef7f02a5f9fb",
+      "frames": 2652,
+      "case": {
+        "game": "bowling",
+        "map": 0,
+        "players": 2,
+        "quality": 2,
+        "repeat": 3,
+        "execution_order": 3,
+        "seed": 20261023
+      },
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23"
+    },
+    {
+      "archived_name": "bowling-m0-p4-q2-r1.json",
+      "bytes": 1311819,
+      "archived_export_sha256": "de15282c9918a9c1f671395e71c5e2d7b4aa5e22026fce9ea6b943ecc2b1bd74",
+      "original_private_raw_sha256": "aaa92b4d07989868a307bddc8108b42a06cb501035323d8eff3019fe7a3a2d20",
+      "frames": 2074,
+      "case": {
+        "game": "bowling",
+        "map": 0,
+        "players": 4,
+        "quality": 2,
+        "repeat": 1,
+        "execution_order": 4,
+        "seed": 20261023
+      },
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23"
+    },
+    {
+      "archived_name": "bowling-m0-p4-q2-r2.json",
+      "bytes": 1333186,
+      "archived_export_sha256": "8c1795922ed3e41a55a4cc5bfdc7bd24581b8665cb20ef396a55e82762bfa261",
+      "original_private_raw_sha256": "27e14845b4465b47f8dd2e7b1aee7792a1b9150f9d842cb48cb1142d81e204d9",
+      "frames": 2110,
+      "case": {
+        "game": "bowling",
+        "map": 0,
+        "players": 4,
+        "quality": 2,
+        "repeat": 2,
+        "execution_order": 5,
+        "seed": 20261023
+      },
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23"
+    },
+    {
+      "archived_name": "bowling-m0-p4-q2-r3.json",
+      "bytes": 1316647,
+      "archived_export_sha256": "5b6d8a2f19c8af0404f05ab7b49380e80a45c30e577384a969d22aff808f07bd",
+      "original_private_raw_sha256": "4c99780151932b498e295141aad48d92b63b596f096af14f879476a02615aed8",
+      "frames": 2084,
+      "case": {
+        "game": "bowling",
+        "map": 0,
+        "players": 4,
+        "quality": 2,
+        "repeat": 3,
+        "execution_order": 6,
+        "seed": 20261023
+      },
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23"
+    }
+  ]
+}

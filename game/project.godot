@@ -28,6 +28,12 @@ window/size/viewport_height=900
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
+[editor]
+
+; Godot 4.7.2's headless renderer has non-thread-safe RID owners (upstream #121958).
+; Keep asset imports serial until the project upgrades to an engine containing that fix.
+import/use_multiple_threads=false
+
 [gui]
 
 theme/default_font_multichannel_signed_distance_field=true
