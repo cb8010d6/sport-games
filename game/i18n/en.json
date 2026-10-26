@@ -510,5 +510,7 @@
  "DLSS 性能": "DLSS Performance",
  "%s（回退 FSR）": "%s (FSR fallback)",
  "%s（回退光栅）": "%s (raster fallback)",
- "需要 DLAA / DLSS": "Requires DLAA / DLSS"
+ "需要 DLAA / DLSS": "Requires DLAA / DLSS",
+ "正在准备画面…": "Preparing graphics…",
+ "画面准备失败。请返回主菜单后重试。": "Graphics preparation failed. Return to the main menu and try again."
 }

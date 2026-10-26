@@ -53,6 +53,46 @@ static func apply_preset() -> void:
 		api.call("set_parameter", ClassDB.class_get_integer_constant("Streamline", "STREAMLINE_PARAM_DLSS_PRESET"), PRESETS[RSSettings.nvidia_preset])
 
 
+static func warmup_available() -> bool:
+	## Official Godot and non-RT paths retain their existing startup behavior.
+	return DisplayServer.get_name() != "headless" and RSSettings.nvidia_lighting == 2 and RSSettings.upscale >= 6 \
+		and lighting_available(2) and ClassDB.class_has_integer_constant("RenderingServer", "VIEWPORT_RENDER_INFO_RT_FRAME_SERIAL")
+
+
+static func warmup_snapshot(vp: Viewport, previous: int) -> Dictionary:
+	## Compare serials around the read so multiple server calls cannot mix frames.
+	if not warmup_available():
+		return {"state": "unsupported"}
+	if not is_instance_valid(vp) or not vp.is_inside_tree():
+		return {"state": "failed", "reason": "viewport_removed"}
+	var camera := vp.get_camera_3d()
+	if camera == null:
+		return {"state": "not_applicable"}
+	var env := camera.environment if camera.environment != null else vp.find_world_3d().environment
+	if env == null or not has_property(env, &"pathtracing_enabled") or not bool(env.get("pathtracing_enabled")):
+		return {"state": "not_applicable"}
+	var names := ["RT_FRAME_SERIAL", "RT_DISPATCHES", "RT_TLAS_INSTANCES", "RT_SHADER_PENDING", "RT_SHADER_FAILED"]
+	var values: Array[int] = []
+	var rid := vp.get_viewport_rid()
+	var visible_type := RenderingServer.VIEWPORT_RENDER_INFO_TYPE_VISIBLE
+	for name: String in names:
+		var key := ClassDB.class_get_integer_constant("RenderingServer", "VIEWPORT_RENDER_INFO_" + name)
+		values.append(RenderingServer.viewport_get_render_info(rid, visible_type, key))
+	var serial_key := ClassDB.class_get_integer_constant("RenderingServer", "VIEWPORT_RENDER_INFO_RT_FRAME_SERIAL")
+	var serial := RenderingServer.viewport_get_render_info(rid, visible_type, serial_key)
+	var result := {"state": "not_rendered", "serial": serial, "dispatches": values[1], "tlas": values[2],
+		"pending": values[3], "failed": values[4]}
+	if serial != values[0]:
+		return result
+	if values[4] > 0:
+		result["state"] = "failed"
+	elif values[3] > 0:
+		result["state"] = "pending"
+	elif serial > 0 and serial != previous and values[1] > 0 and values[2] > 0:
+		result["state"] = "ready"
+	return result
+
+
 static func apply_viewport(vp: Viewport) -> void:
 	# FG is one generated frame for one main-window 3D view. Never request it for a
 	# player SubViewport; the engine also guards the actual rendered-view topology.

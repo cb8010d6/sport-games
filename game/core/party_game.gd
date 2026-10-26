@@ -96,6 +96,8 @@ var _result_committed := false
 var _smoke_report := ""
 var _smoke_shot := ""
 var _smoke_done := false
+var _render_warmup: RSRenderWarmup
+var render_warmup_status: Dictionary = {"state": "unsupported"}
 var _tournament_final_shown := false
 var _tournament_final_msec := 0  ## when the final podium appeared; A is ignored for 1 s (#55)
 var _tournament_exit := RSTournament.ExitGuard.new()
@@ -320,6 +322,20 @@ func _ready() -> void:
 		c.connected = true
 		_add_player(c, true)
 	_to_lobby()
+	if RSNvidia.warmup_available():
+		_lobby_process(0.0)
+		_begin_render_warmup([get_tree().root])
+
+
+func _begin_render_warmup(viewports: Array[Viewport]) -> void:
+	if not RSNvidia.warmup_available() or is_instance_valid(_render_warmup):
+		return
+	render_warmup_status = {"state": "pending"}
+	_render_warmup = RSRenderWarmup.new()
+	add_child(_render_warmup)
+	_render_warmup.completed.connect(func(result: Dictionary) -> void: render_warmup_status = result)
+	_render_warmup.cancelled.connect(go_menu)
+	_render_warmup.begin(self, viewports)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -417,7 +433,8 @@ func _process(delta: float) -> void:
 			if not _smoke_report.is_empty() and not _smoke_done and phase_time > results_delay + 1.0:
 				_smoke_done = true
 				_complete_smoke()
-	_take_shots()
+	if not is_instance_valid(_render_warmup):
+		_take_shots()
 
 
 func _complete_smoke() -> void:
@@ -597,6 +614,10 @@ func _start_countdown() -> void:
 	views.layout()
 	lobby_cam.current = false
 	_round_started(ordered())
+	var active_views: Array[Viewport] = []
+	for p: Player in ordered():
+		active_views.append(p.cam.get_viewport())
+	_begin_render_warmup(active_views)
 
 
 func finish_round() -> void:
@@ -653,6 +674,10 @@ func _set_ready(p: Player, value: bool) -> void:
 
 
 func _on_button(c: RSController, button: int, pressed: bool) -> void:
+	if is_instance_valid(_render_warmup):
+		if pressed and button == RSController.BTN_C:
+			_render_warmup.cancel()
+		return
 	if benchmark_mode:
 		return
 	if solo_mode and (c.player != RSSolo.slot or c.kind == "replay"):
