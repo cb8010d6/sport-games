@@ -815,16 +815,18 @@ func _draw_overlay(o: Overlay, k: float) -> void:
 # ------------------------------------------------------------------------ replays ----
 
 func _record(s: Shooter, dt: float) -> void:
-	# Every ball in play by its id, so a replay can follow just the one that went in.
-	var balls := {}
-	if s.held:
-		balls[s.held.get_instance_id()] = [s.held.global_transform, s.held.money]
-	for b in s.flying:
-		if _clock - float(b.get_meta("t0", 0.0)) < 4.0:
-			balls[b.get_instance_id()] = [b.global_transform, b.money]
-	RSReplay.record(s.rec, {"t": _clock, "xf": s.rig.global_transform, "pose": s.rig.capture(), "balls": balls}, CLIP_KEEP)
+	if RSReplay.due(s.rec, _clock):
+		# Every ball in play by its id, so a replay can follow just the one that went in.
+		var balls := {}
+		if s.held:
+			balls[s.held.get_instance_id()] = [s.held.global_transform, s.held.money]
+		for b in s.flying:
+			if _clock - float(b.get_meta("t0", 0.0)) < 4.0:
+				balls[b.get_instance_id()] = [b.global_transform, b.money]
+		RSReplay.record(s.rec, {"t": _clock, "xf": s.rig.global_transform, "pose": s.rig.capture(), "balls": balls}, CLIP_KEEP)
+		if s.post >= 0.0:
+			s.pend.append(s.rec.back())
 	if s.post >= 0.0:
-		s.pend.append(s.rec.back())
 		s.post -= dt
 		if s.post < 0.0:
 			_keep_clip(s)
