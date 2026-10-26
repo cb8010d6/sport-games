@@ -162,6 +162,21 @@ class FreezeInventoryTests(unittest.TestCase):
             with self.subTest(base=base.name), self.assertRaisesRegex(RuntimeError, "no reviewed owner"):
                 env.owner(str(path), "unknown.dll", "BINARY")
 
+    def test_unreviewed_native_origin_is_labeled_without_disclosing_local_paths(self):
+        env = self.environment()
+        unapproved = self.root.parent / (self.root.name + "-private-install")
+        name = "api-ms-win-core-console-l1-1-0.dll"
+        for base, label in ((self.python, "<python>/"), (self.system, "<system>/"),
+                            (self.venv, "<venv>/"), (self.root / "tools", "tools/"),
+                            (unapproved, "<unapproved>/")):
+            source = base / name
+            with self.subTest(label=label), self.assertRaisesRegex(RuntimeError, "no reviewed owner") as failure:
+                env.owner(str(source), "_internal/" + name, "BINARY")
+            message = str(failure.exception)
+            self.assertIn("origin: " + label + name, message)
+            for private in (str(self.root), self.root.as_posix(), str(base), base.as_posix()):
+                self.assertNotIn(private, message)
+
     def test_python_and_system_native_are_explicitly_classified(self):
         env = self.environment()
         for base, name, role, component in [
@@ -262,20 +277,25 @@ class FreezeInventoryTests(unittest.TestCase):
     def test_notice_source_and_resolved_destination_must_stay_inside_their_roots(self):
         inventory = {"distributions": [{"name": "alpha", "version": "1"}]}
         dist = self.distributions[0]
-        outside = self.root / "outside-LICENSE.txt"
+        outside = (self.root / "outside-LICENSE.txt").resolve()
         outside.write_bytes(b"outside installation root")
         original_locate = dist.locate_file
         def locate(record):
             return outside if str(record).endswith("third/a/LICENSE.txt") else original_locate(record)
         with mock.patch.object(dist, "locate_file", side_effect=locate), self.assertRaisesRegex(RuntimeError, "source.*outside"):
             copy_distribution_notices(self.root / "notices", inventory, self.distributions)
-        target = self.root / "notices"
-        destination = target / "python/alpha-1/licenses/third/a/LICENSE.txt"
+        target = (self.root / "notices").resolve()
+        destination = (target / "python/alpha-1/licenses/third/a/LICENSE.txt").resolve()
+        destination_hits = []
         original_resolve = Path.resolve
         def resolve(path, *args, **kwargs):
-            return outside if path == destination else original_resolve(path, *args, **kwargs)
+            if path == destination:
+                destination_hits.append(path)
+                return outside
+            return original_resolve(path, *args, **kwargs)
         with mock.patch.object(Path, "resolve", resolve), self.assertRaisesRegex(RuntimeError, "destination.*outside"):
             copy_distribution_notices(target, inventory, self.distributions)
+        self.assertEqual(destination_hits, [destination])
         self.assertEqual(outside.read_bytes(), b"outside installation root")
 
     @unittest.skipUnless(sys.platform == "win32", "Windows junction fixture")

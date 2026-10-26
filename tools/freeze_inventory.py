@@ -160,7 +160,15 @@ class Environment:
                         "providedBy": "cpython", "source": "<python>/" + relative(path.relative_to(self.python).as_posix())}
         if path.parent == self.system and CRT.fullmatch(path.name):
             return {"component": "native:microsoft-crt", "role": "system", "source": "<system>/" + relative(path.name)}
-        raise RuntimeError("Frozen file has no reviewed owner: " + relative(name))
+        for installed in (True, False):
+            try:
+                origin = self.label(path, installed=installed)
+                break
+            except RuntimeError:
+                continue
+        else:
+            origin = "<unapproved>/" + relative(path.name)
+        raise RuntimeError("Frozen file has no reviewed owner: " + relative(name) + " (origin: " + origin + ")")
 
 
 def checked_members(expected: set[str], actual: set[str], container: str) -> None:
