@@ -11,6 +11,7 @@ extends Node3D
 const DRIVEN := ["pelvis", "spine_01", "spine_02", "spine_03", "neck_01", "head",
 	"thigh_l", "calf_l", "foot_l", "thigh_r", "calf_r", "foot_r",
 	"clavicle_l", "upperarm_l", "lowerarm_l", "hand_l", "clavicle_r", "upperarm_r", "lowerarm_r", "hand_r"]
+const SPLIT_LOD_BIAS := 0.4   ## earlier mesh LOD transitions with three or four views
 
 var body := Node3D.new()
 
@@ -26,6 +27,9 @@ var _fore_len := 0.26
 var _ankle_h := 0.088          ## ankle joint above the shoe sole
 var _ankle_back := 0.068       ## ankle joint behind the middle of the shoe
 var _hip_mid := Vector3.ZERO   ## rest midpoint of the hip joints, body space
+var _quality_materials: Dictionary[StandardMaterial3D, Vector2i] = {} ## skin / alpha-card flags
+var _quality_meshes: Array[MeshInstance3D] = []
+var _detail_meshes: Array[MeshInstance3D] = []
 
 
 func set_layers(mask: int) -> void:
@@ -61,6 +65,9 @@ func _load_character(path: String) -> Node3D:
 	for mi: MeshInstance3D in rider.find_children("*", "MeshInstance3D", true, false):
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 		var nm := String(mi.name).to_lower()
+		_quality_meshes.append(mi)
+		if _is_alpha_card(nm):
+			_detail_meshes.append(mi)
 		if nm.contains("shoes"):
 			# Feet: how high the ankle sits above the sole, and how far behind the shoe's middle.
 			var box := _to_body * mi.get_aabb()
@@ -79,6 +86,8 @@ func _load_character(path: String) -> Node3D:
 				var b: int = _bone[bone_name]
 				var curl := 0.18 if f == "thumb" else (0.35 if bone_name.contains("_01") else 0.5)
 				_skel.set_bone_pose_rotation(b, _skel.get_bone_rest(b).basis.get_rotation_quaternion() * Quaternion(Vector3.RIGHT, curl))
+	add_to_group(RSSettings.QUALITY_GROUP)
+	apply_quality()
 	return rider
 
 
@@ -90,13 +99,11 @@ func rest_point(bone_name: String) -> Vector3:
 func _tune_material(m: StandardMaterial3D, part: String) -> void:
 	## The glTF import makes every material alpha-blended; only hair, brows and lashes are.
 	RSSettings.load_once()
-	if part.contains("eyebrow") or part.contains("eyelash") or _is_hair(part):
+	var skin := part.contains("body")
+	var alpha := _is_alpha_card(part)
+	if alpha:
 		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
 		m.alpha_scissor_threshold = 0.35
-		# Match apply_viewport's MSAA rule in both directions: imported materials can
-		# be reused after another rig was built at a different quality or upscale mode.
-		var msaa := RSSettings.upscale == 0 and RSSettings.quality >= 1
-		m.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE if msaa else BaseMaterial3D.ALPHA_ANTIALIASING_OFF
 		m.alpha_antialiasing_edge = 0.3
 		m.cull_mode = BaseMaterial3D.CULL_DISABLED
 		m.roughness = 0.55
@@ -107,12 +114,8 @@ func _tune_material(m: StandardMaterial3D, part: String) -> void:
 			m.metallic_specular = 0.2
 	else:
 		m.transparency = BaseMaterial3D.TRANSPARENCY_DISABLED
-	if part.contains("body"):
+	if skin:
 		m.roughness = 0.52
-		# Subsurface scattering costs per pixel on every character; keep it for the
-		# top two quality tiers. There is no live retuning pass: existing material
-		# state can persist after a settings change until a rig is rebuilt.
-		m.subsurf_scatter_enabled = RSSettings.quality >= 2
 		m.subsurf_scatter_strength = 0.35
 		m.subsurf_scatter_skin_mode = true
 	elif part.contains("low-poly"):
@@ -121,6 +124,48 @@ func _tune_material(m: StandardMaterial3D, part: String) -> void:
 		m.roughness = 0.6
 	elif not _is_hair(part) and not part.contains("eye"):
 		m.roughness = 0.85                       # cloth
+	if skin or alpha:
+		_quality_materials[m] = Vector2i(int(skin), int(alpha))
+		add_to_group(RSSettings.QUALITY_GROUP)
+		_apply_material_quality(m, _quality_materials[m])
+
+
+func apply_quality() -> void:
+	## Settings events refresh cached meshes/materials; no per-frame polling or name scans.
+	var split := _split_detail()
+	for mesh: MeshInstance3D in _quality_meshes:
+		mesh.lod_bias = SPLIT_LOD_BIAS if split else 1.0
+	for mesh: MeshInstance3D in _detail_meshes:
+		mesh.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if split else GeometryInstance3D.SHADOW_CASTING_SETTING_ON
+	for material: StandardMaterial3D in _quality_materials:
+		_apply_material_quality(material, _quality_materials[material])
+
+
+func _split_detail() -> bool:
+	## Ultra keeps the original character detail even with three or four views.
+	return RSSettings.split_tier() and RSSettings.quality < 3
+
+
+func _apply_material_quality(material: StandardMaterial3D, flags: Vector2i) -> void:
+	if flags.x != 0:
+		material.subsurf_scatter_enabled = RSSettings.quality >= 2 and not _split_detail()
+	if flags.y != 0:
+		# Match apply_viewport's MSAA rule in both directions, including native <-> FSR.
+		var msaa := RSSettings.upscale == 0 and RSSettings.quality >= 1
+		material.alpha_antialiasing_mode = BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE if msaa else BaseMaterial3D.ALPHA_ANTIALIASING_OFF
+
+
+func shadow_casters() -> int:
+	## Diagnostic count of actual mesh nodes, including any project-added rig accessories.
+	var count := 0
+	for mesh: MeshInstance3D in find_children("*", "MeshInstance3D", true, false):
+		if mesh.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			count += 1
+	return count
+
+
+static func _is_alpha_card(part: String) -> bool:
+	return part.contains("eyebrow") or part.contains("eyelash") or _is_hair(part)
 
 
 static func _is_hair(part: String) -> bool:

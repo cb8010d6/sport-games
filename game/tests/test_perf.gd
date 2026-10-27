@@ -26,6 +26,7 @@ func _check(ok: bool, message: String) -> void:
 func _run() -> void:
 	_course_lookups()
 	_clock()
+	_rig_view_tier()
 	await _riders_at_30fps()
 	await _idle_loops()
 	_split_shadow_tier()
@@ -33,6 +34,8 @@ func _run() -> void:
 	_ski_snow_budget()
 	for i in 3:   # let freed riders' rendering resources go before quitting
 		await get_tree().process_frame
+	# Headless frames can finish before the audio thread releases freed riders' cues.
+	await get_tree().create_timer(0.25).timeout
 	print("RS_PERF_TESTS: %d checks, %d failures" % [_checks, _failures])
 	get_tree().quit(1 if _failures else 0)
 
@@ -156,6 +159,117 @@ func _clock() -> void:
 	_check(clk.draw(Vector3(9, 0, 0)) == Vector3(9, 0, 0), "draw() follows a position moved outside the sub-steps")
 	clk.push(Vector3(9, 0, 0), Vector3(30, 0, 0))
 	_check(clk.draw(Vector3(30, 0, 0)) == Vector3(30, 0, 0), "draw() does not blend across a teleport")
+
+
+func _rig_view_tier() -> void:
+	if not ResourceLoader.exists(RSSkaterRig.RIDERS[1]):
+		print("RS_PERF_SKIP: rider model not checked out; rig view tier check skipped")
+		return
+	var saved_quality := RSSettings.quality
+	var saved_upscale := RSSettings.upscale
+	RSSettings.quality = 2
+	RSSettings.upscale = 0
+	RSSettings.set_views(1, null)
+	var rig := RSHumanRig.new()
+	rig.add_child(rig.body)
+	add_child(rig)
+	rig._load_character(RSSkaterRig.RIDERS[1])
+	_check_rig_tier(rig, false)
+	var before := rig.shadow_casters()
+	var baseline: Array = []
+	for mesh: MeshInstance3D in rig.find_children("*", "MeshInstance3D", true, false):
+		for i in mesh.mesh.get_surface_count():
+			var material := mesh.mesh.surface_get_material(i) as StandardMaterial3D
+			if material != null:
+				baseline.append([material, material.subsurf_scatter_enabled, material.alpha_antialiasing_mode, material.roughness, material.albedo_color])
+	RSSettings.set_views(2, self)
+	_check_rig_tier(rig, false)
+	_check(rig.shadow_casters() == before, "two views keep the one-view shadow casters (#53-01)")
+	RSSettings.set_views(3, self)
+	_check_rig_tier(rig, true)
+	var after := rig.shadow_casters()
+	_check(after > 0 and after < before, "split tier removes only the fine-part shadow casters (#53-01)")
+	RSSettings.set_views(4, self)
+	var second := RSHumanRig.new()
+	second.add_child(second.body)
+	add_child(second)
+	second._load_character(RSSkaterRig.RIDERS[1])
+	_check_rig_tier(rig, true)
+	_check_rig_tier(second, true)
+	_check(second.shadow_casters() == after, "a newly built four-view rig starts in the split tier (#53-01)")
+	for quality: int in [0, 1, 2]:
+		RSSettings.quality = quality
+		RSSettings.apply_world(self)
+		_check_rig_tier(rig, true)
+		_check_rig_tier(second, true)
+	RSSettings.quality = 3
+	RSSettings.apply_world(self)
+	_check_rig_tier(rig, false)
+	_check_rig_tier(second, false)
+	_check(rig.shadow_casters() == before and second.shadow_casters() == before, "switching to ultra restores four-view character detail (#53-01)")
+	RSSettings.set_views(3, self)
+	_check_rig_tier(rig, false)
+	var ultra := RSHumanRig.new()
+	ultra.add_child(ultra.body)
+	add_child(ultra)
+	ultra._load_character(RSSkaterRig.RIDERS[1])
+	_check_rig_tier(ultra, false)
+	_check(ultra.shadow_casters() == before, "a newly built ultra rig keeps all shadow casters with three views (#53-01)")
+	RSSettings.quality = 2
+	RSSettings.apply_world(self)
+	_check_rig_tier(rig, true)
+	_check_rig_tier(second, true)
+	_check_rig_tier(ultra, true)
+	RSSettings.quality = 3
+	RSSettings.apply_world(self)
+	RSSettings.set_views(4, self)
+	_check_rig_tier(rig, false)
+	_check_rig_tier(second, false)
+	_check_rig_tier(ultra, false)
+	print("RS_PERF_RIG_ULTRA: shadow casters per rig %d -> %d, lod_bias 1.00 -> %.2f" % [before, ultra.shadow_casters(), (ultra._quality_meshes[0] as MeshInstance3D).lod_bias])
+	RSSettings.set_views(2, self)
+	_check_rig_tier(rig, false)
+	_check_rig_tier(second, false)
+	_check_rig_tier(ultra, false)
+	RSSettings.set_views(1, self)
+	_check(rig.shadow_casters() == before and second.shadow_casters() == before, "returning to one view restores every character shadow caster (#53-01)")
+	for entry: Array in baseline:
+		var material := entry[0] as StandardMaterial3D
+		_check(material.subsurf_scatter_enabled == entry[1] and material.alpha_antialiasing_mode == entry[2]
+			and material.roughness == entry[3] and material.albedo_color == entry[4], "one/two-view material values restore exactly (#53-01)")
+	print("RS_PERF_RIG: shadow casters per rig %d -> %d, lod_bias 1.00 -> %.2f" % [before, after, RSHumanRig.SPLIT_LOD_BIAS])
+	RSSettings.quality = saved_quality
+	RSSettings.upscale = saved_upscale
+	RSSettings.set_views(1, null)
+	RSSettings.apply_world(self)
+	rig.free()
+	second.free()
+	ultra.free()
+
+
+func _check_rig_tier(rig: RSHumanRig, split: bool) -> void:
+	var details := 0
+	var skins := 0
+	for mesh: MeshInstance3D in rig.find_children("*", "MeshInstance3D", true, false):
+		_check(is_equal_approx(mesh.lod_bias, RSHumanRig.SPLIT_LOD_BIAS if split else 1.0), "actual character mesh follows the view LOD tier (#53-01)")
+		var part := String(mesh.name).to_lower()
+		var fine := part.contains("eyebrow") or part.contains("eyelash") or RSHumanRig._is_hair(part)
+		if fine:
+			details += 1
+			_check(mesh.cast_shadow == (GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if split else GeometryInstance3D.SHADOW_CASTING_SETTING_ON), "actual fine-part mesh restores its shadow mode (#53-01)")
+		else:
+			_check(mesh.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_ON, "opaque character parts retain shadows in the split tier (#53-01)")
+		for i in mesh.mesh.get_surface_count():
+			var material := mesh.mesh.surface_get_material(i) as StandardMaterial3D
+			if material == null:
+				continue
+			if part.contains("body"):
+				skins += 1
+				_check(material.subsurf_scatter_enabled == (RSSettings.quality >= 2 and not split), "actual skin combines quality and split SSS gates (#53-01)")
+			if fine:
+				var expected := BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE if RSSettings.upscale == 0 and RSSettings.quality >= 1 else BaseMaterial3D.ALPHA_ANTIALIASING_OFF
+				_check(material.alpha_antialiasing_mode == expected, "split tier preserves the original MSAA/A2C rule (#53-01)")
+	_check(details > 0 and skins > 0, "real rider model exercises both fine parts and skin (#53-01)")
 
 
 func _riders_at_30fps() -> void:
