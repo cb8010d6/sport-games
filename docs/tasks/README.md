@@ -123,6 +123,6 @@
 | [58-26](58-26-rs-vfx.md) | `RSVfx` 粒子预设（水花、尘土、闪光、彩带、冲击） | 待领 | 58-25 | 框架 |
 | [58-27](58-27-rs-trail.md) | `RSTrail` 拖尾网格 | 待领 | — | 框架 |
 | [58-28](58-28-kenney-audio.md) | Kenney Impact Sounds：出拳、挡格、脚步 | 待领 | — | 素材 |
-| [58-29](58-29-freesound-audio.md) | Freesound 音效（维护者下载后加工） | 待确认 | 维护者下载原文件、58-28 | 素材 + 框架（`RSSfx.LOOPS`） |
+| [58-29](58-29-freesound-audio.md) | Freesound 音效（维护者下载后加工） | 待领 | 维护者下载原文件、58-28 | 素材 + 框架（`RSSfx.LOOPS`） |
 | [58-30](58-30-sport-icons.md) | 项目图标 SVG + `RSGameModule.icon` 字段 | 待领 | — | 素材 + 框架（一个字段） |
 | [58-31](58-31-signage-atlas.md) | 横幅 / Logo 图集 + 共享旗面着色器 | 待领 | — | 素材 + 着色器 |
