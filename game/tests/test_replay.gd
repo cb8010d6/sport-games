@@ -90,6 +90,35 @@ func _math() -> void:
 	_check(is_equal_approx(RSReplay.lead_out(2, 9), 2.3), "short clips retain their natural duration")
 	RSReplay.record(frames, {"t": 30.0}, -1)
 	_check(frames.size() == 1, "negative recording window retains only the current timestamp")
+	_check(RSReplay.due([], 0.0), "empty recording is immediately due")
+	var last_frame: Array = [{"t": 2.0}]
+	_check(not RSReplay.due(last_frame, 2.0 + 1.0 / 60.0 - 0.0002), "recording waits until its fixed interval")
+	_check(RSReplay.due(last_frame, 2.0 + 1.0 / 60.0), "recording is due at its fixed interval")
+	_check(RSReplay.due(last_frame, 2.0 + 1.0 / 60.0 - 0.00005), "recording tolerates timestamp rounding within 1e-4 seconds")
+	_check(not RSReplay.due(last_frame, 2.0 + 1.0 / 60.0, 30.0) and RSReplay.due(last_frame, 2.0 + 1.0 / 30.0, 30.0), "recording respects an explicit frequency")
+	var capped: Array = []
+	for i in 2401:
+		var t := i / 240.0
+		if RSReplay.due(capped, t):
+			RSReplay.record(capped, {"t": t, "id": sin(t) + t * t}, 10.0)
+	_check(capped.size() == 601, "240 FPS records 600 intervals plus the initial frame over ten seconds")
+	var reference: Array = []
+	for i in 601:
+		var t := i / 60.0
+		RSReplay.record(reference, {"t": t, "id": sin(t) + t * t}, 10.0)
+	var capped_replay := RSReplay.new()
+	var reference_replay := RSReplay.new()
+	capped_replay.reset(capped)
+	reference_replay.reset(reference)
+	var max_error := 0.0
+	for i in 1001:
+		var elapsed := i / 100.0 + 0.003
+		_check(capped_replay.sample(elapsed, 1.0) and reference_replay.sample(elapsed, 1.0), "limited recording remains available for interpolation")
+		var actual := lerpf(float(capped_replay.a["id"]), float(capped_replay.b["id"]), capped_replay.weight)
+		var expected := lerpf(float(reference_replay.a["id"]), float(reference_replay.b["id"]), reference_replay.weight)
+		max_error = maxf(max_error, absf(actual - expected))
+	_check(max_error < 1e-4, "limited 240 FPS recording matches 60 FPS interpolation within 1e-4")
+	print("RS_REPLAY_RECORD_RATE: 2401 inputs, %d frames, max interpolation error %.8f" % [capped.size(), max_error])
 
 
 func _state(id: String, p: RSPartyGame.Player) -> Variant:
