@@ -237,7 +237,7 @@ static func apply(tree: SceneTree) -> void:
 
 
 static func apply_world(root: Node) -> void:
-	## Quality gates for every environment and sun under root, without the window /
+	## Quality gates for every environment and light under root, without the window /
 	## viewport parts of apply(). Worlds built after apply() ran (a lobby map switch
 	## builds a fresh environment and sun with scene values) need this re-applied.
 	load_once()
@@ -245,6 +245,9 @@ static func apply_world(root: Node) -> void:
 		environment(we.environment)
 	for sun: DirectionalLight3D in root.find_children("*", "DirectionalLight3D", true, false):
 		sun_shadows(sun)
+	for light_type: String in ["OmniLight3D", "SpotLight3D"]:
+		for light: Light3D in root.find_children("*", light_type, true, false):
+			local_shadows(light)
 	_apply_node_quality(root)
 	for node: Node in root.find_children("*", "", true, false):
 		_apply_node_quality(node)
@@ -281,7 +284,7 @@ static func apply_viewport(vp: Viewport) -> void:
 
 static func set_views(n: int, root: Node) -> void:
 	## How many 3D views are drawn now (RSPartyViews keeps this current). Crossing the split
-	## tier refreshes sun shadows and quality listeners under root.
+	## tier refreshes sun / local shadows and quality listeners under root.
 	var was := split_tier()
 	views = maxi(n, 1)
 	if split_tier() != was and root != null and root.is_inside_tree():
@@ -290,6 +293,13 @@ static func set_views(n: int, root: Node) -> void:
 
 static func split_tier() -> bool:
 	return views >= SPLIT_TIER_VIEWS
+
+
+static func local_shadows(light: Light3D) -> void:
+	## Keep the scene's omni / spot shadow choice so higher tiers can restore it.
+	if not light.has_meta("shadow_enabled"):
+		light.set_meta("shadow_enabled", light.shadow_enabled)
+	light.shadow_enabled = bool(light.get_meta("shadow_enabled")) and quality >= 1 and (quality >= 2 or not split_tier())
 
 
 static func sun_shadows(sun: DirectionalLight3D) -> void:
