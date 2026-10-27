@@ -19,10 +19,13 @@ enum Phase { LOBBY, COUNTDOWN, PLAY, RESULTS }
 const MENU_SCENE := "res://scenes/menu/main_menu.tscn"
 const COUNTDOWN_TIME := 3.0
 const MENU_TAP_MS := 800         ## D held longer than this is the hub's recenter, not the menu
+const SLOT_PIN_INTERVAL := 1.0  ## seconds between requests to restore a player's joined slot
 
 
 class Player:
 	var c: RSController
+	var slot := 0               ## player number when this player joined; its view layers stay fixed
+	var _slot_pin_at := -INF     ## the first mismatch requests a pin immediately
 	var fake := false
 	var ready := false
 	var score := 0
@@ -374,6 +377,8 @@ func _process(delta: float) -> void:
 	_clock += delta
 	phase_time += delta
 	_validate_tournament_exit()
+	if phase != Phase.LOBBY:
+		_guard_slots()
 	match phase:
 		Phase.LOBBY:
 			_sync_players()
@@ -524,6 +529,7 @@ func ranked_players() -> Array:
 func _add_player(c: RSController, fake: bool) -> Player:
 	var p := Player.new()
 	p.c = c
+	p.slot = c.player
 	p.fake = fake
 	if not fake and c.kind == "phone":
 		RSProfiles.import_phone_name(c.player, str(c.info.get("profile_name", "")))
@@ -548,22 +554,39 @@ func _remove_player(id: int) -> void:
 func _sync_players() -> void:
 	if demo:
 		return   # bots only, keep real controllers out of it
+	var removed := {}
 	for id in players.keys():
 		var p: Player = players[id]
-		if not p.fake and (not p.c.connected or (solo_mode and p.c.player != RSSolo.slot)):
+		if not p.fake and (not p.c.connected or p.c.player != p.slot or (solo_mode and p.c.player != RSSolo.slot)):
 			_remove_player(id)
+			removed[id] = true
 	for c in ControllerHub.connected_controllers():
 		if solo_mode and (c.player != RSSolo.slot or c.kind == "replay"):
 			continue
 		if RSTournament.active() and not RSTournament.entrants.has(c.player):
 			continue
-		if c.player < 1 or c.player > 4 or players.has(c.id) or players.size() >= 4:
+		if c.player < 1 or c.player > 4 or players.has(c.id) or removed.has(c.id) or players.size() >= 4:
 			continue
 		var taken := false
 		for p: Player in players.values():
 			taken = taken or p.c.player == c.player
 		if not taken:
 			_oled_lobby(_add_player(c, false))
+
+
+func _guard_slots() -> void:
+	if phase == Phase.LOBBY:
+		return
+	for p: Player in players.values():
+		if not p.fake and p.c.player != p.slot and _clock - p._slot_pin_at >= SLOT_PIN_INTERVAL:
+			p._slot_pin_at = _clock
+			_pin_slot(p)
+
+
+func _pin_slot(p: Player) -> void:
+	ControllerHub.set_player(p.c.id, p.slot)
+
+
 # ------------------------------------------------------------------------- phases ----
 
 func _to_lobby() -> void:

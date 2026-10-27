@@ -1,6 +1,7 @@
 extends Node
 const TutorialCases := preload("res://tests/tutorial_cases.gd")
 const CatalogCases := preload("res://tests/catalog_cases.gd")
+const SlotGuardCases := preload("res://tests/slot_guard_cases.gd")
 const WaterCases := preload("res://tests/water_cases.gd")
 const SwingCases := preload("res://tests/swing_cases.gd")
 const SwingClassifyCases := preload("res://tests/swing_classify_cases.gd")
@@ -198,6 +199,7 @@ func _run() -> void:
 	CatalogCases.run(_check)
 	WaterCases.run(_check)
 	TutorialCases.run(_check)
+	SlotGuardCases.run(_check)
 	SwingCases.run(_check)
 	SwingClassifyCases.run(_check)
 	await TutorialCases.integration(self, _check)
