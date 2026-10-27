@@ -21,6 +21,7 @@ const DAMP := 0.985
 const SHAPE := 2.5               ## pull back toward the rest shape, 1/s
 const ITERS := 6
 const CORD := 0.0045
+const QUAD := [0, 2, 1, 0, 3, 2]
 
 var _pos := PackedVector3Array()
 var _prev := PackedVector3Array()
@@ -31,6 +32,7 @@ var _awake := true
 var _still_t := 0.0
 var _dirty := true
 var _im := ImmediateMesh.new()
+var _local: Array[Vector3] = []
 
 
 func _ready() -> void:
@@ -62,13 +64,13 @@ func _ready() -> void:
 
 
 func advance(dt: float, balls: Array) -> void:
-	## balls: world positions of balls that may be in or near the net.
-	var local: Array[Vector3] = []
+	## Read balls synchronously; do not retain the caller's reusable array.
+	_local.clear()
 	for b: Vector3 in balls:
 		var p := to_local(b)
 		if Vector2(p.x, p.z).length() < 0.7 and p.y > -1.0 and p.y < 0.5:
-			local.append(p)
-	if not local.is_empty():
+			_local.append(p)
+	if not _local.is_empty():
 		_awake = true
 		_still_t = 0.0
 	if not _awake:
@@ -76,7 +78,7 @@ func advance(dt: float, balls: Array) -> void:
 	_acc = minf(_acc + dt, STEP * 8.0)
 	while _acc >= STEP:
 		_acc -= STEP
-		_step(local)
+		_step(_local)
 	_dirty = true
 
 
@@ -165,7 +167,15 @@ func _cord(a: Vector3, b: Vector3) -> void:
 		var n0 := x * cos(a0) + z * sin(a0)
 		var n1 := x * cos(a1) + z * sin(a1)
 		var nm := (n0 + n1).normalized()
-		var q := [a + n0 * CORD, a + n1 * CORD, b + n1 * CORD, b + n0 * CORD]
-		for k: int in [0, 2, 1, 0, 3, 2]:
+		var q0 := a + n0 * CORD
+		var q1 := a + n1 * CORD
+		var q2 := b + n1 * CORD
+		var q3 := b + n0 * CORD
+		for k: int in QUAD:
+			var vertex := q0
+			match k:
+				1: vertex = q1
+				2: vertex = q2
+				3: vertex = q3
 			_im.surface_set_normal(nm)
-			_im.surface_add_vertex(q[k])
+			_im.surface_add_vertex(vertex)
