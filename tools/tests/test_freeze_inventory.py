@@ -1,5 +1,6 @@
 """Small final-archive/RECORD fixtures; these do not claim a Windows freeze passed."""
 import json
+import os
 import runpy
 import shutil
 import subprocess
@@ -176,6 +177,116 @@ class FreezeInventoryTests(unittest.TestCase):
             self.assertIn("origin: " + label + name, message)
             for private in (str(self.root), self.root.as_posix(), str(base), base.as_posix()):
                 self.assertNotIn(private, message)
+
+    def assert_rejected_origin(self, env, source, origin):
+        with self.assertRaisesRegex(RuntimeError, "no reviewed owner") as failure:
+            env.owner(str(source), "_internal/" + source.name, "BINARY")
+        message = str(failure.exception)
+        self.assertEqual(message, "Frozen file has no reviewed owner: _internal/" + source.name + " (origin: " + origin + ")")
+        for private in (str(source), source.as_posix(), str(source.parent), source.parent.as_posix()):
+            self.assertNotIn(private, message)
+        self.assertNotIn("resolvedViaPATH", message)
+
+    def test_diagnostic_roots_label_but_still_reject_unknown_native_inputs(self):
+        env = self.environment()
+        base = self.root.parent / (self.root.name + "-private-install")
+        roots = {"WINDIR": str(base / "Windows"), "ProgramFiles": str(base / "Program Files"),
+                 "ProgramFiles(x86)": str(base / "Program Files (x86)"), "PATH": ""}
+        name = "api-ms-win-core-console-l1-1-0.dll"
+        email = "@".join(("fixture", "example.invalid"))
+        cases = [(Path(roots["WINDIR"]) / "WinSxS" / email / "10.0.22621.0" / name,
+                  "<windows>/WinSxS/<redacted>/10.0.22621.0/" + name),
+                 (Path(roots["ProgramFiles"]) / "Windows Kits/10/Redist/10.0.22621.0/ucrt/DLLs/x64" / name,
+                  "<program-files>/Windows Kits/10/Redist/10.0.22621.0/ucrt/DLLs/x64/" + name),
+                 (Path(roots["ProgramFiles(x86)"]) / "PowerShell/7/private-account/bin" / name,
+                  "<program-files-x86>/PowerShell/7/<redacted>/bin/" + name),
+                 (base / "base-python/private-account/arm64" / name,
+                  "<base-executable>/<redacted>/arm64/" + name),
+                 (Path(roots["ProgramFiles"]) / "Git/mingw64/bin/x86/System32/SysWOW64/Windows Kits-private" / name,
+                  "<program-files>/Git/mingw64/bin/x86/System32/SysWOW64/<redacted>/" + name),
+                 (Path(roots["ProgramFiles"]) / "WINDOWS KITS/pOwErShElL/gIt" / name,
+                  "<program-files>/Windows Kits/PowerShell/Git/" + name)]
+        with mock.patch.object(os, "environ", roots), mock.patch.object(sys, "_base_executable", str(base / "base-python/python.exe")):
+            for source, origin in cases:
+                with self.subTest(origin=origin):
+                    self.assert_rejected_origin(env, source, origin)
+
+    def test_diagnostic_roots_use_most_specific_boundary_and_keep_existing_label_priority(self):
+        env = self.environment()
+        base = self.root.parent / (self.root.name + "-private-install")
+        roots = {"ProgramFiles": str(base), "WINDIR": str(base / "Windows"),
+                 "ProgramFiles(x86)": str(base / "Windows/PowerShell"), "PATH": ""}
+        name = "api-ms-win-core-console-l1-1-0.dll"
+        executable = base / "Windows/PowerShell/Git/python.exe"
+        cases = [(executable.parent / "bin" / name, "<base-executable>/bin/" + name),
+                 (Path(roots["ProgramFiles(x86)"]) / "Redist" / name, "<program-files-x86>/Redist/" + name),
+                 (Path(roots["WINDIR"]) / "WinSxS" / name, "<windows>/WinSxS/" + name),
+                 (base / "x64" / name, "<program-files>/x64/" + name)]
+        with mock.patch.object(os, "environ", roots), mock.patch.object(sys, "_base_executable", str(executable)):
+            for source, origin in cases:
+                with self.subTest(origin=origin):
+                    self.assert_rejected_origin(env, source, origin)
+        for source, prefix in ((self.python / "DLLs" / name, "<python>/DLLs/"), (self.venv / name, "<venv>/"),
+                               (self.system / name, "<system>/"), (self.root / "tools" / name, "tools/")):
+            roots = {key: str(source.parent) for key in ("WINDIR", "ProgramFiles", "ProgramFiles(x86)")}
+            with self.subTest(prefix=prefix), mock.patch.object(os, "environ", roots), \
+                    mock.patch.object(sys, "_base_executable", str(source.parent / "python.exe")):
+                self.assert_rejected_origin(env, source, prefix + name)
+
+    def test_similar_diagnostic_root_prefixes_are_not_anchors(self):
+        env = self.environment()
+        base = self.root.parent / (self.root.name + "-private-install")
+        roots = {"WINDIR": str(base / "Windows"), "ProgramFiles": str(base / "Program Files"),
+                 "ProgramFiles(x86)": str(base / "Program Files (x86)"), "PATH": ""}
+        with mock.patch.object(os, "environ", roots), mock.patch.object(sys, "_base_executable", str(base / "python/python.exe")):
+            for root in [*list(roots.values())[:3], str(base / "python")]:
+                source = Path(root + "-private") / "bin/api-ms-win-core-console-l1-1-0.dll"
+                with self.subTest(root=Path(root).name):
+                    self.assert_rejected_origin(env, source, "<unapproved>/" + source.name)
+
+    def test_path_diagnostics_keep_raw_positions_duplicates_and_exact_parent_matches(self):
+        env = self.environment()
+        base = self.root.parent / (self.root.name + "-private-install")
+        parent = base / "@".join(("fixture", "example.invalid")) / "private-account/bin"
+        source = parent / "api-ms-win-core-console-l1-1-0.dll"
+        entries = ["", ".", str(parent), "", str(parent / "child"), str(parent), str(parent.parent),
+                   str(parent / "."), str(parent) + "-private", "\x00invalid"]
+        with mock.patch.object(os, "environ", {"PATH": os.pathsep.join(entries)}), mock.patch.object(sys, "_base_executable", None):
+            self.assert_rejected_origin(env, source, "<path-entry[2]>/" + source.name + "; pathEntries=[2,5,7]")
+        parent = base / "Git/bin"
+        source = parent / source.name
+        entries = ["", ".", "", str(parent / "child"), str(parent), "", str(parent.parent),
+                   str(parent) + "-private", "\x00invalid", str(parent)]
+        roots = {"ProgramFiles": str(base), "PATH": os.pathsep.join(entries)}
+        with mock.patch.object(os, "environ", roots), mock.patch.object(sys, "_base_executable", None):
+            self.assert_rejected_origin(env, source, "<program-files>/Git/bin/" + source.name + "; pathEntries=[4,9]")
+
+    def test_missing_empty_relative_and_malformed_diagnostic_roots_never_anchor_cwd(self):
+        env = self.environment()
+        source = Path.cwd() / "private-account/api-ms-win-core-console-l1-1-0.dll"
+        for value in (None, "", ".", "private-account", "C:private-account", "\x00private-account"):
+            roots = {key: value for key in ("WINDIR", "ProgramFiles", "ProgramFiles(x86)") if value is not None}
+            roots["PATH"] = ""
+            with self.subTest(value=value), mock.patch.object(os, "environ", roots), \
+                    mock.patch.object(sys, "_base_executable", value):
+                self.assert_rejected_origin(env, source, "<unapproved>/" + source.name)
+
+    def test_unresolvable_diagnostic_roots_and_path_entries_do_not_expose_errors(self):
+        env = self.environment()
+        base = self.root.parent / (self.root.name + "-private-install")
+        invalid = base / "private-account"
+        source = base / "bin/api-ms-win-core-console-l1-1-0.dll"
+        roots = {key: str(invalid) for key in ("WINDIR", "ProgramFiles", "ProgramFiles(x86)")}
+        roots["PATH"] = os.pathsep.join([str(invalid), str(source.parent)])
+        original = Path.resolve
+        for error in (OSError, ValueError, RuntimeError):
+            def resolve(path, *args, _error=error, **kwargs):
+                if path == invalid:
+                    raise _error("@".join(("fixture", "example.invalid")) + " private-account")
+                return original(path, *args, **kwargs)
+            with self.subTest(error=error.__name__), mock.patch.object(os, "environ", roots), \
+                    mock.patch.object(sys, "_base_executable", str(invalid)), mock.patch.object(Path, "resolve", resolve):
+                self.assert_rejected_origin(env, source, "<path-entry[1]>/" + source.name + "; pathEntries=[1]")
 
     def test_python_and_system_native_are_explicitly_classified(self):
         env = self.environment()

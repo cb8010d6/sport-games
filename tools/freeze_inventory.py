@@ -63,6 +63,16 @@ def pins(path: Path, environment: dict | None = None) -> dict[str, str]:
     return result
 
 
+def _diagnostic_path(value: str | None) -> Path | None:
+    if not value or any(ord(c) < 32 for c in value):
+        return None
+    try:
+        path = Path(value)
+        return path.resolve() if path.is_absolute() else None
+    except (OSError, RuntimeError, ValueError):
+        return None
+
+
 class Environment:
     def __init__(self, root: Path, distributions=None, *, python: Path | None = None,
                  venv: Path | None = None, system: Path | None = None, markers: dict | None = None):
@@ -102,6 +112,41 @@ class Environment:
             if source.is_relative_to(root):
                 return (prefix + "/" if prefix else "") + relative(source.relative_to(root).as_posix())
         raise RuntimeError("Frozen source is outside approved roots")
+
+    def diagnostic_origin(self, source: Path) -> str:
+        """Describe rejected input without granting ownership or exposing local paths."""
+        path_entries = [index for index, value in enumerate(os.environ.get("PATH", "").split(os.pathsep))
+                        if (entry := _diagnostic_path(value)) is not None and entry == source.parent]
+        for installed in (True, False):
+            try:
+                origin = self.label(source, installed=installed)
+                break
+            except RuntimeError:
+                continue
+        else:
+            roots = []
+            for key, prefix in (("WINDIR", "<windows>"), ("ProgramFiles", "<program-files>"),
+                                ("ProgramFiles(x86)", "<program-files-x86>")):
+                if (root := _diagnostic_path(os.environ.get(key))) is not None:
+                    roots.append((root, prefix))
+            if (executable := _diagnostic_path(getattr(sys, "_base_executable", None))) is not None:
+                roots.append((executable.parent, "<base-executable>"))
+            matching = [(root, prefix) for root, prefix in roots if source.is_relative_to(root)]
+            if matching:
+                root, prefix = max(matching, key=lambda item: len(item[0].parts))
+                public = {part.casefold(): part for part in ("Windows Kits", "PowerShell", "Git", "WinSxS", "System32",
+                          "SysWOW64", "Redist", "ucrt", "DLLs", "bin", "mingw64", "x64", "x86", "arm64")}
+                parts = source.relative_to(root).parts[:-1]
+                parts = [public.get(part.casefold(), part if re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", part) else "<redacted>")
+                         for part in parts]
+                origin = "/".join([prefix, *parts, relative(source.name)])
+            else:
+                prefix = "<path-entry[" + str(path_entries[0]) + "]>" if path_entries else "<unapproved>"
+                origin = prefix + "/" + relative(source.name)
+        # Membership is evidence of a candidate directory, not which search resolved it.
+        if path_entries:
+            origin += "; pathEntries=[" + ",".join(str(index) for index in path_entries) + "]"
+        return origin
 
     def owner(self, source: str, name: str, kind: str, *, bootstrap: dict | None = None) -> dict:
         if source in (None, "-"):
@@ -160,14 +205,7 @@ class Environment:
                         "providedBy": "cpython", "source": "<python>/" + relative(path.relative_to(self.python).as_posix())}
         if path.parent == self.system and CRT.fullmatch(path.name):
             return {"component": "native:microsoft-crt", "role": "system", "source": "<system>/" + relative(path.name)}
-        for installed in (True, False):
-            try:
-                origin = self.label(path, installed=installed)
-                break
-            except RuntimeError:
-                continue
-        else:
-            origin = "<unapproved>/" + relative(path.name)
+        origin = self.diagnostic_origin(path)
         raise RuntimeError("Frozen file has no reviewed owner: " + relative(name) + " (origin: " + origin + ")")
 
 
