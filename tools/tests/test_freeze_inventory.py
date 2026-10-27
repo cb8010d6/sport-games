@@ -288,6 +288,42 @@ class FreezeInventoryTests(unittest.TestCase):
                     mock.patch.object(sys, "_base_executable", str(invalid)), mock.patch.object(Path, "resolve", resolve):
                 self.assert_rejected_origin(env, source, "<path-entry[1]>/" + source.name + "; pathEntries=[1]")
 
+    def test_runner_tool_cache_diagnostic_is_specific_redacted_and_still_rejected(self):
+        env = self.environment()
+        base = self.root.parent / (self.root.name + "-private-install")
+        cache = base / "cache"
+        email = "@".join(("fixture", "example.invalid"))
+        name = "api-ms-win-core-console-l1-1-0.dll"
+        for tool, public in (("pYtHoN", "Python"), ("pYpY", "PyPy"), ("rUbY", "Ruby"), ("nOdE", "node"),
+                             ("gO", "go"), ("jAvA", "Java"), ("Python-private", "<redacted>")):
+            source = cache / tool / "1.2.3/X64/sCrIpTs/private-account" / email / name
+            roots = {"RUNNER_TOOL_CACHE": str(cache), "ProgramFiles": str(base),
+                     "PATH": os.pathsep.join(("", str(source.parent), str(source.parent)))}
+            with self.subTest(tool=tool), mock.patch.object(os, "environ", roots), mock.patch.object(sys, "_base_executable", None):
+                self.assert_rejected_origin(env, source, "<runner-tool-cache>/" + public + "/1.2.3/x64/Scripts/" +
+                                            "<redacted>/<redacted>/" + name + "; pathEntries=[1,2]")
+        roots = {"WINDIR": str(base), "RUNNER_TOOL_CACHE": str(cache), "PATH": ""}
+        with mock.patch.object(os, "environ", roots), mock.patch.object(sys, "_base_executable", None):
+            self.assert_rejected_origin(env, base / "Python/Scripts" / name, "<windows>/<redacted>/<redacted>/" + name)
+        if sys.platform == "win32":
+            with mock.patch.object(os, "environ", {"RUNNER_TOOL_CACHE": str(cache), "PATH": ""}), \
+                    mock.patch.object(sys, "_base_executable", None):
+                source = Path(str(cache).swapcase()) / "rUbY/1.2.3/X64/bin" / name
+                self.assert_rejected_origin(env, source, "<runner-tool-cache>/Ruby/1.2.3/x64/bin/" + name)
+
+    def test_runner_tool_cache_similar_prefix_and_invalid_roots_never_anchor(self):
+        env = self.environment()
+        cache = self.root.parent / (self.root.name + "-private-cache")
+        source = Path(str(cache) + "-private") / "Python/bin/api-ms-win-core-console-l1-1-0.dll"
+        with mock.patch.object(os, "environ", {"RUNNER_TOOL_CACHE": str(cache), "PATH": ""}), \
+                mock.patch.object(sys, "_base_executable", None):
+            self.assert_rejected_origin(env, source, "<unapproved>/" + source.name)
+        source = Path.cwd() / "private-account/Python/bin" / source.name
+        for value in (None, "", ".", "private-account", "C:private-account", "\x00private-account"):
+            roots = {"PATH": ""} if value is None else {"RUNNER_TOOL_CACHE": value, "PATH": ""}
+            with self.subTest(value=value), mock.patch.object(os, "environ", roots), mock.patch.object(sys, "_base_executable", None):
+                self.assert_rejected_origin(env, source, "<unapproved>/" + source.name)
+
     def test_python_and_system_native_are_explicitly_classified(self):
         env = self.environment()
         for base, name, role, component in [

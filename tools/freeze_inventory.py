@@ -126,7 +126,7 @@ class Environment:
         else:
             roots = []
             for key, prefix in (("WINDIR", "<windows>"), ("ProgramFiles", "<program-files>"),
-                                ("ProgramFiles(x86)", "<program-files-x86>")):
+                                ("ProgramFiles(x86)", "<program-files-x86>"), ("RUNNER_TOOL_CACHE", "<runner-tool-cache>")):
                 if (root := _diagnostic_path(os.environ.get(key))) is not None:
                     roots.append((root, prefix))
             if (executable := _diagnostic_path(getattr(sys, "_base_executable", None))) is not None:
@@ -136,6 +136,8 @@ class Environment:
                 root, prefix = max(matching, key=lambda item: len(item[0].parts))
                 public = {part.casefold(): part for part in ("Windows Kits", "PowerShell", "Git", "WinSxS", "System32",
                           "SysWOW64", "Redist", "ucrt", "DLLs", "bin", "mingw64", "x64", "x86", "arm64")}
+                if prefix == "<runner-tool-cache>":
+                    public.update({part.casefold(): part for part in ("Python", "PyPy", "Ruby", "node", "go", "Java", "Scripts")})
                 parts = source.relative_to(root).parts[:-1]
                 parts = [public.get(part.casefold(), part if re.fullmatch(r"[0-9]+(?:\.[0-9]+)*", part) else "<redacted>")
                          for part in parts]
