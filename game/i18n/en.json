@@ -487,5 +487,6 @@
  "按 A 准备": "Press A when ready",
  "还没有手柄。\n先运行 hub/run_hub.bat，然后打开 Regina，或用手机扫右边的二维码。": "No controllers yet.\nRun hub/run_hub.bat, then switch on a Regina or scan the QR code on the right with your phone.",
  "机器人 %d": "Bot-%d",
- "回放": "REPLAY"
+ "回放": "REPLAY",
+ "像挥拍一样快速挥动手柄（正手或反手都可以）": "Swing the controller quickly like a racket (forehand or backhand)"
 }

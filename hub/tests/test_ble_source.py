@@ -92,8 +92,10 @@ class Backend:
             return created
 
         monkeypatch.setitem(sys.modules, "bleak", SimpleNamespace(BleakScanner=Scanner, BleakClient=client))
+        # Advertisements arrive synchronously in __aenter__, so a real scan
+        # timer only couples this fake to the independently shortened GATT budget.
         for name, value in {
-            "SCAN_DURATION_S": 0.003, "SCAN_PAUSE_S": 0.005, "CONNECTED_SCAN_PAUSE_S": 0.005,
+            "SCAN_DURATION_S": 0, "SCAN_PAUSE_S": 0.005, "CONNECTED_SCAN_PAUSE_S": 0.005,
             "SCAN_RETRY_S": 0.005, "GATT_TIMEOUT_S": 0.05, "DISCONNECT_TIMEOUT_S": 0.01,
         }.items():
             monkeypatch.setattr(ble, name, value)
@@ -151,9 +153,6 @@ async def test_failed_devices_cannot_starve_a_waiting_healthy_controller(monkeyp
     # Both bad attempts finish before the next fixed-order advertisement batch.
     # Rebuilding the queue every scan would therefore select those two forever.
     monkeypatch.setattr(ble, "GATT_TIMEOUT_S", 0.005)
-    # The fake scanner advertises synchronously. Yield once rather than waiting
-    # for a sub-tick timer: Windows can round that wait beyond the scan deadline.
-    monkeypatch.setattr(ble, "SCAN_DURATION_S", 0)
     monkeypatch.setattr(ble, "SCAN_PAUSE_S", 0.02)
     source = ble.ReginaBleSource(Hub())
     task = asyncio.create_task(source.run())
@@ -189,7 +188,12 @@ async def test_pending_candidate_memory_is_bounded_and_old_adverts_expire(monkey
     assert not source._candidates and not source._retry_after
 
 
-async def test_failed_device_waits_for_backoff_then_recovers(monkeypatch):
+@pytest.mark.parametrize("clock_resolution", [None, 0.03125], ids=["native-clock", "coarse-clock"])
+async def test_failed_device_waits_for_backoff_then_recovers(monkeypatch, caplog, clock_resolution):
+    if clock_resolution is not None:
+        # Coalesce the scan sleep and its deadline in one loop iteration, as a
+        # coarse Windows clock can do even while the fake scanner is healthy.
+        monkeypatch.setattr(asyncio.get_running_loop(), "_clock_resolution", clock_resolution)
     backend = Backend(monkeypatch, [[advertisement("fixture")]], {"fixture": "connect"})
     monkeypatch.setattr(ble, "GATT_TIMEOUT_S", 0.01)
     monkeypatch.setattr(ble, "CONNECTION_RETRY_S", 0.08)
@@ -207,6 +211,7 @@ async def test_failed_device_waits_for_backoff_then_recovers(monkeypatch):
         await backend.clients[-1].disconnect()
         await wait_for(lambda: "fixture" in source._connected)
         assert len(backend.clients) == 3
+        assert "BLE scanning unavailable" not in caplog.text
     finally:
         await stop(task)
 
@@ -217,8 +222,6 @@ async def test_failed_device_backoff_memory_is_bounded(monkeypatch):
                       {device.address: "connect" for device, _ in devices})
     monkeypatch.setattr(ble, "MAX_CANDIDATES", 3)
     monkeypatch.setattr(ble, "GATT_TIMEOUT_S", 0.004)
-    # No real advertising window is needed by this synchronous fake scanner.
-    monkeypatch.setattr(ble, "SCAN_DURATION_S", 0)
     source = ble.ReginaBleSource(Hub())
     task = asyncio.create_task(source.run())
     try:

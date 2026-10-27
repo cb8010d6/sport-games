@@ -22,6 +22,34 @@ Noto Sans SC 是子集：包含游戏里出现的全部文字、GB 2312 一级�
 python tools/subset_fonts.py <google/fonts 的 NotoSansSC[wght].ttf>   # 需要 fonttools
 ```
 
+### 字体光栅与 MSDF
+
+`game/tests/font_probe.tscn` 是 57-01 的独立渲染实验，不进入 CI。当前结论是**保持 HUD 位图字体**，本卡不改字体导入设置或 `RSUi`。
+在真实渲染环境运行（协调者本机使用已确认的隐藏桌面，不使用 `--headless`）：
+
+```sh
+<Godot> --path game --resolution 1600x900 res://tests/font_probe.tscn -- --font-mode=both --shots=audit-output/font_probe
+```
+
+`--font-mode` 支持 `raster`、`msdf`、`both`（默认）；`both` 在单进程内先位图后 MSDF，每种连续采样至少 10 秒。
+两种模式都复制 HUD 字体、递归复制回退与 `FontVariation.base_font`，保留 Noto 字重；仅副本的 MSDF 开关不同，MSDF 使用 range 8、size 48。
+每种开始前移除上一种绘制命令、清空其字体副本缓存并释放引用，空画面等待 1.1 秒；不清空驱动或管线缓存。
+中文数字混排分别以 36→45、120→150、40→47 动画绘制，另有 18/24px 静态样本；统一使用 `RSUi.snap_font_size()` 与 `maxi(3, fs / 7)` 描边。
+每种输出一行 `RS_FONT_PROBE: mode=... tex_mem_start=... tex_mem_end=... first_frame_ms=... p99_frame_ms=... max_frame_ms=...`。
+纹理 start/end 是该模式副本建好、首次绘字前与 10 秒末帧后的 `Performance.RENDER_TEXTURE_MEM_USED`（bytes），含进程其他纹理；差值仅表示此时窗的引擎监测增长。
+first frame 是启用首次绘字到首个 `frame_post_draw` 的墙钟间隔（不含复制字体）；其余帧是相邻 `frame_post_draw` 间隔，p99 为包含首帧的 R7 插值，max 同样包含首帧，单位 ms。
+这些帧间隔包含调度、绘字与渲染提交等开销，不是独立 GPU 耗时；Performance 监测可能延迟更新，也不是整张 GPU 的驻留显存。
+VSync 与本进程帧率上限关闭；顺序、共享引擎/驱动缓存和系统负载仍会影响结果，单进程两段不能证明独立冷启动或 GPU 性能差异。
+提供 `--shots` 时，每种在采样外以相同峰值相位截图，最近邻放大为 3200×1800 的 `font_probe_<mode>_2x.png`；相对目录从仓库根目录解析，图片不提交。
+2026-10-26 在本机隐藏 Windows 桌面以 Godot 4.7.2（`regina_ridfix1`）、Vulkan 1.3.289 / Forward+、RTX 4060 Laptop 运行；同一进程顺序位图→MSDF，各采样10秒，测量期间没有其他本地测试。一次完整成功运行的数据如下，时间单位ms：
+
+| 模式 | 纹理 start/end（bytes） | 增长（MiB） | 首帧 | p99 | 最大帧 | 帧样本 |
+|---|---|---:|---:|---:|---:|---:|
+| raster | 8093696 / 132349952 | 118.5 | 31.324 | 0.486 | 31.324 | 30119 |
+| msdf | 8093696 / 12288000 | 4.0 | 113.225 | 0.465 | 113.225 | 30777 |
+
+本组固定语料中，MSDF 的纹理增长较小，但首帧更慢；2× 对照图中数字内缘和中文描边出现破损、尖刺，小字号清晰度未达到当前位图效果。按本卡固定 range 8 / size 48 的结果保持位图，不据此实施全面 MSDF 切换。仅拉丁数字的独立方案、更多字集、CJK 导入时间和包体变化均未测量，需另行确认；本次单场景、顺序运行的数据不能代表整个游戏性能。
+
 ## 颜色
 
 | 常量 | 用途 |

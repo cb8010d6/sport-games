@@ -26,10 +26,16 @@ func _check(ok: bool, message: String) -> void:
 func _run() -> void:
 	_course_lookups()
 	_clock()
+	_rig_view_tier()
 	await _riders_at_30fps()
+	await _idle_loops()
 	_split_shadow_tier()
+	await _ball_fire_shared()
+	_ski_snow_budget()
 	for i in 3:   # let freed riders' rendering resources go before quitting
 		await get_tree().process_frame
+	# Headless frames can finish before the audio thread releases freed riders' cues.
+	await get_tree().create_timer(0.25).timeout
 	print("RS_PERF_TESTS: %d checks, %d failures" % [_checks, _failures])
 	get_tree().quit(1 if _failures else 0)
 
@@ -155,6 +161,117 @@ func _clock() -> void:
 	_check(clk.draw(Vector3(30, 0, 0)) == Vector3(30, 0, 0), "draw() does not blend across a teleport")
 
 
+func _rig_view_tier() -> void:
+	if not ResourceLoader.exists(RSSkaterRig.RIDERS[1]):
+		print("RS_PERF_SKIP: rider model not checked out; rig view tier check skipped")
+		return
+	var saved_quality := RSSettings.quality
+	var saved_upscale := RSSettings.upscale
+	RSSettings.quality = 2
+	RSSettings.upscale = 0
+	RSSettings.set_views(1, null)
+	var rig := RSHumanRig.new()
+	rig.add_child(rig.body)
+	add_child(rig)
+	rig._load_character(RSSkaterRig.RIDERS[1])
+	_check_rig_tier(rig, false)
+	var before := rig.shadow_casters()
+	var baseline: Array = []
+	for mesh: MeshInstance3D in rig.find_children("*", "MeshInstance3D", true, false):
+		for i in mesh.mesh.get_surface_count():
+			var material := mesh.mesh.surface_get_material(i) as StandardMaterial3D
+			if material != null:
+				baseline.append([material, material.subsurf_scatter_enabled, material.alpha_antialiasing_mode, material.roughness, material.albedo_color])
+	RSSettings.set_views(2, self)
+	_check_rig_tier(rig, false)
+	_check(rig.shadow_casters() == before, "two views keep the one-view shadow casters (#53-01)")
+	RSSettings.set_views(3, self)
+	_check_rig_tier(rig, true)
+	var after := rig.shadow_casters()
+	_check(after > 0 and after < before, "split tier removes only the fine-part shadow casters (#53-01)")
+	RSSettings.set_views(4, self)
+	var second := RSHumanRig.new()
+	second.add_child(second.body)
+	add_child(second)
+	second._load_character(RSSkaterRig.RIDERS[1])
+	_check_rig_tier(rig, true)
+	_check_rig_tier(second, true)
+	_check(second.shadow_casters() == after, "a newly built four-view rig starts in the split tier (#53-01)")
+	for quality: int in [0, 1, 2]:
+		RSSettings.quality = quality
+		RSSettings.apply_world(self)
+		_check_rig_tier(rig, true)
+		_check_rig_tier(second, true)
+	RSSettings.quality = 3
+	RSSettings.apply_world(self)
+	_check_rig_tier(rig, false)
+	_check_rig_tier(second, false)
+	_check(rig.shadow_casters() == before and second.shadow_casters() == before, "switching to ultra restores four-view character detail (#53-01)")
+	RSSettings.set_views(3, self)
+	_check_rig_tier(rig, false)
+	var ultra := RSHumanRig.new()
+	ultra.add_child(ultra.body)
+	add_child(ultra)
+	ultra._load_character(RSSkaterRig.RIDERS[1])
+	_check_rig_tier(ultra, false)
+	_check(ultra.shadow_casters() == before, "a newly built ultra rig keeps all shadow casters with three views (#53-01)")
+	RSSettings.quality = 2
+	RSSettings.apply_world(self)
+	_check_rig_tier(rig, true)
+	_check_rig_tier(second, true)
+	_check_rig_tier(ultra, true)
+	RSSettings.quality = 3
+	RSSettings.apply_world(self)
+	RSSettings.set_views(4, self)
+	_check_rig_tier(rig, false)
+	_check_rig_tier(second, false)
+	_check_rig_tier(ultra, false)
+	print("RS_PERF_RIG_ULTRA: shadow casters per rig %d -> %d, lod_bias 1.00 -> %.2f" % [before, ultra.shadow_casters(), (ultra._quality_meshes[0] as MeshInstance3D).lod_bias])
+	RSSettings.set_views(2, self)
+	_check_rig_tier(rig, false)
+	_check_rig_tier(second, false)
+	_check_rig_tier(ultra, false)
+	RSSettings.set_views(1, self)
+	_check(rig.shadow_casters() == before and second.shadow_casters() == before, "returning to one view restores every character shadow caster (#53-01)")
+	for entry: Array in baseline:
+		var material := entry[0] as StandardMaterial3D
+		_check(material.subsurf_scatter_enabled == entry[1] and material.alpha_antialiasing_mode == entry[2]
+			and material.roughness == entry[3] and material.albedo_color == entry[4], "one/two-view material values restore exactly (#53-01)")
+	print("RS_PERF_RIG: shadow casters per rig %d -> %d, lod_bias 1.00 -> %.2f" % [before, after, RSHumanRig.SPLIT_LOD_BIAS])
+	RSSettings.quality = saved_quality
+	RSSettings.upscale = saved_upscale
+	RSSettings.set_views(1, null)
+	RSSettings.apply_world(self)
+	rig.free()
+	second.free()
+	ultra.free()
+
+
+func _check_rig_tier(rig: RSHumanRig, split: bool) -> void:
+	var details := 0
+	var skins := 0
+	for mesh: MeshInstance3D in rig.find_children("*", "MeshInstance3D", true, false):
+		_check(is_equal_approx(mesh.lod_bias, RSHumanRig.SPLIT_LOD_BIAS if split else 1.0), "actual character mesh follows the view LOD tier (#53-01)")
+		var part := String(mesh.name).to_lower()
+		var fine := part.contains("eyebrow") or part.contains("eyelash") or RSHumanRig._is_hair(part)
+		if fine:
+			details += 1
+			_check(mesh.cast_shadow == (GeometryInstance3D.SHADOW_CASTING_SETTING_OFF if split else GeometryInstance3D.SHADOW_CASTING_SETTING_ON), "actual fine-part mesh restores its shadow mode (#53-01)")
+		else:
+			_check(mesh.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_ON, "opaque character parts retain shadows in the split tier (#53-01)")
+		for i in mesh.mesh.get_surface_count():
+			var material := mesh.mesh.surface_get_material(i) as StandardMaterial3D
+			if material == null:
+				continue
+			if part.contains("body"):
+				skins += 1
+				_check(material.subsurf_scatter_enabled == (RSSettings.quality >= 2 and not split), "actual skin combines quality and split SSS gates (#53-01)")
+			if fine:
+				var expected := BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE if RSSettings.upscale == 0 and RSSettings.quality >= 1 else BaseMaterial3D.ALPHA_ANTIALIASING_OFF
+				_check(material.alpha_antialiasing_mode == expected, "split tier preserves the original MSAA/A2C rule (#53-01)")
+	_check(details > 0 and skins > 0, "real rider model exercises both fine parts and skin (#53-01)")
+
+
 func _riders_at_30fps() -> void:
 	## Real riders driven by bots at a steady 30 FPS: the cap holds every frame and they ride.
 	## CI checks out the game without the character art; the clock checks above still run there.
@@ -186,6 +303,85 @@ func _riders_at_30fps() -> void:
 	_check(sr.s() > 25.0, "the skier rides down the slope at 30 FPS (s = %.1f)" % sr.s())
 	_check(sk.draw_pos.distance_to(sk.pos) < 1.0 and sr.draw_pos.distance_to(sr.pos) < 1.0, "riders are drawn next to their simulated position")
 	print("RS_PERF_RIDERS: skater + skier step at 30 FPS: %.1f us per frame" % spent)
+	sk.free()
+	sr.free()
+	skate.free()
+	ski.free()
+	for i in 3:
+		await get_tree().process_frame
+
+
+func _ball_fire_shared() -> void:
+	var first := RSBasketball.new()
+	var second := RSBasketball.new()
+	add_child(first)
+	add_child(second)
+	first.set_fire(true)
+	var before := int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT))
+	second.set_fire(true)
+	var added := int(Performance.get_monitor(Performance.OBJECT_RESOURCE_COUNT)) - before
+	_check(first._fire.process_material == second._fire.process_material, "basketball fires share the process material")
+	_check(first._fire.draw_pass_1 == second._fire.draw_pass_1, "basketball fires share the particle mesh and its materials")
+	_check(added <= 1, "second ball fire creates at most one internal resource (%d)" % added)
+	print("RS_PERF_FIRE: resources per new fire 9 -> %d" % added)
+	var resources := RSBasketball.fire_resources()
+	var process := first._fire.process_material
+	second.set_fire(false)
+	second.set_layers(8)
+	_check(first._fire.emitting and not second._fire.emitting, "fire emission is independent for each ball")
+	_check(first._fire.layers != second._fire.layers and first._fire.process_material == process,
+		"per-ball layers do not mutate shared fire resources")
+	first.free()
+	second.free()
+	var children_before := get_child_count()
+	RSBasketball.warm_up_fire(self)
+	_check(get_child_count() == children_before + 1, "fire warm-up temporarily owns one particle node")
+	for i in 3:
+		await get_tree().process_frame
+	_check(get_child_count() == children_before, "fire warm-up frees its temporary node after a frame")
+	_check(RSBasketball.fire_resources() == resources, "warm-up reuses the same cached resource array")
+
+
+func _idle_loops() -> void:
+	if not (ResourceLoader.exists(RSSkaterRig.RIDERS[1]) and ResourceLoader.exists(RSSkierRig.SKIERS[1])):
+		print("RS_PERF_SKIP: rider models not checked out; idle loop check skipped")
+		return
+	var skate := RSSkateCourse.new()
+	var sk := RSSkater.new(skate, Color.WHITE, 1, 0)
+	add_child(sk)
+	var ski := RSSkiCourse.new(0)
+	var sr := RSSkier.new(ski, Color.WHITE, 1, 0)
+	add_child(sr)
+	await get_tree().process_frame
+	var sk_before := sk.active_loops()
+	var sr_before := sr.active_loops()
+	_check(sk_before == 4 and sr_before == 3, "new riders expose all four / three unpaused loops")
+	# place() runs visuals/audio with delta 0 and correctly pauses the initial -80 dB.
+	# Sample the factory state above, before placement applies that idle-audio update.
+	sk.place(0.0, RSSkateCourse.START_S)
+	sr.place(0.0, 5.0)
+	for rider in [sk, sr]:
+		var loop: AudioStreamPlayer = rider._wind
+		rider._set_loop_db(loop, rider.SILENT_DB)
+		_check(loop.stream_paused and loop.volume_db == rider.SILENT_DB, "loop pauses at the inclusive silent threshold")
+		rider._set_loop_db(loop, rider.SILENT_DB + 0.1)
+		_check(not loop.stream_paused, "loop resumes immediately above the threshold")
+	sk.quiet()
+	sr.quiet()
+	_check(sk.active_loops() == 0 and sr.active_loops() == 0, "quiet pauses every rider loop")
+	print("RS_PERF_LOOPS: idle skater %d -> %d, idle skier %d -> %d" % [
+		sk_before, sk.active_loops(), sr_before, sr.active_loops()])
+	var sk_bot := RSSkateBot.new(sk, 4100)
+	var sr_bot := RSSkiBot.new(sr, 91)
+	for i in 60:
+		var dt := 1.0 / 30.0
+		sk.step(dt, sk_bot.update(dt), true)
+		sr.step(dt, sr_bot.update(dt), true)
+	_check(sk.active_loops() > 0, "the moving skater automatically resumes a loop after quiet")
+	_check(sr.active_loops() > 0, "the moving skier automatically resumes a loop after quiet")
+	sk.quiet()
+	sr.quiet()
+	_check(sk.active_loops() == 0 and sr.active_loops() == 0, "quiet works again after bot-driven resumption")
 	sk.free()
 	sr.free()
 	skate.free()
@@ -244,3 +440,29 @@ func _split_shadow_tier() -> void:
 	_check(late.directional_shadow_mode == DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS and late.directional_shadow_max_distance == 90.0,
 		"leaving the tier restores the late sun's scene values")
 	world.free()
+
+
+# ----------------------------------------------------------------- ski snowfall budget ----
+
+func _ski_snow_budget() -> void:
+	_check(RSSkiSnow.ratio(0.0, 4) == 0.0 and RSSkiSnow.ratio(-1.0, 4) == 0.0, "snow: dry maps emit no particles")
+	_check(RSSkiSnow.ratio(1.0, 1) == 1.0, "snow: one view retains full storm density")
+	_check(RSSkiSnow.ratio(1.0, 4) == 0.5 and RSSkiSnow.ratio(1.0, 3) == 0.5, "snow: three or four views halve storm density")
+	_check(RSSkiSnow.ratio(0.25, 2) == 0.25, "snow: two views retain night-map density")
+	_check(RSSkiSnow.ratio(0.001, 4) == 0.01, "snow: nonzero snowfall keeps the minimum particle ratio")
+	var low := RSSkiSnow.make(1, 0)
+	var high := RSSkiSnow.make(1, 2)
+	_check(not (low.process_material as ParticleProcessMaterial).turbulence_enabled, "snow: low quality disables turbulence")
+	_check((high.process_material as ParticleProcessMaterial).turbulence_enabled, "snow: normal quality retains turbulence")
+	for ps: GPUParticles3D in [low, high]:
+		_check(ps.amount == RSSkiSnow.AMOUNT and ps.layers == 1 and not ps.emitting, "snow: construction preserves the amount, camera layer and initially stopped emission")
+		RSSkiSnow.apply(ps, 1.0, 1)
+		_check(ps.emitting and ps.amount_ratio == 1.0, "snow: applying a storm map starts full snowfall")
+		RSSkiSnow.apply(ps, 1.0, 4)
+		_check(ps.emitting and ps.amount_ratio == 0.5, "snow: adding split views updates the particle budget")
+		RSSkiSnow.apply(ps, 0.0, 4)
+		_check(not ps.emitting and ps.amount_ratio == 0.0, "snow: switching to a dry map stops snowfall")
+		RSSkiSnow.apply(ps, 0.25, 2)
+		_check(ps.emitting and ps.amount_ratio == 0.25, "snow: returning to a night map restores snowfall")
+		ps.free()
+	print("RS_PERF_SNOW: storm map, 4 views: %d -> %d particles" % [5 * RSSkiSnow.AMOUNT, roundi(4 * RSSkiSnow.AMOUNT * RSSkiSnow.ratio(1.0, 4))])
