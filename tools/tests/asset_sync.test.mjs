@@ -3,8 +3,9 @@ import assert from 'node:assert/strict';
 import fs from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
+import { execFileSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
-import { installAsset, nodeVersionSupported, request, resolveFile, safePath, sha256, validateManifest, validateUrl } from '../sync_assets.mjs';
+import { cachePaths, installAsset, main, nodeVersionSupported, request, resolveFile, safePath, sha256, validateManifest, validateUrl } from '../sync_assets.mjs';
 import { sanitizeJpegProcessingHistory } from '../asset_metadata.mjs';
 import { policyRule, shadowedRules } from '../asset_policy.mjs';
 
@@ -15,6 +16,118 @@ function item(bytes) {
     sha256: sha256(bytes), downloadSha256: sha256(bytes) };
 }
 const response = bytes => new Response(bytes);
+
+function lockedFixture(bytes) {
+  const root = fixture(), entry = { ...item(bytes), asset: 'fixture', selector: ['bin'] };
+  const manifest = { version: 1, files: [entry] };
+  fs.mkdirSync(path.join(root, 'tools'));
+  fs.writeFileSync(path.join(root, 'tools/assets.lock.json'), JSON.stringify(manifest));
+  return { root, entry, manifest };
+}
+
+function offlineRun(root) {
+  const output = [], errors = [];
+  let calls = 0;
+  return { output, errors, calls: () => calls, options: { root,
+    fetcher: async () => { calls++; throw new Error('Network is forbidden on a cache hit'); },
+    log: text => output.push(text), error: text => errors.push(text) } };
+}
+
+test('an exact cache hit checks locked bytes with API and downloads forbidden', async () => {
+  const bytes = Buffer.from('warm cache'), { root, entry } = lockedFixture(bytes);
+  const dest = safePath(root, entry.path), run = offlineRun(root);
+  fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.writeFileSync(dest, bytes);
+  assert.equal(await main(['--check'], run.options), 0);
+  assert.equal(run.calls(), 0);
+  assert.equal(run.output.at(-1), 'Verified 1; downloaded 0; missing/failed 0.');
+  assert.deepEqual(run.errors, []);
+});
+
+test('missing or corrupt cache hits fail offline without repairing the cache', async () => {
+  for (const contents of [null, 'corrupt cache']) {
+    const { root, entry } = lockedFixture(Buffer.from('warm cache'));
+    const dest = safePath(root, entry.path), run = offlineRun(root);
+    if (contents !== null) {
+      fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.writeFileSync(dest, contents);
+    }
+    assert.equal(await main(['--check'], run.options), 1);
+    assert.equal(run.calls(), 0);
+    assert.ok(run.errors.some(error => error.startsWith(entry.path + ':')));
+    assert.equal(run.output.at(-1), 'Verified 0; downloaded 0; missing/failed 1.');
+    assert.equal(fs.existsSync(dest) ? fs.readFileSync(dest, 'utf8') : null, contents);
+  }
+});
+
+test('a symlink in a cache destination fails offline and reports its locked path', async () => {
+  const bytes = Buffer.from('warm cache'), { root, entry } = lockedFixture(bytes), run = offlineRun(root);
+  const target = path.join(root, 'cached'), link = path.join(root, 'game/assets/polyhaven');
+  fs.mkdirSync(target); fs.writeFileSync(path.join(target, 'fixture.bin'), bytes);
+  fs.mkdirSync(path.dirname(link), { recursive: true });
+  fs.symlinkSync(target, link, process.platform === 'win32' ? 'junction' : 'dir');
+  await assert.rejects(main(['--check'], run.options), error => error.message.includes('symlink') && error.message.includes(entry.path));
+  assert.equal(run.calls(), 0);
+  assert.deepEqual(run.output, []);
+  assert.deepEqual(fs.readFileSync(path.join(target, 'fixture.bin')), bytes);
+});
+
+test('a cold sync installs locked bytes and passes a subsequent offline check', async () => {
+  const bytes = Buffer.from('cold cache'), { root } = lockedFixture(bytes), calls = [];
+  const run = offlineRun(root);
+  assert.equal(await main([], { ...run.options, fetcher: async url => {
+    calls.push(url.href);
+    return url.hostname === 'api.polyhaven.com' ? response(JSON.stringify({ bin: remote })) : response(bytes);
+  } }), 0);
+  assert.deepEqual(calls, ['https://api.polyhaven.com/files/fixture', remote.url]);
+  assert.equal(await main(['--check'], run.options), 0);
+  assert.equal(run.calls(), 0);
+  assert.equal(run.output.at(-1), 'Verified 1; downloaded 0; missing/failed 0.');
+});
+
+test('cache paths output contains only validated locked paths with no network or banner', async () => {
+  const { root, entry } = lockedFixture(Buffer.from('cache paths')), run = offlineRun(root);
+  execFileSync('git', ['-C', root, 'init', '--quiet']);
+  assert.equal(await main(['--cache-paths'], run.options), 0);
+  assert.deepEqual(run.output, [entry.path]);
+  assert.deepEqual(run.errors, []);
+  assert.equal(run.calls(), 0);
+  for (const extra of ['--check', '--list', '--force', '--only'])
+    await assert.rejects(main(['--cache-paths', extra, ...(extra === '--only' ? ['fixture'] : [])], run.options));
+});
+
+test('cache paths reject newline/glob expansion, directories and non-raw files', () => {
+  const { root, entry } = lockedFixture(Buffer.from('cache paths'));
+  for (const name of ['x\ny.jpg', 'x\ry.jpg', 'x\u2028y.jpg', 'x*y.jpg', 'x?y.jpg', '[xy].jpg', '{x,y}.jpg',
+    '!x.jpg', 'x@(y).jpg', 'x y.jpg', '.godot/x.jpg', 'CREDITS.md', 'x.gltf', 'x.jpg.import', 'x.mjs'])
+    assert.throws(() => cachePaths({ version: 1, files: [{ ...entry, path: 'game/assets/polyhaven/' + name }] }, root), /Unsafe asset cache path/);
+  fs.mkdirSync(safePath(root, entry.path), { recursive: true });
+  assert.throws(() => cachePaths({ version: 1, files: [entry] }, root), /Unsafe asset cache path/);
+});
+
+test('cache paths reject Git-tracked intersections before emitting any path', async () => {
+  const bytes = Buffer.from('tracked cache'), { root, entry, manifest } = lockedFixture(bytes);
+  const dest = safePath(root, entry.path), run = offlineRun(root);
+  fs.mkdirSync(path.dirname(dest), { recursive: true }); fs.writeFileSync(dest, bytes);
+  execFileSync('git', ['-C', root, 'init', '--quiet']);
+  execFileSync('git', ['-C', root, 'add', '--force', '--', entry.path]);
+  assert.throws(() => cachePaths(manifest, root), /overlaps a Git-tracked path/);
+  await assert.rejects(main(['--cache-paths'], run.options), /overlaps a Git-tracked path/);
+  assert.deepEqual(run.output, []);
+  assert.equal(run.calls(), 0);
+});
+
+test('cache paths reject case aliases and ancestor/descendant overlap within missing candidates', () => {
+  const { root, entry } = lockedFixture(Buffer.from('cache paths'));
+  execFileSync('git', ['-C', root, 'init', '--quiet']);
+  for (const paths of [
+    ['fixture.bin', 'FIXTURE.bin'],
+    ['foo.bin', 'foo.bin/child.bin'],
+    ['foo.bin/child.bin', 'foo.bin']
+  ]) {
+    const manifest = { version: 1, files: paths.map(name => ({ ...entry, path: 'game/assets/polyhaven/' + name })) };
+    assert.ok(manifest.files.every(file => !fs.existsSync(safePath(root, file.path))));
+    assert.throws(() => cachePaths(manifest, root), /Asset cache paths overlap/);
+  }
+});
 
 test('verified local files need no network request', async () => {
   const root = fixture(), bytes = Buffer.from('known asset'), entry = item(bytes), dest = safePath(root, entry.path);
