@@ -9,6 +9,13 @@ const SwingClassifyCases := preload("res://tests/swing_classify_cases.gd")
 var _failures := 0
 
 
+class QualityProbe extends Node:
+	var calls := 0
+
+	func apply_quality() -> void:
+		calls += 1
+
+
 func _ready() -> void:
 	if OS.get_environment("RS_TEST_MODE") != "1":
 		push_error("Use tools/test_game.py: these tests need an isolated user data directory.")
@@ -109,6 +116,7 @@ func _run() -> void:
 	_check(RSSettings.volumes == [9, 0, 6, 5] and RSSettings.color_safe, "settings round trip")
 	_quality_cases()
 	_local_shadow_cases()
+	_quality_refresh_cases()
 	# Menu glyph discs come from the RSUi factory (#57).
 	var glyph := RSUi.glyph_style()
 	_check(glyph.bg_color == RSUi.TEXT and glyph.corner_radius_top_left == 14, "menu glyph style comes from RSUi (#57)")
@@ -262,6 +270,58 @@ func _local_shadow_cases() -> void:
 	probe.free()
 	RSSettings.quality = saved_quality
 	RSSettings.views = saved_views
+
+
+func _quality_refresh_cases() -> void:
+	var saved_quality := RSSettings.quality
+	var saved_upscale := RSSettings.upscale
+	var orphan_count := Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT)
+	var root := QualityProbe.new()
+	root.add_to_group(RSSettings.QUALITY_GROUP)
+	add_child(root)
+	var rig := RSHumanRig.new()
+	rig.add_child(rig.body)
+	root.add_child(rig)
+	var skin := StandardMaterial3D.new()
+	var hair := StandardMaterial3D.new()
+	var eye := StandardMaterial3D.new()
+	rig._tune_material(skin, "body")
+	rig._tune_material(hair, "ponytail")
+	rig._tune_material(eye, "eyes")
+	eye.subsurf_scatter_enabled = true
+	_check(rig.is_in_group(RSSettings.QUALITY_GROUP) and rig._quality_materials.size() == 2, "rig construction registers only gated materials (#57-06)")
+	var listener := QualityProbe.new()
+	listener.add_to_group(RSSettings.QUALITY_GROUP)
+	root.add_child(listener)
+	var ungrouped := QualityProbe.new()
+	root.add_child(ungrouped)
+	var outside := QualityProbe.new()
+	outside.add_to_group(RSSettings.QUALITY_GROUP)
+	add_child(outside)
+	var missing := Node.new()
+	missing.name = "MissingQualityMethod"
+	missing.add_to_group(RSSettings.QUALITY_GROUP)
+	root.add_child(missing)
+	for upscale: int in [0, 2, 0]:
+		RSSettings.upscale = upscale
+		for quality: int in [3, 0, 3]:
+			RSSettings.quality = quality
+			RSSettings.apply_world(root)
+			_check(skin.subsurf_scatter_enabled == (quality >= 2), "existing skin SSS refreshes high -> low -> high (#57-06)")
+			var expected := BaseMaterial3D.ALPHA_ANTIALIASING_ALPHA_TO_COVERAGE_AND_TO_ONE if upscale == 0 and quality >= 1 else BaseMaterial3D.ALPHA_ANTIALIASING_OFF
+			_check(hair.alpha_antialiasing_mode == expected, "existing alpha cards refresh native -> FSR -> native (#57-06)")
+	_check(root.calls == 9 and listener.calls == 9, "quality refresh includes root and each descendant exactly once (#57-06)")
+	_check(ungrouped.calls == 0 and outside.calls == 0, "quality refresh ignores ungrouped nodes and other subtrees (#57-06)")
+	_check(eye.subsurf_scatter_enabled and is_equal_approx(skin.roughness, 0.52), "refresh leaves unrelated material values alone (#57-06)")
+	remove_child(root)
+	RSSettings.quality = 0
+	RSSettings.apply_world(root)
+	_check(not skin.subsurf_scatter_enabled and root.calls == 10, "quality listeners also refresh in an off-tree subtree (#57-06)")
+	root.free()
+	outside.free()
+	_check(Performance.get_monitor(Performance.OBJECT_ORPHAN_NODE_COUNT) == orphan_count, "live quality probes release every owned node (#57-06)")
+	RSSettings.quality = saved_quality
+	RSSettings.upscale = saved_upscale
 
 
 func _font_cases() -> void:

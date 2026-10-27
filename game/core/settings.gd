@@ -37,6 +37,7 @@ const TEXT_SCALES := [1.0, 1.25]
 const SPLIT_TIER_VIEWS := 3
 const SPLIT_SHADOW_DISTANCE := 0.6    ## share of the scene's shadow distance kept
 const SPLIT_SHADOW_SPLIT := 0.25      ## the near cascade's share of that distance
+const QUALITY_GROUP := &"rs_quality"  ## nodes with apply_quality(); scoped to apply_world's root
 
 static var fps := 0                          ## index into FPS
 static var quality := 2                      ## index into QUALITY_NAMES
@@ -247,6 +248,19 @@ static func apply_world(root: Node) -> void:
 	for light_type: String in ["OmniLight3D", "SpotLight3D"]:
 		for light: Light3D in root.find_children("*", light_type, true, false):
 			local_shadows(light)
+	_apply_node_quality(root)
+	for node: Node in root.find_children("*", "", true, false):
+		_apply_node_quality(node)
+
+
+static func _apply_node_quality(node: Node) -> void:
+	if not node.is_in_group(QUALITY_GROUP):
+		return
+	if node.has_method(&"apply_quality"):
+		node.call(&"apply_quality")
+	elif not node.has_meta(&"_rs_quality_warning"):
+		node.set_meta(&"_rs_quality_warning", true)
+		push_warning("QUALITY_GROUP node lacks apply_quality(): %s" % node.name) # no-i18n
 
 
 static func apply_viewport(vp: Viewport) -> void:
@@ -270,15 +284,11 @@ static func apply_viewport(vp: Viewport) -> void:
 
 static func set_views(n: int, root: Node) -> void:
 	## How many 3D views are drawn now (RSPartyViews keeps this current). Crossing the split
-	## tier re-applies the sun and local shadows under root.
+	## tier refreshes sun / local shadows and quality listeners under root.
 	var was := split_tier()
 	views = maxi(n, 1)
 	if split_tier() != was and root != null and root.is_inside_tree():
-		for sun: DirectionalLight3D in root.find_children("*", "DirectionalLight3D", true, false):
-			sun_shadows(sun)
-		for light_type: String in ["OmniLight3D", "SpotLight3D"]:
-			for light: Light3D in root.find_children("*", light_type, true, false):
-				local_shadows(light)
+		apply_world(root)
 
 
 static func split_tier() -> bool:
