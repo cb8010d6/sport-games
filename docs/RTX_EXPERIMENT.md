@@ -6,13 +6,34 @@
 实验目标是 `experiment/nvidia-rtx`，不向 `dev` / `main` 推送。
 
 当前实验引擎来源与版本见 [rtx_engine.json](../tools/rtx_engine.json)，固定个人 fork
-`cb8010d6/godot` 的 `d29e7065306d670a643ca0ea7a362c4b38cea3c5`（D29）。
+`cb8010d6/godot` 的 `b3763e7c7ef8e621e2e19018589e5a022aba1f82`（b376）。
 这是经过审查的个人引擎补丁系列，不是 NVIDIA 上游已有提交。
 编辑器、导出模板和 Streamline 2.14.16 运行库必须成套，不能用标准模板导出实验工程。
 SDK 与运行库按 NVIDIA 自身许可分发，本游戏仓库不收录 SDK 或二进制构建产物。
-本文保留的 C1/A738 记录属于历史验收，不自动转为 D29 的通过记录。
+本文保留的 C1/A738/D29 记录属于各自提交的历史验收，不自动转为 b376 的通过记录。
 
-## 最新预热与 Vulkan 复验
+## 当前目标：光栅与 DLSS 超分
+
+本轮只比较官方 4.7.2 的 FSR2 质量档与 4.8 b376 的 DLSS 质量档，均为 Vulkan
+Forward+、光栅、高画质、60 帧上限、V-Sync 开、HDR 关闭、NIS 0、启动时不加载 FG 插件。
+两种超分的锐化设置不同：FSR 0.2、DLSS 0。滑板与滑雪各以单人和四人机器人自然比赛，
+两引擎另有单人滑板原生分辨率对照，共 10 局功能检查通过；这不是输入延迟、无上限性能或真人手感结论。
+
+b376 另在单人及四人滑板 DLSS 场景完成进入 PLAY 后各 12 秒墙钟时间的短时 Vulkan 严格同步检查，
+范围见 [b376 验证摘要](validation/rtx-b3763e7c7e.json)，不代表整个比赛或其他 RTX 模式严格干净。
+先前 D29 在四人成绩切换出现的复合重投影矩阵求逆错误，b376 的三次强制切换回归未再观察到；
+这只覆盖该复现，不等于所有矩阵或历史状态问题都已解决。A/B 两个隔离试玩入口完成短时启动、
+真实 Hub 连接、截图、自然退出及进程清理检查；真实 BLE 手柄、手机配对和真人手感仍待验收。
+
+标准 release 安装模板已完成游戏导出与 PCK 内容检查；Vulkan 光栅 + DLSS 质量请求的生产入口
+生成三张截图后通过 RSExit 自然退出。该短时运行使用 `--fixed-fps 60`，不用于推断性能或完整比赛；
+导出前后游戏源代码和素材未变化。滑板、滑雪的两引擎单人短时突发采集共 4 例通过，每例 19 张；
+这是采集结果，选定原始静帧已复核，连续画面的时域质量和真人手感尚未认证。
+[引擎证据报告](https://github.com/cb8010d6/godot/blob/42062b5ce1051acea1f3c1f8ebf2538a422856db/devtools/RASTER_DLSS_ACCEPTANCE_2026_10_27.md) 已发布到个人 fork；GPU 运行日期仍为 2026-10-27，
+后续证据整理与 CPU 交付复核不代表重新执行 GPU 测试。
+本轮没有重新验收 PT、RR、FG 或 .NET；下文历史结果和失败保持原归属，不转为 b376 通过。
+
+## D29 历史预热与 Vulkan 复验
 
 D29 的六种 Windows 目标、标准/.NET 冒烟、四种安装模板导出与实际游戏 PCK 启动均通过。
 游戏程序输入固定为 `3d51851c6eec09ff4cb8a2b0f818e837d06ca4e8`，后补的文档提交不重标 GPU SHA。
@@ -36,7 +57,7 @@ RR 自动/F 预设的 Vulkan 严格同步验证仍失败。独立请求 D、启�
 - NVIDIA 菜单的 DLSS 锐化控制复用引擎的 `fsr_sharpness` / NIS，默认显式为 0。
   切回 FSR 后恢复原来的 FSR 锐化值。没有增加 MFG、动态 MFG 或 DLSS 5。
 - DLSS 能力不可用时保留用户请求，并按对应的 FSR 档回退；菜单明确显示回退。
-  游戏菜单暂不提供 NVIDIA 超级性能；本次真实游戏矩阵覆盖 DLAA、质量和性能档。
+  游戏菜单暂不提供 NVIDIA 超级性能；早期真实游戏矩阵覆盖 DLAA、质量和性能档。
 - DDGI / PT + RR 需要 Vulkan Forward+、实际光追管线和对应属性。
   PT + RR 还要求 DLAA / DLSS、SDK 的 DLSS RR 能力，使用 1 sample/pixel。
   D3D12 的光追管线在此 fork 尚不可用，因此保持光栅；Windows HDR 仍沿用 D3D12 路径。
@@ -80,7 +101,7 @@ Recommended 预设、锐化 0、FG 关闭；光栅为原生、MSAA / FXAA 关闭
 
 ## 验收边界与来源
 
-当前 A738 在 RTX 4060 Laptop GPU 上完成短时真实游戏材质复验：Vulkan 的 6 个 PT 关闭 / 开启
+历史 A738 在 RTX 4060 Laptop GPU 上完成短时真实游戏材质复验：Vulkan 的 6 个 PT 关闭 / 开启
 RR 用例、4 个分屏 PT / RR 用例、2 个 DDGI 用例均通过。游戏的导数兼容分支与引擎的真实实例数据、
 实例位移缓存隔离及受限不透明顶点色修复一起受测；范围与剩余限制见
 [PT_MATERIAL_COMPATIBILITY.md](PT_MATERIAL_COMPATIBILITY.md) 和
@@ -111,7 +132,7 @@ Regina 本体另以 A738 标准安装模板完成冷导入、release 导出及�
 不能标成 C1 重跑通过。此前 d37 游戏画面运行因工具哈希变化导致的整体 FAIL 也保持原样。
 Vulkan SDK 2.14 仍有 `09600` / `03868` 验证诊断，FG 另有内部同步与线程诊断；
 本分支不能称为发布候选版本。
-独立 Windows 试玩入口默认 D3D12；显式选择 Vulkan 试验光追时仍受上述 SDK 验证问题限制。
+历史 Windows 试玩入口默认 D3D12；本轮 A/B 入口使用 Vulkan 光栅，旧光追验证问题仍按原记录保留。
 属性设置成功、headless 通过或单个菜单截图都不能替代实际 RTX / HDR / 性能验证。
 
 本次源代码适配由 OpenAI Codex 辅助完成；没有新增 AI 素材或第三方资产。

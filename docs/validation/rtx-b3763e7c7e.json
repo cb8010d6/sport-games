@@ -1,0 +1,182 @@
+{
+  "schemaVersion": 1,
+  "date": "2026-10-27",
+  "status": "EXPERIMENTAL_FUNCTIONAL_MATRIX_PASS; human play and temporal quality pending",
+  "engineRepository": "https://github.com/cb8010d6/godot",
+  "engineCommit": "b3763e7c7ef8e621e2e19018589e5a022aba1f82",
+  "enginePublicationStatus": "PUBLISHED_TO_PERSONAL_FORK",
+  "gameProgramTestedCommit": "3d51851c6eec09ff4cb8a2b0f818e837d06ca4e8",
+  "baseline": {
+    "engine": "Godot 4.7.2 stable official",
+    "exeSha256": "ab1824f85bfd8e0e4128182c000c4003a3e042245b2967848d089b2a04b22424"
+  },
+  "candidateEditorSha256": "c6c7af301169c21df68b9cce0a419b660bbe445df0719b911cc6a1cc64602c62",
+  "publicEvidence": {
+    "status": "PUBLISHED",
+    "engineRepositoryRelativeReport": "devtools/RASTER_DLSS_ACCEPTANCE_2026_10_27.md",
+    "evidenceCommit": "42062b5ce1051acea1f3c1f8ebf2538a422856db",
+    "rawEvidenceIncludedInGameRepository": false,
+    "reportUrl": "https://github.com/cb8010d6/godot/blob/42062b5ce1051acea1f3c1f8ebf2538a422856db/devtools/RASTER_DLSS_ACCEPTANCE_2026_10_27.md"
+  },
+  "scope": {
+    "renderer": "Vulkan Forward+ raster",
+    "device": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "resolution": "1600x900",
+    "quality": 2,
+    "frameRateCap": 60,
+    "vsync": true,
+    "hdr": false,
+    "nvidiaLighting": 0,
+    "nvidiaSharpness": 0,
+    "frameGeneration": false,
+    "frameGenerationPluginInitialized": false,
+    "streamlineOtaDisabled": true,
+    "baselineUpscaling": "FSR2 Quality, 0.67 render scale, FSR sharpness 0.2",
+    "candidateUpscaling": "DLSS Quality requested, 2/3 render scale, NIS sharpness 0",
+    "comparabilityLimits": "Different reconstruction algorithms and sharpness; frame cap and V-Sync prevent a causal speedup or latency conclusion."
+  },
+  "standardWindowsBuild": {
+    "status": "PASS",
+    "targets": [
+      "standard editor",
+      "standard debug template",
+      "standard release template"
+    ],
+    "editorSeconds": 64.86,
+    "debugAndReleaseSeconds": 120.407,
+    "monoOrDotnetRetested": false
+  },
+  "fullMatchFunctionality": {
+    "status": "FUNCTIONAL_PASS",
+    "caseCount": 10,
+    "coverage": "Skate and ski, 1 or 4 bots, both engines with their quality upscalers; plus skate 1-bot native resolution controls on both engines.",
+    "outcome": "Natural play to results and RSExit; finite scores, expected settings and roster, no recorded runtime errors.",
+    "rawMatrixSha256": "722de328d36aa429359a312a3c99589f0d7b85a8894f0d2522c5d8aa271c8194",
+    "limits": "Automated bot control and instrumented observer; not human input feel, comprehensive gameplay, latency or uncapped throughput."
+  },
+  "boundedStrictVulkan": {
+    "status": "STRICT_STARTUP_CLEAN",
+    "cases": [
+      "skate 1-player DLSS",
+      "skate 4-player DLSS"
+    ],
+    "wallSecondsAfterEnteringPlay": 12,
+    "synchronizationValidation": true,
+    "manifestVersion": "1.4.366",
+    "sampledModuleCounts": [
+      46,
+      55
+    ],
+    "failedModuleSamples": [
+      2,
+      1
+    ],
+    "rawMatrixSha256": [
+      "3d16d5a18dddcd5861e990dc985cf9c804b2cfc3092bdf2fb2a22c56032793bd",
+      "e93cada7a47604b8e2063bb3bf63ab9bbbb25734020c4ab564e602582b2b9fc8"
+    ],
+    "limits": "Short startup and PLAY observation, not the entire match, every-frame module observation, RR or frame-generation validation."
+  },
+  "forcedResultsRegression": {
+    "status": "FORCED_RESULTS_TARGET_NOT_OBSERVED",
+    "cases": 3,
+    "conditions": "Skate 4-player DLSS; force the real result transition after 15 seconds of PLAY.",
+    "target": "Previously reproduced D29 Projection::invert zero final pivot during the results transition.",
+    "rawMatrixSha256": "84a8a1adba4472af274a18df4234da337ff1bbe675e2abbb81667d6092f85375",
+    "limits": "Target error not observed in these three forced runs; not proof that all matrices or temporal history cases are fixed."
+  },
+  "privatePlayLaunchers": {
+    "status": "STARTUP_SMOKE_PASS",
+    "modes": [
+      "4.7.2 FSR2 Quality",
+      "4.8 b376 DLSS Quality"
+    ],
+    "checks": "Real Hub received game hello; three 1600x900 screenshots, natural exit code 0, no remaining recorded owned Job members or NGX updater after cleanup.",
+    "notVerified": [
+      "physical BLE controller",
+      "phone pairing",
+      "human input feel",
+      "full match from the launcher"
+    ]
+  },
+  "standardReleaseExport": {
+    "status": "PASS",
+    "template": "b376 Windows standard release, installed from the validated TPZ",
+    "tpzSha256": "4ffd4017681e3b2a7ea0cb96a93646ab7f40ab27f9af1d9c6fe89781e3b265b6",
+    "headlessImportSeconds": 21.563,
+    "exportSeconds": 18.422,
+    "sourceCodeAndAssetsUnchanged": true,
+    "sourceChanges": [],
+    "pckBytes": 1660185676,
+    "pckSha256": "88ecb8ef444e10ef2e55d0de5dce86ae9930ed6683ac4b1bf99b7642081f446b",
+    "selectedPckContentsAudited": true,
+    "rawExportMatrixSha256": "2c1bf855ca4a8355fdbb70cb0ff2e8bcd7256ec0872e27f2b5237ec2ccb1cebc",
+    "productionStartup": {
+      "status": "PASS",
+      "scenario": "Vulkan raster, DLSS Quality requested, skate with one bot",
+      "elapsedSeconds": 34.422,
+      "fixedFps": 60,
+      "originalScreenshots": 3,
+      "naturalRSExit": true,
+      "pathScriptMainPackOrQuitAfterOverrides": false,
+      "rawMatrixSha256": "ba2d6389ff5377b69662074c5b9831a66bdcf63336313f76c730939ed5178cb2",
+      "limits": "Short production entry and natural exit with fixed simulation FPS; not performance, full match, human play or active DLSS model identity."
+    }
+  },
+  "burstCapture": {
+    "status": "STARTUP_ONLY",
+    "caseCount": 4,
+    "cases": [
+      "skate 1-player 4.7.2 FSR2",
+      "skate 1-player 4.8 DLSS",
+      "ski 1-player 4.7.2 FSR2",
+      "ski 1-player 4.8 DLSS"
+    ],
+    "framesPerCase": 19,
+    "captureSpanSeconds": [
+      1.966,
+      1.999,
+      1.933,
+      1.934
+    ],
+    "runtimeErrors": [],
+    "rawMatrixSha256": "ebf53c1d2f76e7afc5710a322fd35ef7d84397e7768f68023bbfd455384a40f2",
+    "limits": "Capture and startup only; not full-match timing, temporal image-quality certification or human input feel.",
+    "selectedStillReview": "Selected original stills show course, players and HUD; no observed missing ground/building material or black frame in those selections. Low-rate stills do not certify ghosting, flicker or smoothness."
+  },
+  "pending": [
+    "Human A/B gameplay and temporal image-quality acceptance",
+    "Physical controller, BLE and phone pairing acceptance"
+  ],
+  "notNewlyAccepted": [
+    "PT",
+    "RR",
+    "frame generation",
+    "HDR",
+    "actual DLSS model weights",
+    "input latency",
+    "long-term stability",
+    ".NET"
+  ],
+  "history": {
+    "d29": "rtx-d29e706530.json",
+    "a738": "rtx-a73826e8c0.json",
+    "c1": "rtx-c1fc0252a9.json",
+    "rrAutomaticFStrict": "D29 diagnostic failure remains historical and is not relabelled as a b376 pass."
+  },
+  "aiDisclosure": "Codex assisted implementation and analysis; claimed runtime observations derive from actual local execution.",
+  "runtimeRecordedDate": "2026-10-27",
+  "deliveryCpuChecks": {
+    "reviewDate": "2026-11-24",
+    "status": "PASS",
+    "scope": "Required CPU suite on unchanged program files before final publication-pointer edits; separate final metadata/privacy checks",
+    "rawReceiptSha256": "b0353b5bc30a6d4ed7846409f5a6f666762632db9d97812ba81a6368323a247b",
+    "gameProgramTree": "82bb8c03c6c93bfba8d4bb68fd578febe3997856",
+    "toolsTests": 122,
+    "toolsSubtests": 293,
+    "hubTests": 251,
+    "assetSyncTests": 12,
+    "initialFailure": "Malformed injected command Git configuration after Windows environment restoration; original failure retained. Unchanged tests pass in a subprocess without the injected COUNT/KEY/VALUE variables.",
+    "additionalGpuRuns": false
+  }
+}
