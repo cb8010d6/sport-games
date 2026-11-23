@@ -1,0 +1,231 @@
+{
+  "schema_version": 2,
+  "license": "MIT AND CC0-1.0",
+  "archive": {
+    "archive_id": "pr31-comment6392600213-20261025-A",
+    "storage": "Private local review-evidence; not in Git and not uploaded",
+    "archive_manifest_sha256": "99de0b89b0d80824872146b91b62dbec1be856085276b0eb7f7c5816106f4ae9"
+  },
+  "archived_metadata": [
+    {
+      "archived_name": "visuals.json",
+      "sha256": "dea8872bc008132b1a3875dd5dacf0b06f0291ea4aed6eabd06285109ff8c73a"
+    },
+    {
+      "archived_name": "acceptance-20261024.json",
+      "sha256": "6517aae9fb833e5ec26595d70f279c3380d8c1638a6ae34783c5d40c1d13a891"
+    }
+  ],
+  "image_archive": {
+    "archive_id": "pr31-images-20261025-A",
+    "archive_manifest_sha256": "78f8bdd54657fe8282e8467cb194ea0045efc765b95d176dbe39276c1c8bba1d",
+    "storage": "Private local review-evidence; not in Git and not uploaded",
+    "original_pngs_archived": 24,
+    "retained_public_pngs": 9,
+    "removed_from_index_pngs": 15,
+    "original_bytes_unchanged": true,
+    "old_200_percent_crops": "Archived originals only; no newly generated crop"
+  },
+  "representative_images": [
+    {
+      "file": "docs/screenshots/bowling-b1-r2-after-qhd-native.png",
+      "bytes": 4264811,
+      "sha256": "985356007deb5e212d8ff80556e03a40e11bb5a2f5537b4d513004095b4266d2",
+      "source_sha": "fb3af56008647e82a7b34598a687358e0ead8f5a",
+      "image_kind": "unmodified_native_png"
+    },
+    {
+      "file": "docs/screenshots/bowling-b1-r2-before-qhd-native.png",
+      "bytes": 1439329,
+      "sha256": "da06fed9196af856baded0ba043da15f23f6008ae7c9b7643acbd319b62674d3",
+      "source_sha": "cf889669aa515790d2d8ab6b77a354c55afa3fb6",
+      "image_kind": "unmodified_native_png"
+    },
+    {
+      "file": "docs/screenshots/bowling-b1-r3-125-2p-zh-intro.png",
+      "bytes": 1971135,
+      "sha256": "e02a77e245a1b95d5dfafd2c969ac7419e9e5bf2370e9782c7016c8a2d6cf4bc",
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
+      "image_kind": "unmodified_native_png"
+    },
+    {
+      "file": "docs/screenshots/bowling-b1-r3-125-4p-en-play.png",
+      "bytes": 1843118,
+      "sha256": "f5b69d6723d51cb3e24424db8e90fdcdeb97dbf1826534d53c342aa87644b2df",
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
+      "image_kind": "unmodified_native_png"
+    },
+    {
+      "file": "docs/screenshots/bowling-b1-r4-motion-fsr-native-aa-frame060.png",
+      "bytes": 3593598,
+      "sha256": "e82ecfa8dd846b2836f20520549f1b01477349582615aab8aaaca6a0c252d526",
+      "source_sha": "5a0b91845f9971de606b1e2a2b758a919786b356"
+    },
+    {
+      "file": "docs/screenshots/bowling-b1-r4-motion-fsr-quality-frame060.png",
+      "bytes": 3441612,
+      "sha256": "753b7a641ee75153c9f56706c18eb216d35c77d9ed8025209ad9f492aaa9de28",
+      "source_sha": "5a0b91845f9971de606b1e2a2b758a919786b356"
+    },
+    {
+      "file": "docs/screenshots/bowling-b1-r4-motion-native-frame060.png",
+      "bytes": 3334949,
+      "sha256": "4c5ff1ce4a7551cce421b9800df02e82375ab4a9144b075c2c1cbdc6fa183a2e",
+      "source_sha": "5a0b91845f9971de606b1e2a2b758a919786b356"
+    },
+    {
+      "file": "docs/screenshots/bowling-b1-r4-natural-4p-frame099.png",
+      "bytes": 3073130,
+      "sha256": "fd12ed7696920b4ce499d078414352f2dcd448c7ea11c22e8738df4601f23e9d",
+      "source_sha": "5a0b91845f9971de606b1e2a2b758a919786b356"
+    },
+    {
+      "file": "docs/screenshots/bowling-b1-r4-natural-4p-frame111.png",
+      "bytes": 2724872,
+      "sha256": "47b0d9aa2ce4e05e09c67eb6db254e91f56d808ca641b9ab432c4dfbe2153e29",
+      "source_sha": "5a0b91845f9971de606b1e2a2b758a919786b356"
+    }
+  ],
+  "archived_images": [
+    {
+      "archive_file_id": "original-png/bowling-b1-2p-zh-play.png",
+      "bytes": 1174201,
+      "sha256": "a52fa8cbc6b41e54881dc3c97bebce9f9c7377089cac3c51e1f0ce654de92dfe",
+      "source_sha": null
+    },
+    {
+      "archive_file_id": "original-png/bowling-b1-4p-en-play.png",
+      "bytes": 1289417,
+      "sha256": "038f9db171ffeb20064be3b172f76883e46b438552362deb11c137bd8a3488ff",
+      "source_sha": null
+    },
+    {
+      "archive_file_id": "original-png/bowling-b1-4p-hall.png",
+      "bytes": 1202019,
+      "sha256": "84b0f66dd9a7bd2fdffdc00fbf6b2d0a394245affe18f319dd4e80338b20daec",
+      "source_sha": null
+    },
+    {
+      "archive_file_id": "original-png/bowling-b1-after-4p.png",
+      "bytes": 1179831,
+      "sha256": "6df2577cc972ddca224a50b8465004595999eb665c9ad8ce04063d951817ede2",
+      "source_sha": null
+    },
+    {
+      "archive_file_id": "original-png/bowling-b1-before-4p.png",
+      "bytes": 705940,
+      "sha256": "eac3baa8fd7712fb9970d566ffb7de854f5e69fd2286adfcb58a07a9d6d55c01",
+      "source_sha": null
+    },
+    {
+      "archive_file_id": "original-png/bowling-b1-r2-after-qhd-fsr-native-aa-p1-distant-p4-200pct.png",
+      "bytes": 9093,
+      "sha256": "20069948bca9f39942a03e2020654e783f366f40cc6a81a014271d88b591ef22",
+      "source_sha": "fb3af56008647e82a7b34598a687358e0ead8f5a",
+      "image_kind": "disclosed_200_percent_crop_enlargement",
+      "source_png_sha256": "d37b948de812265c309d553837aaf3e9dae654d63479bd0ce8fe38705a8d7574",
+      "source_pixel_box": [
+        858,
+        252,
+        928,
+        318
+      ],
+      "scale": 2,
+      "resampling": "nearest-neighbour",
+      "source_archive_file_id": "original-png/bowling-b1-r2-after-qhd-fsr-native-aa.png"
+    },
+    {
+      "archive_file_id": "original-png/bowling-b1-r2-after-qhd-fsr-native-aa.png",
+      "bytes": 4981298,
+      "sha256": "d37b948de812265c309d553837aaf3e9dae654d63479bd0ce8fe38705a8d7574",
+      "source_sha": "fb3af56008647e82a7b34598a687358e0ead8f5a",
+      "image_kind": "unmodified_native_png"
+    },
+    {
+      "archive_file_id": "original-png/bowling-b1-r2-after-qhd-fsr-quality-p1-distant-p4-200pct.png",
+      "bytes": 10619,
+      "sha256": "70375f6a2ba8e2c9368476b6ad53211763256226e735f31635d364f96dcbc8d9",
+      "source_sha": "fb3af56008647e82a7b34598a687358e0ead8f5a",
+      "image_kind": "disclosed_200_percent_crop_enlargement",
+      "source_png_sha256": "ce5179a4b04b11553ace8b6f06a9754c2a77b693025ff13a6ab285547b9e6206",
+      "source_pixel_box": [
+        858,
+        252,
+        928,
+        318
+      ],
+      "scale": 2,
+      "resampling": "nearest-neighbour",
+      "source_archive_file_id": "original-png/bowling-b1-r2-after-qhd-fsr-quality.png"
+    },
+    {
+      "archive_file_id": "original-png/bowling-b1-r2-after-qhd-fsr-quality.png",
+      "bytes": 4942788,
+      "sha256": "ce5179a4b04b11553ace8b6f06a9754c2a77b693025ff13a6ab285547b9e6206",
+      "source_sha": "fb3af56008647e82a7b34598a687358e0ead8f5a",
+      "image_kind": "unmodified_native_png"
+    },
+    {
+      "archive_file_id": "original-png/bowling-b1-r2-after-qhd-native-p1-distant-p4-200pct.png",
+      "bytes": 7998,
+      "sha256": "4065b512460f02732246fc5c41028384da7252ad7999a555c0b38619b3ff476d",
+      "source_sha": "fb3af56008647e82a7b34598a687358e0ead8f5a",
+      "image_kind": "disclosed_200_percent_crop_enlargement",
+      "source_png_sha256": "985356007deb5e212d8ff80556e03a40e11bb5a2f5537b4d513004095b4266d2",
+      "source_pixel_box": [
+        858,
+        252,
+        928,
+        318
+      ],
+      "scale": 2,
+      "resampling": "nearest-neighbour",
+      "source_archive_file_id": "original-png/bowling-b1-r2-after-qhd-native.png"
+    },
+    {
+      "archive_file_id": "original-png/bowling-b1-r2-after-wide-2p-zh-play.png",
+      "bytes": 2919319,
+      "sha256": "c6caff7c62ea5cb54e60de1b661a642cc5de85ce1bc7f27da4458c2fbeb77b3a",
+      "source_sha": "fb3af56008647e82a7b34598a687358e0ead8f5a",
+      "image_kind": "unmodified_native_png"
+    },
+    {
+      "archive_file_id": "original-png/bowling-b1-r2-after-wide-4p-en-play.png",
+      "bytes": 3125441,
+      "sha256": "a8efe8f81649e396d3ad2dc775b39599e0e180bc8a7ea662265ce93dd6f91f4f",
+      "source_sha": "fb3af56008647e82a7b34598a687358e0ead8f5a",
+      "image_kind": "unmodified_native_png"
+    },
+    {
+      "archive_file_id": "original-png/bowling-b1-r2-before-qhd-native-p1-distant-p4-200pct.png",
+      "bytes": 4629,
+      "sha256": "ad0289fd09b8e7ff6f0f32abe88b7427d47cb4f9c78396e19b30aa5b129e3b4e",
+      "source_sha": "cf889669aa515790d2d8ab6b77a354c55afa3fb6",
+      "image_kind": "disclosed_200_percent_crop_enlargement",
+      "source_png_sha256": "da06fed9196af856baded0ba043da15f23f6008ae7c9b7643acbd319b62674d3",
+      "source_pixel_box": [
+        858,
+        252,
+        928,
+        318
+      ],
+      "scale": 2,
+      "resampling": "nearest-neighbour",
+      "source_archive_file_id": "original-png/bowling-b1-r2-before-qhd-native.png"
+    },
+    {
+      "archive_file_id": "original-png/bowling-b1-r3-125-2p-en-play.png",
+      "bytes": 1715790,
+      "sha256": "84680c7e463a69244e55147c4908fb9eb94d536caf46ed8a9d9ee6b8085ea0ab",
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
+      "image_kind": "unmodified_native_png"
+    },
+    {
+      "archive_file_id": "original-png/bowling-b1-r3-125-4p-zh-intro.png",
+      "bytes": 2082832,
+      "sha256": "6611a76801620d73d79f2b3dccb690da57f9544f889478e108a4875fa7b116e5",
+      "source_sha": "0c71361f7f6b4f31aea4c0e217e53f70d4401b23",
+      "image_kind": "unmodified_native_png"
+    }
+  ]
+}

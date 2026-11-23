@@ -95,6 +95,28 @@ func gyro_world() -> Vector3:
 	return orientation * gyro
 
 
+func left_handed() -> bool:
+	return RSProfiles.left_handed(player)
+
+
+func motion_pose(q: Quaternion) -> Quaternion:
+	## Reflect both frames through X: M R M. Raw protocol samples stay untouched.
+	return Quaternion(q.x, -q.y, -q.z, q.w) if left_handed() else q
+
+
+func motion_orientation() -> Quaternion:
+	return motion_pose(orientation)
+
+
+func motion_gyro(g: Vector3) -> Vector3:
+	## Angular velocity is axial: det(M) M g, rather than a polar position vector.
+	return Vector3(g.x, -g.y, -g.z) if left_handed() else g
+
+
+func motion_roll() -> float:
+	return -roll() if left_handed() else roll()
+
+
 func history_size() -> int:
 	return _count
 

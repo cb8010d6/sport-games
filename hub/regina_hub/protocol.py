@@ -1,4 +1,4 @@
-"""Wire formats. Keep in sync with docs/protocol.md, firmware/main/protocol.h and game/core/hub_protocol.gd."""
+"""Wire formats. Keep in sync with docs/protocol.md, firmware/main/protocol.h and game/autoload/controller_hub.gd."""
 
 from __future__ import annotations
 
@@ -86,6 +86,8 @@ class StatusPacket:
 
 
 def parse_imu(data: bytes) -> ImuPacket:
+    if len(data) < _IMU_HDR.size:
+        raise ValueError(f"IMU header too short: {len(data)} < {_IMU_HDR.size}")
     typ, seq, n, ranges, t0 = _IMU_HDR.unpack_from(data, 0)
     if typ != PKT_IMU:
         raise ValueError(f"not an IMU packet: type {typ:#x}")
@@ -121,6 +123,8 @@ def build_imu(seq: int, t0_us: int, samples: list[tuple[int, int, int, int, int,
 
 
 def parse_input(data: bytes) -> InputPacket:
+    if len(data) < _INPUT.size:
+        raise ValueError(f"input packet too short: {len(data)} < {_INPUT.size}")
     typ, buttons, small, big, t = _INPUT.unpack_from(data, 0)
     if typ != PKT_INPUT:
         raise ValueError(f"not an input packet: type {typ:#x}")
@@ -132,6 +136,8 @@ def build_input(buttons: int, small: int, big: int, t_us: int) -> bytes:
 
 
 def parse_status(data: bytes) -> StatusPacket:
+    if len(data) < _STATUS.size:
+        raise ValueError(f"status packet too short: {len(data)} < {_STATUS.size}")
     typ, batt, flags, major, minor, player = _STATUS.unpack_from(data, 0)
     if typ != PKT_STATUS:
         raise ValueError(f"not a status packet: type {typ:#x}")
@@ -201,8 +207,20 @@ def _ascii(s: Any) -> bytes:
     return text.encode("ascii", "replace")[:UI_MAX_STR]
 
 
+def _ui_int(value: Any, low: int, high: int) -> int:
+    try:
+        number = float(value)
+    except (TypeError, ValueError, OverflowError) as exc:
+        raise ValueError("UI numeric fields must be finite numbers") from exc
+    if not math.isfinite(number):
+        raise ValueError("UI numeric fields must be finite numbers")
+    return int(max(low, min(high, number)))
+
+
 def normalize_ui(ui: dict[str, Any]) -> dict[str, Any]:
     """Validate a game-supplied UI dict; returns only known keys with sane types."""
+    if not isinstance(ui, dict):
+        raise ValueError("UI must be an object")
     out: dict[str, Any] = {}
     if ui.get("clear"):
         out["clear"] = True
@@ -214,15 +232,23 @@ def normalize_ui(ui: dict[str, Any]) -> dict[str, Any]:
         if bar is None:
             out["bar"] = None
         else:
-            pct = int(max(0, min(100, float(bar.get("pct", 0)))))
+            if not isinstance(bar, dict):
+                raise ValueError("UI bar must be an object or null")
+            pct = _ui_int(bar.get("pct", 0), 0, 100)
             out["bar"] = {"pct": pct, "label": str(bar.get("label", ""))[:UI_MAX_STR]}
     if "legends" in ui:
-        leg = list(ui["legends"] or [])[:4]
+        raw = ui["legends"]
+        if raw is not None and not isinstance(raw, list):
+            raise ValueError("UI legends must be an array or null")
+        leg = list(raw or [])[:4]
         leg += [None] * (4 - len(leg))
         out["legends"] = [None if v is None else str(v)[:UI_MAX_STR] for v in leg]
-    if "toast" in ui and ui["toast"]:
+    if "toast" in ui and ui["toast"] is not None:
         t = ui["toast"]
-        out["toast"] = {"ms": int(max(100, min(10000, int(t.get("ms", 1000))))), "text": str(t.get("text", ""))[:UI_MAX_STR]}
+        if not isinstance(t, dict):
+            raise ValueError("UI toast must be an object or null")
+        if t:
+            out["toast"] = {"ms": _ui_int(t.get("ms", 1000), 100, 10000), "text": str(t.get("text", ""))[:UI_MAX_STR]}
     return out
 
 
@@ -254,6 +280,51 @@ def encode_ui_tlv(ui: dict[str, Any]) -> bytes:
         t = ui["toast"]
         tlv(UI_TOAST, struct.pack("<H", t["ms"]) + _ascii(t["text"]))
     return bytes(out)
+
+
+def encode_ui_packets(ui: dict[str, Any], mtu: int, rotation: int = 3) -> list[bytes]:
+    """OLED commands fitting one ATT write each; every TLV stays in one command.
+
+    The firmware applies each command as a partial update. Only the first command
+    may contain clear; splitting an encoded byte stream at arbitrary offsets would
+    lose fields because there is no firmware-side fragment reassembly.
+    """
+    if type(mtu) is not int or not 23 <= mtu <= 517:
+        raise ValueError("ATT MTU must be an integer in 23..517")
+    if type(rotation) is not int or not 0 <= rotation <= 3:
+        raise ValueError("screen rotation must be an integer in 0..3")
+    # The firmware's command receive buffer is 256 bytes, even with a larger MTU.
+    capacity = min(mtu - 3, 256)
+    portrait = bool(rotation & 1)
+    text_limits = {
+        UI_TITLE: 10 if portrait else 14,
+        UI_MAIN: 10 if portrait else 20,
+        UI_SUB: 10 if portrait else 20,
+        UI_BAR: 10 if portrait else 20,
+        **{UI_LEGEND_A + i: 8 if portrait else 9 for i in range(4)},
+        UI_TOAST: 20,
+    }
+    encoded = encode_ui_tlv(normalize_ui(ui))
+    packets: list[bytes] = []
+    packet = bytearray([OP_UI])
+    offset = 1
+    while offset < len(encoded):
+        tag, size = encoded[offset], encoded[offset + 1]
+        payload = encoded[offset + 2:offset + 2 + size]
+        offset += 2 + size
+        if tag in text_limits:
+            prefix = 1 if tag == UI_BAR else 2 if tag == UI_TOAST else 0
+            # An individual field must fit a fresh packet too (e.g. MTU-23 toast).
+            limit = min(text_limits[tag], capacity - 3 - prefix)
+            payload = payload[:prefix] + payload[prefix:prefix + limit]
+        tlv = bytes([tag, len(payload)]) + payload
+        if len(packet) + len(tlv) > capacity:
+            packets.append(bytes(packet))
+            packet = bytearray([OP_UI])
+        packet.extend(tlv)
+    if len(packet) > 1:
+        packets.append(bytes(packet))
+    return packets
 
 
 def decode_ui_tlv(data: bytes) -> dict[str, Any]:
@@ -357,10 +428,16 @@ class UiState:
 
 
 def parse_legacy_input(data: bytes) -> InputPacket:
+    need = struct.calcsize("<????BBhh")
+    if len(data) < need:
+        raise ValueError(f"legacy input packet too short: {len(data)} < {need}")
     a, b, c, d, _va, _vb, small, big = struct.unpack_from("<????BBhh", data, 0)
     buttons = (BTN_A if a else 0) | (BTN_B if b else 0) | (BTN_C if c else 0) | (BTN_D if d else 0)
     return InputPacket(buttons=buttons, dial_small=small, dial_big=big, t_us=0)
 
 
 def parse_legacy_vec3(data: bytes) -> tuple[float, float, float]:
+    need = struct.calcsize("<fff")
+    if len(data) < need:
+        raise ValueError(f"legacy vector packet too short: {len(data)} < {need}")
     return struct.unpack_from("<fff", data, 0)

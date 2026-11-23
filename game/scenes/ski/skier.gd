@@ -34,6 +34,7 @@ const SPIN_GAIN := 2.0
 const CRASH_TIME := 1.8
 const PUSH_V := 1.4
 const PUSH_MAX := 7.0
+const SILENT_DB := -59.0       ## pause inaudible loops; retain their playback position
 const SPIN_POINTS := {360: 400, 540: 650, 720: 950, 900: 1300, 1080: 1700, 1260: 2200, 1440: 2800}
 const GRABS := ["Mute", "Safety", "Tail", "Japan"]
 
@@ -44,6 +45,8 @@ var player_layer := 1
 
 var pos := Vector3.ZERO        ## on the snow under the bindings, world
 var vel := Vector3.ZERO
+var draw_pos := Vector3.ZERO   ## where the skier is drawn: pos, smoothed between sub-steps
+var clock := RSFixedStep.new() ## sub-step clock (fixed 120 Hz, capped per frame)
 var heading := 0.0             ## where the skis point, rad about +Y, 0 = -Z
 var mode := Mode.RIDE
 var spin := 0.0                ## in the air: turned from the takeoff heading
@@ -106,11 +109,26 @@ func _ready() -> void:
 
 func quiet() -> void:
 	for a: AudioStreamPlayer in [_carve, _skid_snd, _wind]:
-		a.volume_db = -80.0
+		_set_loop_db(a, -80.0)
+
+
+func _set_loop_db(a: AudioStreamPlayer, db: float) -> void:
+	a.volume_db = db
+	a.stream_paused = db <= SILENT_DB
+
+
+func active_loops() -> int:
+	var count := 0
+	for a: AudioStreamPlayer in [_carve, _skid_snd, _wind]:
+		if a != null and not a.stream_paused:
+			count += 1
+	return count
 
 
 func place(u: float, s: float) -> void:
 	pos = course.world(u, s)
+	draw_pos = pos
+	clock.reset(pos)
 	heading = course.heading_at(s)
 	vel = Vector3.ZERO
 	mode = Mode.RIDE
@@ -161,10 +179,16 @@ func step(dt: float, c: RSMotionControls, racing: bool) -> void:
 	if racing:
 		run_time += dt if not finished else 0.0
 		_events(c)
-		var n := maxi(1, ceili(dt / (1.0 / 120.0)))
-		_frac = 1.0 / n
+		var n := clock.advance(dt)
+		_frac = 1.0 / n if n > 0 else 1.0
+		if n == 0 and mode == Mode.AIR:
+			spin += c.yaw_delta * SPIN_GAIN   # this frame's turn, with no sub-step to carry it
 		for i in n:
-			_sub(dt / n, c)
+			var before := pos
+			_sub(clock.h, c)
+			if i == n - 1:
+				clock.push(before, pos)
+	draw_pos = clock.draw(pos)
 	_visuals(dt, c)
 
 
@@ -481,7 +505,7 @@ func _visuals(dt: float, c: RSMotionControls) -> void:
 			fwd = Vector3(hv.x, 0.0, hv.y).normalized()
 	var z := -(fwd - up * fwd.dot(up)).normalized()
 	var x := up.cross(z).normalized()
-	rig.global_transform = Transform3D(Basis(x, up, z).orthonormalized(), pos)
+	rig.global_transform = Transform3D(Basis(x, up, z).orthonormalized(), draw_pos)
 	var spd := current_speed()
 	var target := spin
 	if finished and mode == Mode.RIDE:
@@ -638,6 +662,7 @@ func _soft_dot() -> GradientTexture2D:
 
 
 func _update_fx(_dt: float) -> void:
+	var p := draw_pos
 	var spd := current_speed()
 	var spraying := mode == Mode.RIDE and spd > 4.0 and (skid > 0.15 or absf(_lean) > 0.55)
 	_spray.emitting = spraying
@@ -645,15 +670,15 @@ func _update_fx(_dt: float) -> void:
 		# Off the outside of the turn, thrown back and up.
 		var back := -_dir(heading)
 		var out := Vector3(back.z, 0, -back.x) * signf(_lean)
-		_spray.global_transform = Transform3D(Basis.looking_at(-(back * 0.6 + out * 0.8 + Vector3.UP * 0.2).normalized(), Vector3.UP), pos + back * 0.5 + Vector3.UP * 0.05)
+		_spray.global_transform = Transform3D(Basis.looking_at(-(back * 0.6 + out * 0.8 + Vector3.UP * 0.2).normalized(), Vector3.UP), p + back * 0.5 + Vector3.UP * 0.05)
 		_spray.amount_ratio = clampf(maxf(skid, (absf(_lean) - 0.5) * 2.0) * clampf(spd / 14.0, 0.3, 1.0), 0.15, 1.0)
-	_puff.global_position = pos + Vector3.UP * 0.1
-	var ground := course.height(pos.x, pos.z)
-	var height := maxf(pos.y - ground, 0.0)
-	_shadow.global_transform = Transform3D(Basis(Vector3.UP, heading), Vector3(pos.x, ground + 0.03, pos.z))
+	_puff.global_position = p + Vector3.UP * 0.1
+	var ground := course.height(p.x, p.z)
+	var height := maxf(p.y - ground, 0.0)
+	_shadow.global_transform = Transform3D(Basis(Vector3.UP, heading), Vector3(p.x, ground + 0.03, p.z))
 	_shadow.scale = Vector3.ONE * (1.0 + height * 0.12)
 	(_shadow.material_override as StandardMaterial3D).albedo_color.a = clampf(0.4 - height * 0.06, 0.1, 0.4)
-	_tag.global_position = pos + Vector3.UP * 2.2
+	_tag.global_position = p + Vector3.UP * 2.2
 
 
 func _update_audio(dt: float) -> void:
@@ -661,13 +686,13 @@ func _update_audio(dt: float) -> void:
 	var spd := current_speed()
 	var on := mode == Mode.RIDE and spd > 0.5
 	var carve_db := linear_to_db(clampf(spd / 16.0, 0.05, 1.0) * (0.55 + 0.45 * clampf(absf(_lean), 0.0, 1.0))) - 8.0 + gain_db + RSSfx.trim_db("carve") if on else -60.0
-	_carve.volume_db = lerpf(_carve.volume_db, carve_db, k)
+	_set_loop_db(_carve, lerpf(_carve.volume_db, carve_db, k))
 	_carve.pitch_scale = clampf(0.75 + spd / 30.0, 0.7, 1.5)
 	var skid_db := linear_to_db(clampf(skid * spd / 10.0, 0.01, 1.0)) - 6.0 + gain_db + RSSfx.trim_db("skid") if on and skid > 0.05 else -60.0
-	_skid_snd.volume_db = lerpf(_skid_snd.volume_db, skid_db, k)
+	_set_loop_db(_skid_snd, lerpf(_skid_snd.volume_db, skid_db, k))
 	_skid_snd.pitch_scale = clampf(0.85 + spd / 40.0, 0.8, 1.4)
 	var fast := clampf((spd - 8.0) / 16.0, 0.0, 1.0)
 	if mode == Mode.AIR:
 		fast = maxf(fast, clampf(air_t, 0.0, 1.0) * 0.8)
-	_wind.volume_db = lerpf(_wind.volume_db, linear_to_db(maxf(fast, 0.001)) - 12.0 + gain_db, k * 0.5)
+	_set_loop_db(_wind, lerpf(_wind.volume_db, linear_to_db(maxf(fast, 0.001)) - 12.0 + gain_db, k * 0.5))
 	_wind.pitch_scale = clampf(0.8 + spd / 50.0, 0.8, 1.5)

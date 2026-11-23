@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://betjs0pa8gnfo"
-path="res://.godot/imported/skier0_young_lightskinned_male_diffuse3.png-b53ebdc2c06ce176ac1b23e09d6d1d0d.ctex"
+path.s3tc="res://.godot/imported/skier0_young_lightskinned_male_diffuse3.png-b53ebdc2c06ce176ac1b23e09d6d1d0d.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "347b8056d571ab29c74b17b345d05d68"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/characters/skier0_young_lightskinned_male_diffuse3.png"
-dest_files=["res://.godot/imported/skier0_young_lightskinned_male_diffuse3.png-b53ebdc2c06ce176ac1b23e09d6d1d0d.ctex"]
+dest_files=["res://.godot/imported/skier0_young_lightskinned_male_diffuse3.png-b53ebdc2c06ce176ac1b23e09d6d1d0d.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +40,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=2048
 detect_3d/compress_to=1

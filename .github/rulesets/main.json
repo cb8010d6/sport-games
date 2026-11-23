@@ -25,9 +25,14 @@
       "parameters": {
         "strict_required_status_checks_policy": true,
         "required_status_checks": [
-          {"context": "hub (3.11)"},
-          {"context": "hub (3.12)"},
+          {"context": "hub (ubuntu-latest, 3.11)"},
+          {"context": "hub (ubuntu-latest, 3.12)"},
+          {"context": "hub (windows-latest, 3.12)"},
           {"context": "privacy"},
+          {"context": "game-shell"},
+          {"context": "engine-runner (ubuntu-latest)"},
+          {"context": "engine-runner (windows-latest)"},
+          {"context": "game"},
           {"context": "windows"}
         ]
       }

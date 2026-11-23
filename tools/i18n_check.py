@@ -1,7 +1,7 @@
 """Check the game's English translation (game/i18n/en.json) against the code.
 
 The Chinese text in the scripts is the key (see game/core/lang.gd). This lists every Chinese
-string literal in game/**/*.gd that has no English entry, and every entry no script uses any
+string literal in game/**/*.gd and game/scenes/*/*_module.tres that has no English entry, and every entry no script uses any
 more. Lines marked `# no-i18n` are skipped (mesh names, bilingual signs, ...).
 
     hub/.venv/Scripts/python -I tools/i18n_check.py            # report, exit 1 if anything is missing
@@ -47,7 +47,7 @@ def unescape(s: str) -> str:
 def scan(root: Path = ROOT) -> list[tuple[str, int, str]]:
     """(file, line, text) for every Chinese string literal."""
     out = []
-    for f in sorted(root.rglob("*.gd")):
+    for f in sorted([*root.rglob("*.gd"), *root.rglob("*_module.tres")]):   # + game manifests
         if ".godot" in f.parts:
             continue
         for i, line in enumerate(f.read_text(encoding="utf-8").splitlines()):

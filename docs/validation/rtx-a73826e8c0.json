@@ -1,0 +1,2889 @@
+{
+  "schemaVersion": 2,
+  "date": "2026-10-27",
+  "status": "experimental; bounded material GPU and exported-game startup checks passed; strict validation not clean; not a release candidate",
+  "engineRepository": "https://github.com/cb8010d6/godot",
+  "engineCommit": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+  "engineVersion": "4.8-beta1 (custom_build)",
+  "streamlineSdkVersion": "2.14.16",
+  "gameBaselineCommit": "209897f4573208e02df52c4c929731a27d3527b1",
+  "rawEvidenceIncluded": false,
+  "engineNotes": "https://github.com/cb8010d6/godot/blob/stabilization/4.8-beta1-sl214/PATHTRACER_TESTING.md",
+  "materialCompatibilityNotes": "../PT_MATERIAL_COMPATIBILITY.md",
+  "evidenceLocator": "Logical <evidence> labels identify private original files by SHA-256; no machine paths or private binary payloads are published.",
+  "machine": {
+    "gpu": "NVIDIA GeForce RTX 4060 Laptop GPU",
+    "driverProvider": "NVIDIA",
+    "windowsDriverVersion": "32.0.16.1088",
+    "api": "vulkan",
+    "apiVersion": "1.4.341",
+    "source": "Actual native opaque-colour GPU fixture runtime",
+    "osRegistryObservation": {
+      "ProductName": "Windows 10 Pro",
+      "DisplayVersion": "22H2",
+      "CurrentBuildNumber": "19045",
+      "UBR": 7807,
+      "EditionID": "Professional"
+    },
+    "osVersionScope": "Separate read-only registry observation; native fixture does not record OS version",
+    "osEvidence": {
+      "id": "<evidence>/materials/summary-os-observation.json",
+      "sha256": "e522705b8da48187a07ca576d2f15c13f8078b3c7bbfd92b7bacaccdcf74c149"
+    },
+    "buildToolchainLines": [
+      "Using Visual Studio 14.3 with Windows SDK 10.0.26100.0."
+    ]
+  },
+  "windowsBuild": {
+    "status": "PASS",
+    "recordedCheckoutSha": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+    "exitCode": 0,
+    "durationSeconds": 454.266,
+    "inputBinaries": [],
+    "receipt": {
+      "id": "<evidence>/recorder/pt-materials-six-build-a738.json",
+      "sha256": "0a1a9fa8924388c9037db26d7abf9854256e150a3f3b1f600ffe24033f44a9ae"
+    },
+    "log": {
+      "id": "<evidence>/recorder/logs/pt-materials-six-build-a738.log",
+      "sha256": "46922bf706ae44b2b0c96d5b83ff7177af9463d36606418de56dd49cfbef3b48"
+    },
+    "variants": 6,
+    "command": "pwsh -NoProfile -File devtools/build/build.ps1 -Target release -KeepGoing -Jobs 2 -VersionStatus beta1",
+    "binaries": [
+      {
+        "name": "godot.windows.editor.x86_64.exe",
+        "bytes": 161806336,
+        "sha256": "a73a3555c39d0b1bdce13cb3fd6f793788d0c27fbd677f6d81108cdbebf9abfc"
+      },
+      {
+        "name": "godot.windows.template_debug.x86_64.exe",
+        "bytes": 95631360,
+        "sha256": "9ecbcc22ec5e9302e9a6864ac5d64e0ec277a8482c9def89a72c53d203707069"
+      },
+      {
+        "name": "godot.windows.template_release.x86_64.exe",
+        "bytes": 80785920,
+        "sha256": "a13e02c97ecdce16e1f6c20737bb24d7d0c1930b82a411180cc307683c044619"
+      },
+      {
+        "name": "godot.windows.editor.x86_64.mono.exe",
+        "bytes": 162375680,
+        "sha256": "9d3631e81aa56adfe2d89bfc3ab52a3947937719b158bd64e26b5ce45a3c51a9"
+      },
+      {
+        "name": "godot.windows.template_debug.x86_64.mono.exe",
+        "bytes": 95863808,
+        "sha256": "5f05e811a5cd9e914d4d6221fb423dcd824f8062d817dfeb733804890af04552"
+      },
+      {
+        "name": "godot.windows.template_release.x86_64.mono.exe",
+        "bytes": 80988160,
+        "sha256": "494183760b242d346c4ea08a461a9de2c7b0ff4143aaf4c7812219f62b8d6c17"
+      },
+      {
+        "name": "D3D12Core.dll",
+        "bytes": 4821064,
+        "sha256": "560f9574372a52ab66ad95ee1222f1eb4c9f6161d8f6b7b025d89f684b07246c"
+      },
+      {
+        "name": "d3d12SDKLayers.dll",
+        "bytes": 4932640,
+        "sha256": "bcec9e1315fb4dbc767371926fb5eb8281de1b3ab1fb530a636b3c193a9a2bbd"
+      }
+    ],
+    "frozenBinaryAudit": {
+      "id": "<evidence>/materials/validation-a738/final-build-inputs.json",
+      "sha256": "62c1f14a53d2d3c7543c459c08d7c3825ea831a7e86097d4a669ad125a4adf11"
+    }
+  },
+  "editorSmoke": {
+    "standard": {
+      "status": "PASS",
+      "recordedCheckoutSha": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+      "exitCode": 0,
+      "durationSeconds": 31.031,
+      "inputBinaries": [],
+      "receipt": {
+        "id": "<evidence>/recorder/pt-materials-smoke-standard-a738.json",
+        "sha256": "0fe36c936490906d7c27c4ec71253d84d20772b15df7ab1b25d3ef39ad5cc6ec"
+      },
+      "log": {
+        "id": "<evidence>/recorder/logs/pt-materials-smoke-standard-a738.log",
+        "sha256": "26513e04963981cf0c4dff3f43b4bdde681f7c613e11822959ae8a26f8c0c576"
+      },
+      "checks": [
+        "PhysX, game",
+        "PhysX, editor",
+        "Path tracer, Vulkan",
+        "DDGI, interior"
+      ],
+      "passed": 4,
+      "scope": "Repository smoke: PhysX game/editor, Vulkan PT, DDGI interior; not full Blast/Flow/CUDA acceptance"
+    },
+    "mono": {
+      "status": "PASS",
+      "recordedCheckoutSha": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+      "exitCode": 0,
+      "durationSeconds": 27.078,
+      "inputBinaries": [],
+      "receipt": {
+        "id": "<evidence>/recorder/pt-materials-smoke-mono-a738.json",
+        "sha256": "fd2f423c2fb432f7840f29473f9e496f7a7769c8b8031ce2e49d0194532becfd"
+      },
+      "log": {
+        "id": "<evidence>/recorder/logs/pt-materials-smoke-mono-a738.log",
+        "sha256": "4fe504b5fd25d97d88b11ea54d83da28903f1c0c6ac594a3b8321d7f2a0535d8"
+      },
+      "checks": [
+        "PhysX, game",
+        "PhysX, editor",
+        "Path tracer, Vulkan",
+        "DDGI, interior"
+      ],
+      "passed": 4,
+      "scope": "Repository smoke: PhysX game/editor, Vulkan PT, DDGI interior; not full Blast/Flow/CUDA acceptance"
+    }
+  },
+  "runtimeBinaries": {
+    "source": {
+      "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/inputs.json",
+      "sha256": "aa9924e8f661315698ee06a9892e9f2a0a7197e2535dff4f8854f2b19095ac94"
+    },
+    "fileVersionObservation": {
+      "id": "<evidence>/materials/summary-runtime-file-versions.json",
+      "sha256": "d87553649bfc97ea86d53ece926d7f3b4a3e81bb9b035b12159e32464492b997"
+    },
+    "binaries": [
+      {
+        "name": "nvngx_deepdvc.dll",
+        "bytes": 3104880,
+        "sha256": "306556a9e64b90e9f94a6645c9425980a74a6ee47ae895bc10e3937edfa77419",
+        "fileVersion": "310,9,16,0",
+        "productVersion": "310,9,16,0"
+      },
+      {
+        "name": "nvngx_dlss.dll",
+        "bytes": 58956912,
+        "sha256": "d00b5b0ab29c3ca101b70c3a5ecb3a01b7ef33766a3383a28a18623083e6123e",
+        "fileVersion": "310,9,16,0",
+        "productVersion": "310,9,16,0"
+      },
+      {
+        "name": "nvngx_dlssd.dll",
+        "bytes": 48343664,
+        "sha256": "b49435ae346f227feafe7bbe937d88277ea0ee7323975ec06488f377fdb46cee",
+        "fileVersion": "310,9,16,0",
+        "productVersion": "310,9,16,0"
+      },
+      {
+        "name": "nvngx_dlssg.dll",
+        "bytes": 7506544,
+        "sha256": "8d59d49b36410dd6b62fef2503a5871d347415bd85d943fa0848563a95dd50c7",
+        "fileVersion": "310,9,16,0",
+        "productVersion": "310,9,16,0"
+      },
+      {
+        "name": "sl.common.dll",
+        "bytes": 843904,
+        "sha256": "38eea3b4209afc455636ea372b5933d65fcc13becec6c84d101dcfc4d8648f75",
+        "fileVersion": "2,14,16,0",
+        "productVersion": "2,14,16,0"
+      },
+      {
+        "name": "sl.deepdvc.dll",
+        "bytes": 376448,
+        "sha256": "2d493dccfefdc0580deb85afc65e70ae36adf77c6dd3c745c60623d9b8ac54f9",
+        "fileVersion": "2,14,16,0",
+        "productVersion": "2,14,16,0"
+      },
+      {
+        "name": "sl.directsr.dll",
+        "bytes": 369792,
+        "sha256": "e3bbaf3e5eb906a63b3f00413c2d1c4c585ab3a2ee1946fcfa9ee2d804001c8e",
+        "fileVersion": "2,14,16,0",
+        "productVersion": "2,14,16,0"
+      },
+      {
+        "name": "sl.dlss.dll",
+        "bytes": 422016,
+        "sha256": "18871eea87c90345da97d8109faa81ea7d5840e8d99b51b55b0e46cfa177f84e",
+        "fileVersion": "2,14,16,0",
+        "productVersion": "2,14,16,0"
+      },
+      {
+        "name": "sl.dlss_d.dll",
+        "bytes": 437376,
+        "sha256": "8dff36fd063094eb1f659e8d4dcd52c7423859a9c4a3df3796084c48412d60ac",
+        "fileVersion": "2,14,16,0",
+        "productVersion": "2,14,16,0"
+      },
+      {
+        "name": "sl.dlss_g.dll",
+        "bytes": 637056,
+        "sha256": "3ed9538df724993bea8a050195a6a78b9c8c8a566d5b05ade477aab3c390e90f",
+        "fileVersion": "2,14,16,0",
+        "productVersion": "2,14,16,0"
+      },
+      {
+        "name": "sl.interposer.dll",
+        "bytes": 652928,
+        "sha256": "b1d7395aebd7b9722841d64dcf7433680020b6a8e421f851c16d5ba0c2182edf",
+        "fileVersion": "2,14,16,0",
+        "productVersion": "2,14,16,0"
+      },
+      {
+        "name": "sl.nis.dll",
+        "bytes": 1155712,
+        "sha256": "f9f3873c00e2737b22df1bf7605d4fdc7978dbf2955df4e152c5b52aada13b79",
+        "fileVersion": "2,14,16,0",
+        "productVersion": "2,14,16,0"
+      },
+      {
+        "name": "sl.nvperf.dll",
+        "bytes": 761472,
+        "sha256": "dc5a820b97943c4d697a9ddec59b0dcde86ecadc093b401cf55980f7f89be43b",
+        "fileVersion": "2,14,16,0",
+        "productVersion": "2,14,16,0"
+      },
+      {
+        "name": "sl.pcl.dll",
+        "bytes": 360064,
+        "sha256": "5698c38e722318681f215c9fe68e45b9bedd51378acc699d8eee26e961e57770",
+        "fileVersion": "2,14,16,0",
+        "productVersion": "2,14,16,0"
+      },
+      {
+        "name": "sl.reflex.dll",
+        "bytes": 388736,
+        "sha256": "443577e869352436ff7ec8f4d9c90418d3e95368436ce219261e0f4f07a38122",
+        "fileVersion": "2,14,16,0",
+        "productVersion": "2,14,16,0"
+      }
+    ],
+    "scope": "Frozen SDK/NGX DLL files supplied to actual SDK-enabled game runs; hashes do not establish active AI model identity or that every plugin was loaded"
+  },
+  "testedShaderInputs": {
+    "game/shaders/facade.gdshader": {
+      "bytes": 12964,
+      "sha256": "b9eacb7e0c937f59db0c9cad0b98c044584667f5587ee512be451c67b3db3ec7"
+    },
+    "game/shaders/ski_terrain.gdshader": {
+      "bytes": 5108,
+      "sha256": "e5e59c43b4bf0c9c986ad29f7346c4522ea9d72bcf4b57897b3576404a30551d"
+    },
+    "game/shaders/rt_pixel_footprint.gdshaderinc": {
+      "bytes": 1654,
+      "sha256": "93d533e430c52ff222eb18ac96953855797c22b42de09298004d3037c17e63a1"
+    },
+    "game/shaders/rt_pixel_footprint.gdshaderinc.uid": {
+      "bytes": 20,
+      "sha256": "8fb6343f13e9ca7cc33d72f3d3dc2204d0ea19a8024f0442734927e9dfc8ce9d"
+    }
+  },
+  "gameProgramSourceMapping": {
+    "actualTestTimeRepositoryHead": "979778df7b2d89b9ebce7abc8737bd3389c4bb6e",
+    "actualTestTimeWorkingTreeDirty": true,
+    "testTimeProgramInputsAuthoritative": "The isolated GPU snapshots contain the four frozen dirty shader inputs; actual original test HEAD fields are retained unchanged.",
+    "laterCodeOnlyCommit": "ab46ff811e7b9c2f9f8fa46144f0be5f4dd2de76",
+    "laterCodeOnlyCommitUrl": "https://github.com/cb8010d6/sport-games/commit/ab46ff811e7b9c2f9f8fa46144f0be5f4dd2de76",
+    "committedFiles": [
+      "game/shaders/facade.gdshader",
+      "game/shaders/rt_pixel_footprint.gdshaderinc",
+      "game/shaders/rt_pixel_footprint.gdshaderinc.uid",
+      "game/shaders/ski_terrain.gdshader"
+    ],
+    "committedShaderSha256": {
+      "game/shaders/facade.gdshader": "b9eacb7e0c937f59db0c9cad0b98c044584667f5587ee512be451c67b3db3ec7",
+      "game/shaders/ski_terrain.gdshader": "e5e59c43b4bf0c9c986ad29f7346c4522ea9d72bcf4b57897b3576404a30551d",
+      "game/shaders/rt_pixel_footprint.gdshaderinc": "93d533e430c52ff222eb18ac96953855797c22b42de09298004d3037c17e63a1",
+      "game/shaders/rt_pixel_footprint.gdshaderinc.uid": "8fb6343f13e9ca7cc33d72f3d3dc2204d0ea19a8024f0442734927e9dfc8ce9d"
+    },
+    "committedProgramBytesMatchTestedSnapshots": true,
+    "gpuRunAtLaterCodeOnlyCommitClaimed": false,
+    "testTimeHeadEvidence": {
+      "id": "<evidence>/materials/game-cpu/20261026T114123Z-serial-60a41f/matrix.json",
+      "sha256": "42e10467a59bad601da23f0c97fd7632b24a6f19d0ed94e7af73efaa197e34cd"
+    }
+  },
+  "inputProvenance": {
+    "scope": "Game GPU matrices used isolated frozen snapshots before the subsequent engine-pin/doc-only edits.",
+    "shaderHashesStillMatchCurrentGame": true,
+    "metadataOnlyChangesAfterGameGpuRuns": [
+      "tools/rtx_engine.json",
+      "game/experiments/rtx/basketball_rtx.gd (FORK_COMMIT only)",
+      "docs/RTX_EXPERIMENT.md",
+      "docs/RTX_MIGRATION.md",
+      "docs/PT_MATERIAL_COMPATIBILITY.md"
+    ],
+    "gameTreeByteIdentityAfterMetadataChangesClaimed": false,
+    "materialMatrixGpuRerunAfterMetadataOnlyChanges": false,
+    "productionExportIsSeparateLaterRun": true
+  },
+  "gameMaterialGpuMatrices": [
+    {
+      "status": "PASS",
+      "runId": "a73826e8c0-20261026T132931Z-dc98e9",
+      "passed": 6,
+      "total": 6,
+      "matrix": {
+        "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/matrix.json",
+        "sha256": "49ce5f0a3b15c9ded8e829af9ce106791e9f759233b6fef0ebb42d4b007cd06b"
+      },
+      "inputs": {
+        "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/inputs.json",
+        "sha256": "aa9924e8f661315698ee06a9892e9f2a0a7197e2535dff4f8854f2b19095ac94"
+      },
+      "frozenInputsUnchangedDuringRun": true,
+      "sourceGameUnchangedDuringRun": true,
+      "syncRtCompilationRequested": false,
+      "cases": [
+        {
+          "name": "skate0-pt0-p1",
+          "status": "PASS",
+          "game": "skate",
+          "map": 0,
+          "mode": "pt0",
+          "players": 1,
+          "exitCode": 0,
+          "wrapperExitCode": 0,
+          "durationSeconds": 49.234,
+          "reachedPlay": true,
+          "captureStatus": "COMPLETE",
+          "errorLineCount": 0,
+          "asyncShaderCompilation": true,
+          "effectiveUpscale": 0,
+          "dlssMode": 6,
+          "rrDenoiser": 1,
+          "fgRequested": false,
+          "hdrRequested": false,
+          "receipt": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/skate0-pt0-p1/raw-receipt.json",
+            "sha256": "0011cdc80cd0ce393c9612a7a0a2e263594ba82d55dfdd92b0c640f1cab3076e"
+          },
+          "log": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/skate0-pt0-p1/godot.stdout.log",
+            "sha256": "54897c5a648445d8064adf29a1ebd56252c6a99952f1a315c89f47fd4097d20a"
+          },
+          "capture": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/skate0-pt0-p1/capture/capture.json",
+            "sha256": "56b9a7eef0cdafb8e136edbf67320f30bd9f115c717ae1219918e8ae1601f3c6"
+          },
+          "images": [
+            {
+              "name": "left_near.png",
+              "sha256": "4fc863231ab6fed578566d352eecd8d086e76f2cf5a09b72349db9b13442e71b",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "right_near.png",
+              "sha256": "6b2c10166558b79e4b25a52343e7576119663337120e7a8966479f89ed8946a9",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "left_far.png",
+              "sha256": "08810505b7e5fdb8bedc6f594d805b77c1e95c1e127d27149a8abae2682b872e",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "right_far.png",
+              "sha256": "b9ee583500d26cf7f99698c5b3bafb90e805d8684af3cbd3fbe3f3c95ead9b81",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "left_near_revisit.png",
+              "sha256": "d1a09506293e7dc71f8986ec2fd9fd8520ffe1e81de0120e87317fb614ab4d71",
+              "size": [
+                1600,
+                900
+              ]
+            }
+          ]
+        },
+        {
+          "name": "skate0-pt_rr-p1",
+          "status": "PASS",
+          "game": "skate",
+          "map": 0,
+          "mode": "pt_rr",
+          "players": 1,
+          "exitCode": 0,
+          "wrapperExitCode": 0,
+          "durationSeconds": 51.547,
+          "reachedPlay": true,
+          "captureStatus": "COMPLETE",
+          "errorLineCount": 0,
+          "asyncShaderCompilation": true,
+          "effectiveUpscale": 7,
+          "dlssMode": 6,
+          "rrDenoiser": 1,
+          "fgRequested": false,
+          "hdrRequested": false,
+          "receipt": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/skate0-pt_rr-p1/raw-receipt.json",
+            "sha256": "ba288787d3eb9c08fc2ce1e31185a8eca7bd11f843d2b43132f70ef4cba71f0d"
+          },
+          "log": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/skate0-pt_rr-p1/godot.stdout.log",
+            "sha256": "75b08cc18d72eecf553d894d81ca69420f5e0dfc99b04ebd7d40b83dc6a4a7b2"
+          },
+          "capture": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/skate0-pt_rr-p1/capture/capture.json",
+            "sha256": "77bd497071d659f9e9e815285cf82d5346a0640a7d4d8864628edaaae1205463"
+          },
+          "images": [
+            {
+              "name": "left_near.png",
+              "sha256": "65467c99f67575b0bfdfd2a17d1ce5ec2f5d0365d21c0b15056c6347a16c5cc6",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "right_near.png",
+              "sha256": "689bc295ae70c6b08af25ed93d79c5de99a44f727efdd81d2995512db6d4cb78",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "left_far.png",
+              "sha256": "aacdd0294fed0090b7a0e5e511f4008d033bc79f61b433acccc89fe80626f398",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "right_far.png",
+              "sha256": "923a179fe1f05b4b4241f13715b267de5c715bce4f16b3b3ea40db5461725ece",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "left_near_revisit.png",
+              "sha256": "7c2bd55dee1749a16ffee61b282864152a041dc59ac2758418cca64b4cbe4f5a",
+              "size": [
+                1600,
+                900
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ski0-pt0-p1",
+          "status": "PASS",
+          "game": "ski",
+          "map": 0,
+          "mode": "pt0",
+          "players": 1,
+          "exitCode": 0,
+          "wrapperExitCode": 0,
+          "durationSeconds": 41.422,
+          "reachedPlay": true,
+          "captureStatus": "COMPLETE",
+          "errorLineCount": 0,
+          "asyncShaderCompilation": true,
+          "effectiveUpscale": 0,
+          "dlssMode": 6,
+          "rrDenoiser": 1,
+          "fgRequested": false,
+          "hdrRequested": false,
+          "receipt": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/ski0-pt0-p1/raw-receipt.json",
+            "sha256": "e8dbe5acfbf6a79ac0311d892f3884f21ccbaa47950df20ac9ef28713136b557"
+          },
+          "log": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/ski0-pt0-p1/godot.stdout.log",
+            "sha256": "80e504e94a3341280dcfc1475642d603550b1e8b0bee2df157b9901d4a5fe632"
+          },
+          "capture": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/ski0-pt0-p1/capture/capture.json",
+            "sha256": "41ce6434cebd0a54bc734c03a87f0df7d16e21657971f27f3fc591166b54b28d"
+          },
+          "images": [
+            {
+              "name": "snow_near.png",
+              "sha256": "d42e1eecc9799196ea8f64f87f73fcbd8a7390c0c9ab9510175c2392d57ebc39",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "snow_far.png",
+              "sha256": "feab35c411e4fc324c3592d424e96f4c8d9b5d20ac2eebba89733c07ef63f292",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "tree_band.png",
+              "sha256": "59f9c617f72a4d41ec1f414674407c718cd6b024ff023c14c3f32153a4336586",
+              "size": [
+                1600,
+                900
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ski0-pt_rr-p1",
+          "status": "PASS",
+          "game": "ski",
+          "map": 0,
+          "mode": "pt_rr",
+          "players": 1,
+          "exitCode": 0,
+          "wrapperExitCode": 0,
+          "durationSeconds": 43.266,
+          "reachedPlay": true,
+          "captureStatus": "COMPLETE",
+          "errorLineCount": 0,
+          "asyncShaderCompilation": true,
+          "effectiveUpscale": 7,
+          "dlssMode": 6,
+          "rrDenoiser": 1,
+          "fgRequested": false,
+          "hdrRequested": false,
+          "receipt": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/ski0-pt_rr-p1/raw-receipt.json",
+            "sha256": "fee3b926bb959c077a647f32e4de5d312d39990cf43df29b3bb9d262fbbcd408"
+          },
+          "log": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/ski0-pt_rr-p1/godot.stdout.log",
+            "sha256": "f81486fe4c35fb52cd1cf5ac732abc2fdddbf4505924f2b07ae6a2e427ad2bff"
+          },
+          "capture": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/ski0-pt_rr-p1/capture/capture.json",
+            "sha256": "3396ec010aee80356027c63b8fe680575480affad1c95ec62355f425b42e4cdb"
+          },
+          "images": [
+            {
+              "name": "snow_near.png",
+              "sha256": "0a6b7863b39dfcec043d275d4c279601a9031c24d1ce6cdf85a9cd946739fadb",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "snow_far.png",
+              "sha256": "2c5aa7d4f310bdea452e7f32b6cdd59208bbfb63badec9f0956e1a1fcf599f99",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "tree_band.png",
+              "sha256": "1247df33182fccfa983d4b6f244f5c60b439b721d0ed26371b01be84fd7e6e31",
+              "size": [
+                1600,
+                900
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ski1-pt0-p1",
+          "status": "PASS",
+          "game": "ski",
+          "map": 1,
+          "mode": "pt0",
+          "players": 1,
+          "exitCode": 0,
+          "wrapperExitCode": 0,
+          "durationSeconds": 42.141,
+          "reachedPlay": true,
+          "captureStatus": "COMPLETE",
+          "errorLineCount": 0,
+          "asyncShaderCompilation": true,
+          "effectiveUpscale": 0,
+          "dlssMode": 6,
+          "rrDenoiser": 1,
+          "fgRequested": false,
+          "hdrRequested": false,
+          "receipt": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/ski1-pt0-p1/raw-receipt.json",
+            "sha256": "377a57f427bd1fa4c252d51c22105588e583513b2004a3052c878f32054c682b"
+          },
+          "log": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/ski1-pt0-p1/godot.stdout.log",
+            "sha256": "ac0bea264beb1888cd9a265a1a55e3df453ac5913ff4db27f1e9a6fa53533295"
+          },
+          "capture": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/ski1-pt0-p1/capture/capture.json",
+            "sha256": "e8fc072fd10de845b64b931cd43582a3b1d5408175713471ba5ccd80d8a84416"
+          },
+          "images": [
+            {
+              "name": "snow_near.png",
+              "sha256": "5bfba36aa453dca76035bb7d458a98f53444d14ab1eb961e1bb8d034432b07ae",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "snow_far.png",
+              "sha256": "408dccef4ec87928b2e290022231edaa0a5d338e7a4c69d6aaed92abceb59986",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "tree_band.png",
+              "sha256": "ccb86c71511012741e00923c999668ab5467c603626b6de85d97a7ebda8e610b",
+              "size": [
+                1600,
+                900
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ski1-pt_rr-p1",
+          "status": "PASS",
+          "game": "ski",
+          "map": 1,
+          "mode": "pt_rr",
+          "players": 1,
+          "exitCode": 0,
+          "wrapperExitCode": 0,
+          "durationSeconds": 42.406,
+          "reachedPlay": true,
+          "captureStatus": "COMPLETE",
+          "errorLineCount": 0,
+          "asyncShaderCompilation": true,
+          "effectiveUpscale": 7,
+          "dlssMode": 6,
+          "rrDenoiser": 1,
+          "fgRequested": false,
+          "hdrRequested": false,
+          "receipt": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/ski1-pt_rr-p1/raw-receipt.json",
+            "sha256": "2744155e5e7f526de63b372399003ce800b4cf47acc457d9faefc1e16970d9eb"
+          },
+          "log": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/ski1-pt_rr-p1/godot.stdout.log",
+            "sha256": "9b560e405658f6374ae4152db261e3d84a8c3bac3d5a95d61e8a168408d1e7b9"
+          },
+          "capture": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T132931Z-dc98e9/cases/ski1-pt_rr-p1/capture/capture.json",
+            "sha256": "558445bb07f42a06d5e1088909ad21d6423529f2a4709a164acffc0c52e9a74c"
+          },
+          "images": [
+            {
+              "name": "snow_near.png",
+              "sha256": "3d1e631078633cc0cccaa6f0c940838cf1331bf38d59307ea4092d8a1d2704aa",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "snow_far.png",
+              "sha256": "45ec470d49e10ff39b3a097f6395666e1cbea53f75691eddfbe02ab35ca87b67",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "tree_band.png",
+              "sha256": "ccb86c71511012741e00923c999668ab5467c603626b6de85d97a7ebda8e610b",
+              "size": [
+                1600,
+                900
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "status": "PASS",
+      "runId": "a73826e8c0-20261026T134109Z-fbfa36",
+      "passed": 4,
+      "total": 4,
+      "matrix": {
+        "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T134109Z-fbfa36/matrix.json",
+        "sha256": "9f74308a3a7ad7754c70d461040333bd7e58edc3849c8770257930d461eed628"
+      },
+      "inputs": {
+        "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T134109Z-fbfa36/inputs.json",
+        "sha256": "b9af6674430c8cd2194db4c7b96941acea6f38b071948672b75ba954c649075f"
+      },
+      "frozenInputsUnchangedDuringRun": true,
+      "sourceGameUnchangedDuringRun": true,
+      "syncRtCompilationRequested": false,
+      "cases": [
+        {
+          "name": "skate0-pt_rr-p2",
+          "status": "PASS",
+          "game": "skate",
+          "map": 0,
+          "mode": "pt_rr",
+          "players": 2,
+          "exitCode": 0,
+          "wrapperExitCode": 0,
+          "durationSeconds": 60.844,
+          "reachedPlay": true,
+          "captureStatus": "COMPLETE",
+          "errorLineCount": 0,
+          "asyncShaderCompilation": true,
+          "effectiveUpscale": 7,
+          "dlssMode": 6,
+          "rrDenoiser": 1,
+          "fgRequested": false,
+          "hdrRequested": false,
+          "receipt": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T134109Z-fbfa36/cases/skate0-pt_rr-p2/raw-receipt.json",
+            "sha256": "1d83d741962772167f0a0814c86c54b885db4e51bf8a88657a16112aacf25029"
+          },
+          "log": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T134109Z-fbfa36/cases/skate0-pt_rr-p2/godot.stdout.log",
+            "sha256": "6394101dd37d096939b531aced8032b1464d44c788b2b3ce2909c11e2fd71f40"
+          },
+          "capture": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T134109Z-fbfa36/cases/skate0-pt_rr-p2/capture/capture.json",
+            "sha256": "0d857b47e727955daa01f85791da5cec210d3ef0bc7228477f8ec743d2eae56d"
+          },
+          "images": [
+            {
+              "name": "left_near.png",
+              "sha256": "329cec63adb96206a12b730413d4a6626004546612fb34ff6aa1b65c36cdfa39",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "right_near.png",
+              "sha256": "af428797dcd183679bc0ad831659bee37df35b70b2dbecfbe73ab2081e469fc7",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "left_far.png",
+              "sha256": "58b6171ba9b25fb079e819d8ce19d3b99fcf75ed362fa1c5e350d97b13d179c7",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "right_far.png",
+              "sha256": "6bc181935ce176078ac567e98738e81cc251f14daaad9bf53113b3d8d9be2e96",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "left_near_revisit.png",
+              "sha256": "098b4a0681a3bfe270ad52277739bf137a9a55c76850ac78a6a7b63875be9ccf",
+              "size": [
+                1600,
+                900
+              ]
+            }
+          ]
+        },
+        {
+          "name": "skate0-pt_rr-p4",
+          "status": "PASS",
+          "game": "skate",
+          "map": 0,
+          "mode": "pt_rr",
+          "players": 4,
+          "exitCode": 0,
+          "wrapperExitCode": 0,
+          "durationSeconds": 80.156,
+          "reachedPlay": true,
+          "captureStatus": "COMPLETE",
+          "errorLineCount": 0,
+          "asyncShaderCompilation": true,
+          "effectiveUpscale": 7,
+          "dlssMode": 6,
+          "rrDenoiser": 1,
+          "fgRequested": false,
+          "hdrRequested": false,
+          "receipt": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T134109Z-fbfa36/cases/skate0-pt_rr-p4/raw-receipt.json",
+            "sha256": "1cf1142d78acf7aebcb5e51b0a8f6081ec46ef5a2ce4c883107975e0b623851f"
+          },
+          "log": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T134109Z-fbfa36/cases/skate0-pt_rr-p4/godot.stdout.log",
+            "sha256": "398db43dce77bd5af14c02901e0c8c5c6ad1b4dbd251c6044daa6af2726cafe3"
+          },
+          "capture": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T134109Z-fbfa36/cases/skate0-pt_rr-p4/capture/capture.json",
+            "sha256": "b1ede5ac1bb59ea34a396ea30fa0893e181a34a0e85c6ef75b12fa94dd6fd403"
+          },
+          "images": [
+            {
+              "name": "left_near.png",
+              "sha256": "d08707c9f453e8f94fc18f8d062c4eed170f4d6396d455b659d91dd23a479cf0",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "right_near.png",
+              "sha256": "a1fd70ffc95c5b18ea1c755e80977afb72fd8f68f6ed5acf3b0eb296fc547aa0",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "left_far.png",
+              "sha256": "2ec40a8af6e0cbb29986c8305fdeeee2ecaff189aeae31e4faf9d1fde2b4e88a",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "right_far.png",
+              "sha256": "00b5fabde048f5063687f29667f1deacedbefda8d884af05082577531030c61e",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "left_near_revisit.png",
+              "sha256": "8da54574675c446ade658b97faa24b1aa0a41cc022cb840b9f5aa3de9aa4e17e",
+              "size": [
+                1600,
+                900
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ski0-pt_rr-p2",
+          "status": "PASS",
+          "game": "ski",
+          "map": 0,
+          "mode": "pt_rr",
+          "players": 2,
+          "exitCode": 0,
+          "wrapperExitCode": 0,
+          "durationSeconds": 44.328,
+          "reachedPlay": true,
+          "captureStatus": "COMPLETE",
+          "errorLineCount": 0,
+          "asyncShaderCompilation": true,
+          "effectiveUpscale": 7,
+          "dlssMode": 6,
+          "rrDenoiser": 1,
+          "fgRequested": false,
+          "hdrRequested": false,
+          "receipt": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T134109Z-fbfa36/cases/ski0-pt_rr-p2/raw-receipt.json",
+            "sha256": "f31a4bb6c40945926ff76310ebbedcbaaa5206c6fba977854b68cacd22a8e998"
+          },
+          "log": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T134109Z-fbfa36/cases/ski0-pt_rr-p2/godot.stdout.log",
+            "sha256": "f478468abaf1bda3b991a1c6c493ea00f5d2749ce1f7a9996c2ee54743f8dd4f"
+          },
+          "capture": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T134109Z-fbfa36/cases/ski0-pt_rr-p2/capture/capture.json",
+            "sha256": "a419094603026d3ee69ec97a88d60e8305cc7bdf4d87ef1dffa0612dd8634413"
+          },
+          "images": [
+            {
+              "name": "snow_near.png",
+              "sha256": "363a93828fa53379a455c8653759b1035642b6badcd4542d4809f4374e9c2c2c",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "snow_far.png",
+              "sha256": "c2f2a9658db655cdabdb0c15b5eee4aaca6ca4d0181588414fb6962c004b5206",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "tree_band.png",
+              "sha256": "972751c3aea01f8868a399043e4deb08c18bf4f0bb9f9f443978ad15093c4566",
+              "size": [
+                1600,
+                900
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ski0-pt_rr-p4",
+          "status": "PASS",
+          "game": "ski",
+          "map": 0,
+          "mode": "pt_rr",
+          "players": 4,
+          "exitCode": 0,
+          "wrapperExitCode": 0,
+          "durationSeconds": 52.125,
+          "reachedPlay": true,
+          "captureStatus": "COMPLETE",
+          "errorLineCount": 0,
+          "asyncShaderCompilation": true,
+          "effectiveUpscale": 7,
+          "dlssMode": 6,
+          "rrDenoiser": 1,
+          "fgRequested": false,
+          "hdrRequested": false,
+          "receipt": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T134109Z-fbfa36/cases/ski0-pt_rr-p4/raw-receipt.json",
+            "sha256": "9b2a79732bf3925116f9415c64c94243d20598f0149d41cb644fad32b3bab64f"
+          },
+          "log": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T134109Z-fbfa36/cases/ski0-pt_rr-p4/godot.stdout.log",
+            "sha256": "e3c14b48bfa77b3e77a839a0514b4cc1526d70713a0e65c2b204661bfa20253d"
+          },
+          "capture": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T134109Z-fbfa36/cases/ski0-pt_rr-p4/capture/capture.json",
+            "sha256": "7a205b0a3db79b065cd7c068f587ee2a4507241b6ca2801f39b73d5641e9c939"
+          },
+          "images": [
+            {
+              "name": "snow_near.png",
+              "sha256": "1f897c024c09666345df2722ed382629a67a2ee30c434bd0e30c339a8db8c53a",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "snow_far.png",
+              "sha256": "b7a3cdfb7b37c6a9e2afb528555ed684e8112a139e6c418a1a178bc899575c1f",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "tree_band.png",
+              "sha256": "74187f982000362e32eee1cddb6429453bfb1059d5b44894fdd2b0f8b88fa866",
+              "size": [
+                1600,
+                900
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "status": "PASS",
+      "runId": "a73826e8c0-20261026T135010Z-c16b7b",
+      "passed": 2,
+      "total": 2,
+      "matrix": {
+        "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T135010Z-c16b7b/matrix.json",
+        "sha256": "48c20f9f23af546877fb6ccc9757a7f552c96a7a5454a6d4850e4fa9cec3de11"
+      },
+      "inputs": {
+        "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T135010Z-c16b7b/inputs.json",
+        "sha256": "60c66385fa32991074abd02a012b0ebee171c251159f4ddf5fc718639951ffb0"
+      },
+      "frozenInputsUnchangedDuringRun": true,
+      "sourceGameUnchangedDuringRun": true,
+      "syncRtCompilationRequested": false,
+      "cases": [
+        {
+          "name": "skate0-ddgi-p1",
+          "status": "PASS",
+          "game": "skate",
+          "map": 0,
+          "mode": "ddgi",
+          "players": 1,
+          "exitCode": 0,
+          "wrapperExitCode": 0,
+          "durationSeconds": 69.828,
+          "reachedPlay": true,
+          "captureStatus": "COMPLETE",
+          "errorLineCount": 0,
+          "asyncShaderCompilation": true,
+          "effectiveUpscale": 0,
+          "dlssMode": 6,
+          "rrDenoiser": 1,
+          "fgRequested": false,
+          "hdrRequested": false,
+          "receipt": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T135010Z-c16b7b/cases/skate0-ddgi-p1/raw-receipt.json",
+            "sha256": "08e5cf4e353137beff807a8d4ed07660e8a64f730b41941f4ebe19503c766035"
+          },
+          "log": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T135010Z-c16b7b/cases/skate0-ddgi-p1/godot.stdout.log",
+            "sha256": "f0438c9ff50796d3c82ec5d62ea1cc8dc058c4c5ddc182a847528edf0b14c19e"
+          },
+          "capture": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T135010Z-c16b7b/cases/skate0-ddgi-p1/capture/capture.json",
+            "sha256": "301ce39bc9f44d64f160719768abe11d7768e11f1a11c13daddddf3289d5451d"
+          },
+          "images": [
+            {
+              "name": "left_near.png",
+              "sha256": "1344589d4333ba090f69a02568751cff06c8e07dbacc77f8b10fb6d7726a76ba",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "right_near.png",
+              "sha256": "78d3d1068407e0cdd37e317fccfbeca79102a3afd52577538a6b21a46b69898f",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "left_far.png",
+              "sha256": "42da93bac06cb34970cf3b88e0c568471e291dc18cb571ddd979a56ab5aaa50c",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "right_far.png",
+              "sha256": "03ee0ce2b8afed30991e7bd498b9e9d8db2dbc7ab8b58b2917a2c0312930fb9c",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "left_near_revisit.png",
+              "sha256": "c1aeda9997b565d26c54df780c6935caeadbb89b7c5fee9bfad3a73fcb6c7d2a",
+              "size": [
+                1600,
+                900
+              ]
+            }
+          ]
+        },
+        {
+          "name": "ski0-ddgi-p1",
+          "status": "PASS",
+          "game": "ski",
+          "map": 0,
+          "mode": "ddgi",
+          "players": 1,
+          "exitCode": 0,
+          "wrapperExitCode": 0,
+          "durationSeconds": 45.5,
+          "reachedPlay": true,
+          "captureStatus": "COMPLETE",
+          "errorLineCount": 0,
+          "asyncShaderCompilation": true,
+          "effectiveUpscale": 0,
+          "dlssMode": 6,
+          "rrDenoiser": 1,
+          "fgRequested": false,
+          "hdrRequested": false,
+          "receipt": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T135010Z-c16b7b/cases/ski0-ddgi-p1/raw-receipt.json",
+            "sha256": "7eadae358e25eee4bc085f458f2cff24020691d93bbfb15849fbdccf9ea4b1c6"
+          },
+          "log": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T135010Z-c16b7b/cases/ski0-ddgi-p1/godot.stdout.log",
+            "sha256": "7a58b306e32f14d594745186e4a59a6adcc8f642c31d9bd7b0c01690008e5748"
+          },
+          "capture": {
+            "id": "<evidence>/materials/harness/runs/a73826e8c0-20261026T135010Z-c16b7b/cases/ski0-ddgi-p1/capture/capture.json",
+            "sha256": "dd06c6651fd464d09c92eb34a6538bb268a509814d9dd8170e6a83341ddd04f8"
+          },
+          "images": [
+            {
+              "name": "snow_near.png",
+              "sha256": "39dce51e4bd30bf36a2f1e4997c9df1ae8a67f5970c8195b0114070616f30ba5",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "snow_far.png",
+              "sha256": "693b1c6b7106a72e4b3e499ee2ffe3e7184755bb9abe9ed4c322d14f1e58425b",
+              "size": [
+                1600,
+                900
+              ]
+            },
+            {
+              "name": "tree_band.png",
+              "sha256": "31fd2b5eb893c5bc391f46bdbe5a643a487e958e50861db90958050f9a45dc33",
+              "size": [
+                1600,
+                900
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "nativeMaterialRegressions": {
+    "opaqueColourRed": {
+      "name": "Opaque standard colour red control",
+      "status": "FAIL",
+      "recordedCheckoutSha": "a0286a13517761b058cbf53286ad0c723d414fc2",
+      "exitCode": 1,
+      "durationSeconds": 19.422,
+      "inputBinaries": [
+        {
+          "name": "godot.windows.editor.x86_64.exe",
+          "bytes": 161805824,
+          "sha256": "e637d45b329edf022e9d08f58e051b6aee76998a01e6194bbd275e788c7edd4d"
+        }
+      ],
+      "receipt": {
+        "id": "<evidence>/recorder/pt-materials-standard-color-red-a028.json",
+        "sha256": "0f540071b117c35ef1be23b0cb393d8a0890831752ac3c04d89cd07f4edeab10"
+      },
+      "log": {
+        "id": "<evidence>/recorder/logs/pt-materials-standard-color-red-a028.log",
+        "sha256": "6da5a43d9f4598d645071bd396225a94da00392a82e4bdf979d507cee76fbbf1"
+      },
+      "total": 4,
+      "passed": 0,
+      "requestedNativeExitCode": 1,
+      "fixtureSha256": "32c50befae8d888884607f3e52064192f74e7004b4be26f9b63863fc359cd28d",
+      "engineCommit": "a0286a13517761b058cbf53286ad0c723d414fc2",
+      "streamlineDllsPresent": false,
+      "pt": true,
+      "rr": 0,
+      "ddgi": false,
+      "asyncShaderCompilation": false,
+      "summary": {
+        "id": "<evidence>/materials/private/standard-color/evidence-red-a028-01/summary.json",
+        "sha256": "d19653ea0b8c1cc36deff74c45b33192086cef56c6cc291f1a1aaafe73d149c1"
+      },
+      "phases": [
+        {
+          "phase": "00_mesh_green_white_vertex_strips",
+          "passed": false,
+          "configPassed": true,
+          "pixelsPassed": false,
+          "actualTlasInstances": 1,
+          "expectedTlasInstances": 1,
+          "json": {
+            "id": "<evidence>/materials/private/standard-color/evidence-red-a028-01/00_mesh_green_white_vertex_strips.json",
+            "sha256": "3691ad14f39f164cfa0c66bd22809b6876ee96b12c27bad65777f4118028beb7"
+          },
+          "png": {
+            "id": "<evidence>/materials/private/standard-color/evidence-red-a028-01/00_mesh_green_white_vertex_strips.png",
+            "sha256": "64a7371e6e46c33f3b5c44e56d1b5db9981b870cd18661c325ff6f2bb35b1b02"
+          }
+        },
+        {
+          "phase": "01_multimesh_rgb_linear",
+          "passed": false,
+          "configPassed": true,
+          "pixelsPassed": false,
+          "actualTlasInstances": 1,
+          "expectedTlasInstances": 1,
+          "json": {
+            "id": "<evidence>/materials/private/standard-color/evidence-red-a028-01/01_multimesh_rgb_linear.json",
+            "sha256": "0f129539c6cd8fc6a0e6cab9dcd9ebabc1539ea97c6ba69f6c8c93bc0c23f37f"
+          },
+          "png": {
+            "id": "<evidence>/materials/private/standard-color/evidence-red-a028-01/01_multimesh_rgb_linear.png",
+            "sha256": "a9aeb490c0053a7d597e7b580c11b2b0676952ba8a862838f4846873e57288da"
+          }
+        },
+        {
+          "phase": "02_multimesh_midgray_linear",
+          "passed": false,
+          "configPassed": true,
+          "pixelsPassed": false,
+          "actualTlasInstances": 2,
+          "expectedTlasInstances": 2,
+          "json": {
+            "id": "<evidence>/materials/private/standard-color/evidence-red-a028-01/02_multimesh_midgray_linear.json",
+            "sha256": "9903a5db6a33c379d7f06a54256b526b9450162eefc93e6cbc84e736d925c490"
+          },
+          "png": {
+            "id": "<evidence>/materials/private/standard-color/evidence-red-a028-01/02_multimesh_midgray_linear.png",
+            "sha256": "573a482fb9dd616b0fc68ce71a96c5327e6cf10ac1c1158cf528aefd0224c07d"
+          }
+        },
+        {
+          "phase": "03_multimesh_midgray_srgb",
+          "passed": false,
+          "configPassed": true,
+          "pixelsPassed": false,
+          "actualTlasInstances": 2,
+          "expectedTlasInstances": 2,
+          "json": {
+            "id": "<evidence>/materials/private/standard-color/evidence-red-a028-01/03_multimesh_midgray_srgb.json",
+            "sha256": "7dedec86445c46aa2457ff40a67587ade372b6b8a8175b0d9e1e3a2bc95add8e"
+          },
+          "png": {
+            "id": "<evidence>/materials/private/standard-color/evidence-red-a028-01/03_multimesh_midgray_srgb.png",
+            "sha256": "d3fe77f150440522febe7e11646b0f6f3f580f956bda03cb0c3861fb7ea33f40"
+          }
+        }
+      ]
+    },
+    "opaqueColourGreen": {
+      "name": "Opaque standard colour fixed candidate",
+      "status": "PASS",
+      "recordedCheckoutSha": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+      "exitCode": 0,
+      "durationSeconds": 27.0,
+      "inputBinaries": [
+        {
+          "name": "godot.windows.editor.x86_64.exe",
+          "bytes": 161806336,
+          "sha256": "a73a3555c39d0b1bdce13cb3fd6f793788d0c27fbd677f6d81108cdbebf9abfc"
+        }
+      ],
+      "receipt": {
+        "id": "<evidence>/recorder/pt-materials-standard-color-green-a738.json",
+        "sha256": "213e3fffe9e72b57ea54014cc8304f1c1241f81e7fbdb1deb70ba36e67a0f48e"
+      },
+      "log": {
+        "id": "<evidence>/recorder/logs/pt-materials-standard-color-green-a738.log",
+        "sha256": "ad9e17565e3d974665bda93ce46c3d57b78ae0e9dca83fdb34ed15104b205a57"
+      },
+      "total": 4,
+      "passed": 4,
+      "requestedNativeExitCode": 0,
+      "fixtureSha256": "32c50befae8d888884607f3e52064192f74e7004b4be26f9b63863fc359cd28d",
+      "engineCommit": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+      "streamlineDllsPresent": false,
+      "pt": true,
+      "rr": 0,
+      "ddgi": false,
+      "asyncShaderCompilation": false,
+      "summary": {
+        "id": "<evidence>/materials/private/standard-color/evidence-green-a738-01/summary.json",
+        "sha256": "0f0cf204cb31177db96f0d5e10cf65679c979b5b1ad8411d0dffeba1ba3f0c7a"
+      },
+      "phases": [
+        {
+          "phase": "00_mesh_green_white_vertex_strips",
+          "passed": true,
+          "configPassed": true,
+          "pixelsPassed": true,
+          "actualTlasInstances": 1,
+          "expectedTlasInstances": 1,
+          "json": {
+            "id": "<evidence>/materials/private/standard-color/evidence-green-a738-01/00_mesh_green_white_vertex_strips.json",
+            "sha256": "c8863850d3bc2b0ff115cd4bd0558a226c1891b17c45303c178ec58f1e3410f8"
+          },
+          "png": {
+            "id": "<evidence>/materials/private/standard-color/evidence-green-a738-01/00_mesh_green_white_vertex_strips.png",
+            "sha256": "285724da533cc297a5145094e5239390522d12677cdeced9731640c1b217939c"
+          }
+        },
+        {
+          "phase": "01_multimesh_rgb_linear",
+          "passed": true,
+          "configPassed": true,
+          "pixelsPassed": true,
+          "actualTlasInstances": 3,
+          "expectedTlasInstances": 3,
+          "json": {
+            "id": "<evidence>/materials/private/standard-color/evidence-green-a738-01/01_multimesh_rgb_linear.json",
+            "sha256": "94f28048fc06523a2968b5a0e2a33a0c45fa23aa4dfa629e86a72a4b843ddfe3"
+          },
+          "png": {
+            "id": "<evidence>/materials/private/standard-color/evidence-green-a738-01/01_multimesh_rgb_linear.png",
+            "sha256": "83535010bd5e33352b13baaf150501d3d39d88b8b5eb159b31652df810877715"
+          }
+        },
+        {
+          "phase": "02_multimesh_midgray_linear",
+          "passed": true,
+          "configPassed": true,
+          "pixelsPassed": true,
+          "actualTlasInstances": 4,
+          "expectedTlasInstances": 4,
+          "json": {
+            "id": "<evidence>/materials/private/standard-color/evidence-green-a738-01/02_multimesh_midgray_linear.json",
+            "sha256": "7d6448b7950eb297dcf6a2767ca069f3581dea543117f10e6ae74791581e9a45"
+          },
+          "png": {
+            "id": "<evidence>/materials/private/standard-color/evidence-green-a738-01/02_multimesh_midgray_linear.png",
+            "sha256": "a6bf08bb36279cb28518ebc1cdb555dad77654d3dccfca0615c825c1d5e458d1"
+          }
+        },
+        {
+          "phase": "03_multimesh_midgray_srgb",
+          "passed": true,
+          "configPassed": true,
+          "pixelsPassed": true,
+          "actualTlasInstances": 4,
+          "expectedTlasInstances": 4,
+          "json": {
+            "id": "<evidence>/materials/private/standard-color/evidence-green-a738-01/03_multimesh_midgray_srgb.json",
+            "sha256": "c8f25c2af4370e4dca54fa4264074f7317de36f1b805932e02eea47de77ca7c6"
+          },
+          "png": {
+            "id": "<evidence>/materials/private/standard-color/evidence-green-a738-01/03_multimesh_midgray_srgb.png",
+            "sha256": "2d76a6207c0d3984175803a6cdd3bd0d7f437082c656e5baad9942b7fbe697bc"
+          }
+        }
+      ]
+    },
+    "sharedOwnerRed": {
+      "name": "Shared owner public red control",
+      "status": "FAIL",
+      "recordedCheckoutSha": "bcc08cc81cc71e3c02b800b055f21fd11634d448",
+      "exitCode": 1,
+      "durationSeconds": 10.891,
+      "inputBinaries": [
+        {
+          "name": "godot.windows.editor.x86_64.exe",
+          "bytes": 161802752,
+          "sha256": "158a37b906f3b7449e8914d43175d9669442d18d6c29db57eb34100c434f88fc"
+        }
+      ],
+      "receipt": {
+        "id": "<evidence>/recorder/pt-materials-owner-public-red-bcc.json",
+        "sha256": "93913f4bef589c2c62e495206bc64c864bedd8f741f34456946e7899076b5ad6"
+      },
+      "log": {
+        "id": "<evidence>/recorder/logs/pt-materials-owner-public-red-bcc.log",
+        "sha256": "92db33ec215b62dc2f0605db3c6159f892d3d9d9e0e180a86a6a824c847f0b55"
+      },
+      "total": 2,
+      "passed": 0,
+      "requestedNativeExitCode": 1,
+      "fixtureSha256": "99852e80503094ad2e2da136ea3a536b42e7735b048d40801bf0eeb6332d5037",
+      "engineCommit": "bcc08cc81cc71e3c02b800b055f21fd11634d448",
+      "streamlineDllsPresent": false,
+      "pt": true,
+      "rr": 0,
+      "ddgi": false,
+      "asyncShaderCompilation": false,
+      "summary": {
+        "id": "<evidence>/materials/shared-owner/evidence-public-red-bcc-01/summary.json",
+        "sha256": "6ebd33b6bab2761246b99946e1c13898942f19a7b95a895ebbee2d7a3ffb358b"
+      },
+      "phases": [
+        {
+          "phase": "00_distinct_materials_shared_multimesh",
+          "passed": false,
+          "configPassed": true,
+          "pixelsPassed": false,
+          "actualTlasInstances": 2,
+          "expectedTlasInstances": 2,
+          "json": {
+            "id": "<evidence>/materials/shared-owner/evidence-public-red-bcc-01/00_distinct_materials_shared_multimesh.json",
+            "sha256": "5f83ad14507ce8c99c38a2b34e7b270e05fd85ac2a55490191ae2bba5bb27d91"
+          },
+          "png": {
+            "id": "<evidence>/materials/shared-owner/evidence-public-red-bcc-01/00_distinct_materials_shared_multimesh.png",
+            "sha256": "756a50001710bb093cfd1446c03ddc4a80f926eac5792b8cfcfa95d7502ce8b2"
+          }
+        },
+        {
+          "phase": "01_same_material_owner_world_transform",
+          "passed": false,
+          "configPassed": true,
+          "pixelsPassed": false,
+          "actualTlasInstances": 2,
+          "expectedTlasInstances": 2,
+          "json": {
+            "id": "<evidence>/materials/shared-owner/evidence-public-red-bcc-01/01_same_material_owner_world_transform.json",
+            "sha256": "394ce88f39ed59775586a4b6239088db82b08804ce000638272b05615e2b38f6"
+          },
+          "png": {
+            "id": "<evidence>/materials/shared-owner/evidence-public-red-bcc-01/01_same_material_owner_world_transform.png",
+            "sha256": "7306ecc3ce087859236ad8d6559b16d198869e13a84390eb28e00dd315a71cbc"
+          }
+        }
+      ]
+    },
+    "sharedOwnerFinal": {
+      "name": "Shared owner final candidate",
+      "status": "PASS",
+      "recordedCheckoutSha": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+      "exitCode": 0,
+      "durationSeconds": 11.547,
+      "inputBinaries": [
+        {
+          "name": "godot.windows.editor.x86_64.exe",
+          "bytes": 161806336,
+          "sha256": "a73a3555c39d0b1bdce13cb3fd6f793788d0c27fbd677f6d81108cdbebf9abfc"
+        }
+      ],
+      "receipt": {
+        "id": "<evidence>/recorder/pt-materials-owner-final-a738.json",
+        "sha256": "a48506993b2ca34ebbd80ffe841ad8299bae95d4d4449ea7c40e7628e7b3b210"
+      },
+      "log": {
+        "id": "<evidence>/recorder/logs/pt-materials-owner-final-a738.log",
+        "sha256": "b524e630c9e4eacb07c827331c5c5c42352403ddc60a23e1407f81fd6f8a0b9f"
+      },
+      "total": 2,
+      "passed": 2,
+      "requestedNativeExitCode": 0,
+      "fixtureSha256": "99852e80503094ad2e2da136ea3a536b42e7735b048d40801bf0eeb6332d5037",
+      "engineCommit": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+      "streamlineDllsPresent": false,
+      "pt": true,
+      "rr": 0,
+      "ddgi": false,
+      "asyncShaderCompilation": false,
+      "summary": {
+        "id": "<evidence>/materials/shared-owner/evidence-final-a738/summary.json",
+        "sha256": "103f3c97d16943e19afdede6deb80eeb8904b63450b1a45c0fed18d1e34ca263"
+      },
+      "phases": [
+        {
+          "phase": "00_distinct_materials_shared_multimesh",
+          "passed": true,
+          "configPassed": true,
+          "pixelsPassed": true,
+          "actualTlasInstances": 2,
+          "expectedTlasInstances": 2,
+          "json": {
+            "id": "<evidence>/materials/shared-owner/evidence-final-a738/00_distinct_materials_shared_multimesh.json",
+            "sha256": "7688a6c22da6d1891069aed0661578046f197034183cc31deb3d01a0822b5ac2"
+          },
+          "png": {
+            "id": "<evidence>/materials/shared-owner/evidence-final-a738/00_distinct_materials_shared_multimesh.png",
+            "sha256": "b73762abcac781815047fcf691fcb9bb0cc50bb216420629084483a40f5f5082"
+          }
+        },
+        {
+          "phase": "01_same_material_owner_world_transform",
+          "passed": true,
+          "configPassed": true,
+          "pixelsPassed": true,
+          "actualTlasInstances": 2,
+          "expectedTlasInstances": 2,
+          "json": {
+            "id": "<evidence>/materials/shared-owner/evidence-final-a738/01_same_material_owner_world_transform.json",
+            "sha256": "543b46418e1ef16de59576a422b00537dcd71b2b0d854638ae60a3f3509d453c"
+          },
+          "png": {
+            "id": "<evidence>/materials/shared-owner/evidence-final-a738/01_same_material_owner_world_transform.png",
+            "sha256": "2c96260e9dc84aafc68846fac8e4d2e59d0f5ce7327a585e30646703fe099e1b"
+          }
+        }
+      ]
+    },
+    "ownerExtendedLifecycleFinal": {
+      "name": "Owner deletion/recreation and visible-count lifecycle",
+      "status": "PASS",
+      "recordedCheckoutSha": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+      "exitCode": 0,
+      "durationSeconds": 14.86,
+      "inputBinaries": [
+        {
+          "name": "godot.windows.editor.x86_64.exe",
+          "bytes": 161806336,
+          "sha256": "a73a3555c39d0b1bdce13cb3fd6f793788d0c27fbd677f6d81108cdbebf9abfc"
+        }
+      ],
+      "receipt": {
+        "id": "<evidence>/recorder/pt-materials-owner-lifetime-a738.json",
+        "sha256": "85820eebe245c2cf39156f72a007a5425d7e5fa59937b871b7021a141e1b2355"
+      },
+      "log": {
+        "id": "<evidence>/recorder/logs/pt-materials-owner-lifetime-a738.log",
+        "sha256": "9dbfe204d378ff28120176a5460363b969676357a6e92c658edd567e8c74f4b4"
+      },
+      "total": 6,
+      "passed": 6,
+      "requestedNativeExitCode": 0,
+      "fixtureSha256": "e9c082b0efb2b890d4fbd5f4fb0e968e56f417ca46391c54c5efbf429d93e5c6",
+      "engineCommit": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+      "streamlineDllsPresent": false,
+      "pt": true,
+      "rr": 0,
+      "ddgi": false,
+      "asyncShaderCompilation": false,
+      "summary": {
+        "id": "<evidence>/materials/shared-owner/extended-lifecycle/evidence-a738-final/summary.json",
+        "sha256": "75b52bad4172b3061be44cff69a0ca6860c65c9610d20cf1cd152af5c9898d6b"
+      },
+      "phases": [
+        {
+          "phase": "00_distinct_materials_shared_multimesh",
+          "passed": true,
+          "configPassed": true,
+          "pixelsPassed": true,
+          "actualTlasInstances": 2,
+          "expectedTlasInstances": 2,
+          "json": {
+            "id": "<evidence>/materials/shared-owner/extended-lifecycle/evidence-a738-final/00_distinct_materials_shared_multimesh.json",
+            "sha256": "7458ed380d965e95281f918073b319f1444ee8dbeb4ce37a3356e343492d9035"
+          },
+          "png": {
+            "id": "<evidence>/materials/shared-owner/extended-lifecycle/evidence-a738-final/00_distinct_materials_shared_multimesh.png",
+            "sha256": "b73762abcac781815047fcf691fcb9bb0cc50bb216420629084483a40f5f5082"
+          }
+        },
+        {
+          "phase": "01_same_material_owner_world_transform",
+          "passed": true,
+          "configPassed": true,
+          "pixelsPassed": true,
+          "actualTlasInstances": 2,
+          "expectedTlasInstances": 2,
+          "json": {
+            "id": "<evidence>/materials/shared-owner/extended-lifecycle/evidence-a738-final/01_same_material_owner_world_transform.json",
+            "sha256": "274af85b397c0b5828bb3687c1c08f2af2bdd0fadffb078398175052d7649db8"
+          },
+          "png": {
+            "id": "<evidence>/materials/shared-owner/extended-lifecycle/evidence-a738-final/01_same_material_owner_world_transform.png",
+            "sha256": "2c96260e9dc84aafc68846fac8e4d2e59d0f5ce7327a585e30646703fe099e1b"
+          }
+        },
+        {
+          "phase": "02_remove_left_owner_right_survives",
+          "passed": true,
+          "configPassed": true,
+          "pixelsPassed": true,
+          "actualTlasInstances": 1,
+          "expectedTlasInstances": 1,
+          "json": {
+            "id": "<evidence>/materials/shared-owner/extended-lifecycle/evidence-a738-final/02_remove_left_owner_right_survives.json",
+            "sha256": "f35b6c2123e9e3d7518a982d17c7de70d058fad95bc40279a2148e51862611da"
+          },
+          "png": {
+            "id": "<evidence>/materials/shared-owner/extended-lifecycle/evidence-a738-final/02_remove_left_owner_right_survives.png",
+            "sha256": "2ec3330acae0080fc9768f18983d2d9e028d9922822e6c96baf2a073508ad379"
+          }
+        },
+        {
+          "phase": "03_recreate_left_new_geometry_owner",
+          "passed": true,
+          "configPassed": true,
+          "pixelsPassed": true,
+          "actualTlasInstances": 2,
+          "expectedTlasInstances": 2,
+          "json": {
+            "id": "<evidence>/materials/shared-owner/extended-lifecycle/evidence-a738-final/03_recreate_left_new_geometry_owner.json",
+            "sha256": "1257f87efe16c63f8dfe09a813fe759888f5f82cd4f0220a2b272ba6796c3ae9"
+          },
+          "png": {
+            "id": "<evidence>/materials/shared-owner/extended-lifecycle/evidence-a738-final/03_recreate_left_new_geometry_owner.png",
+            "sha256": "6c10a332a38dfe4c9c7b044183603eb7e3d96fb407945669a7255bb5c7f020a2"
+          }
+        },
+        {
+          "phase": "04_shared_multimesh_visible_zero",
+          "passed": true,
+          "configPassed": true,
+          "pixelsPassed": true,
+          "actualTlasInstances": 0,
+          "expectedTlasInstances": 0,
+          "json": {
+            "id": "<evidence>/materials/shared-owner/extended-lifecycle/evidence-a738-final/04_shared_multimesh_visible_zero.json",
+            "sha256": "17cb2609f9daac82764e15afb7a149b4157dfb95862bffbc8c876dc2d43ca699"
+          },
+          "png": {
+            "id": "<evidence>/materials/shared-owner/extended-lifecycle/evidence-a738-final/04_shared_multimesh_visible_zero.png",
+            "sha256": "bfef179a64d5dbf2cc246ab6b0a653773a0ea435f2e4c8c600cc96f861c1f4f8"
+          }
+        },
+        {
+          "phase": "05_shared_multimesh_visible_grow_one",
+          "passed": true,
+          "configPassed": true,
+          "pixelsPassed": true,
+          "actualTlasInstances": 2,
+          "expectedTlasInstances": 2,
+          "json": {
+            "id": "<evidence>/materials/shared-owner/extended-lifecycle/evidence-a738-final/05_shared_multimesh_visible_grow_one.json",
+            "sha256": "ea98e351b0bc93200514fec77c9b103db9dda92a62a8a4fb3c43a89e69548d0b"
+          },
+          "png": {
+            "id": "<evidence>/materials/shared-owner/extended-lifecycle/evidence-a738-final/05_shared_multimesh_visible_grow_one.png",
+            "sha256": "94781f8089c995b35cc355c57750c68d8b663dd87b92f2dbf261a0fe5653aec6"
+          }
+        }
+      ]
+    }
+  },
+  "cpuSixBeforeMetadataOnlyChanges": {
+    "status": "PASS",
+    "gameHead": "979778df7b2d89b9ebce7abc8737bd3389c4bb6e",
+    "total": 6,
+    "passed": 6,
+    "matrix": {
+      "id": "<evidence>/materials/game-cpu/20261026T114123Z-serial-60a41f/matrix.json",
+      "sha256": "42e10467a59bad601da23f0c97fd7632b24a6f19d0ed94e7af73efaa197e34cd"
+    },
+    "frozenInputsUnchangedDuringRun": true,
+    "scope": "Six CPU checks before the later pin/doc-only update; no Godot/import/build/GPU commands",
+    "results": [
+      {
+        "name": "conventions",
+        "status": "PASS",
+        "exitCode": 0,
+        "durationSeconds": 2.078,
+        "receipt": {
+          "id": "<evidence>/materials/game-cpu/20261026T114123Z-serial-60a41f/conventions.receipt.json",
+          "sha256": "f8942bee5232aa786daf240664f0e0080760d70dd014c57f131fedcf40ec229e"
+        },
+        "log": {
+          "id": "<evidence>/materials/game-cpu/20261026T114123Z-serial-60a41f/conventions.stdout.log",
+          "sha256": "cb7182f3b1f76884e8f9a7bd8e6e7c6533be5f8e97feb921893e254f86d3d763"
+        }
+      },
+      {
+        "name": "i18n",
+        "status": "PASS",
+        "exitCode": 0,
+        "durationSeconds": 0.375,
+        "receipt": {
+          "id": "<evidence>/materials/game-cpu/20261026T114123Z-serial-60a41f/i18n.receipt.json",
+          "sha256": "3af33213710213e2a4ba68466d403bc923fb365e23ba355ed3aff17da0f8745d"
+        },
+        "log": {
+          "id": "<evidence>/materials/game-cpu/20261026T114123Z-serial-60a41f/i18n.stdout.log",
+          "sha256": "22fa27a985c9ceb12c7c18455b239fd3bbc67e2676494d8f541b6f54c62ee17c"
+        }
+      },
+      {
+        "name": "tools-pytest",
+        "status": "PASS",
+        "exitCode": 0,
+        "durationSeconds": 102.297,
+        "receipt": {
+          "id": "<evidence>/materials/game-cpu/20261026T114123Z-serial-60a41f/tools-pytest.receipt.json",
+          "sha256": "c3383c36db21d82b737ad3fee233e8599cc858b613306f048533cb9b439ce5ab"
+        },
+        "log": {
+          "id": "<evidence>/materials/game-cpu/20261026T114123Z-serial-60a41f/tools-pytest.stdout.log",
+          "sha256": "0e6ba079599489a0109e3215d3cd4f74079c325d6c8bd2ee90cfd9bea904d1c7"
+        },
+        "testCount": 122,
+        "subtestCount": 293
+      },
+      {
+        "name": "ruff-hub-tools",
+        "status": "PASS",
+        "exitCode": 0,
+        "durationSeconds": 0.75,
+        "receipt": {
+          "id": "<evidence>/materials/game-cpu/20261026T114123Z-serial-60a41f/ruff-hub-tools.receipt.json",
+          "sha256": "4311a8e0d50b216b0291a3b4cda8ec7952dbc087d390f8d12290448024e11e29"
+        },
+        "log": {
+          "id": "<evidence>/materials/game-cpu/20261026T114123Z-serial-60a41f/ruff-hub-tools.stdout.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        }
+      },
+      {
+        "name": "hub-pytest",
+        "status": "PASS",
+        "exitCode": 0,
+        "durationSeconds": 5.234,
+        "receipt": {
+          "id": "<evidence>/materials/game-cpu/20261026T114123Z-serial-60a41f/hub-pytest.receipt.json",
+          "sha256": "c7185a08371cb59748e672a2f133254926606aa81afa9dc510d2db1606ba81e1"
+        },
+        "log": {
+          "id": "<evidence>/materials/game-cpu/20261026T114123Z-serial-60a41f/hub-pytest.stdout.log",
+          "sha256": "662f49576e2040e5716df943c3fdcee031f0efdfb93fb34899823f5b23b2809a"
+        },
+        "testCount": 251
+      },
+      {
+        "name": "node-asset-sync",
+        "status": "PASS",
+        "exitCode": 0,
+        "durationSeconds": 0.266,
+        "receipt": {
+          "id": "<evidence>/materials/game-cpu/20261026T114123Z-serial-60a41f/node-asset-sync.receipt.json",
+          "sha256": "27e2fcc1af41c0af80ba7876d3a68e7b566c637f35227af70122ce57e0c5d459"
+        },
+        "log": {
+          "id": "<evidence>/materials/game-cpu/20261026T114123Z-serial-60a41f/node-asset-sync.stdout.log",
+          "sha256": "6196f2690033fa6eee61717d5a125895e7228d9c8927bd0e68d70926711c1051"
+        },
+        "testCount": 12
+      }
+    ]
+  },
+  "official472Controls": {
+    "binary": {
+      "name": "Godot_v4.7.2-stable_win64.exe",
+      "sha256": "ab1824f85bfd8e0e4128182c000c4003a3e042245b2967848d089b2a04b22424"
+    },
+    "headlessStartup17": {
+      "status": "PASS",
+      "recordedCheckoutSha": "a0286a13517761b058cbf53286ad0c723d414fc2",
+      "exitCode": 0,
+      "durationSeconds": 63.407,
+      "inputBinaries": [
+        {
+          "name": "python.exe",
+          "bytes": 274424,
+          "sha256": "0b471133e110cfb53a061cad528ce8e517d7b9ac41a0a396c39ad795a487fc14"
+        },
+        {
+          "name": "Godot_v4.7.2-stable_win64.exe",
+          "bytes": 180858888,
+          "sha256": "ab1824f85bfd8e0e4128182c000c4003a3e042245b2967848d089b2a04b22424"
+        }
+      ],
+      "receipt": {
+        "id": "<evidence>/recorder/pt-materials-official472-headless-smoke.json",
+        "sha256": "0023062a2cb2532dfd4b036fb51e0e15378605874456ff9a9d1a28530a9312cd"
+      },
+      "log": {
+        "id": "<evidence>/recorder/logs/pt-materials-official472-headless-smoke.log",
+        "sha256": "e28015ae37ec0e63af5d551130ed5eaa32f4f068168298f6716d78e16ebeb407"
+      },
+      "passed": 17,
+      "headless": true,
+      "scope": "Startup only; forced --quit-after retained-resource allowances do not prove clean shutdown",
+      "recordedCheckoutShaScope": "Recorder engine-source context only; not the official engine or game commit"
+    },
+    "renderedPlayers2": {
+      "status": "PASS",
+      "recordedCheckoutSha": "a0286a13517761b058cbf53286ad0c723d414fc2",
+      "exitCode": 0,
+      "durationSeconds": 206.063,
+      "inputBinaries": [
+        {
+          "name": "python.exe",
+          "bytes": 274424,
+          "sha256": "0b471133e110cfb53a061cad528ce8e517d7b9ac41a0a396c39ad795a487fc14"
+        },
+        {
+          "name": "Godot_v4.7.2-stable_win64.exe",
+          "bytes": 180858888,
+          "sha256": "ab1824f85bfd8e0e4128182c000c4003a3e042245b2967848d089b2a04b22424"
+        }
+      ],
+      "receipt": {
+        "id": "<evidence>/recorder/pt-materials-official472-rendered-p2.json",
+        "sha256": "5fba0b64fa701db3cf49ac6f0293eb305ca8c9d532fdafe726df510c8db20854"
+      },
+      "log": {
+        "id": "<evidence>/recorder/logs/pt-materials-official472-rendered-p2.log",
+        "sha256": "effe65bc05e85b5ea7075b6793a005dbf203ce652042337c1ba82ecb9ca264bd"
+      },
+      "summary": {
+        "id": "<evidence>/materials/official472-rendered-p2/summary.json",
+        "sha256": "8f56483a99b7cd8ee37ace408e8b07a151efcef06aa4baf00c132f802a498ad4"
+      },
+      "players": 2,
+      "passed": 2,
+      "total": 2,
+      "engineVersion": "4.7.2-stable",
+      "recordedCheckoutShaScope": "Recorder engine-source context only; not the official engine or game commit",
+      "cases": [
+        {
+          "game": "skate",
+          "map": 0,
+          "passed": true,
+          "timeout": false,
+          "errorCount": 0,
+          "png": {
+            "id": "<evidence>/materials/official472-rendered-p2/skate.png",
+            "sha256": "69103021a28b472cc222fac8bf9adb6f028a7aae5029015cc82fa4785624b924"
+          },
+          "log": {
+            "id": "<evidence>/materials/official472-rendered-p2/skate.log",
+            "sha256": "7325f65ca832ca108e6a88811c717c65ece555e150bd1042d66dba3de3f0ceac"
+          }
+        },
+        {
+          "game": "ski",
+          "map": 0,
+          "passed": true,
+          "timeout": false,
+          "errorCount": 0,
+          "png": {
+            "id": "<evidence>/materials/official472-rendered-p2/ski.png",
+            "sha256": "110ae929d69eec7c64a116ed43344cf25c64fae8cf728acfabce89012b41689d"
+          },
+          "log": {
+            "id": "<evidence>/materials/official472-rendered-p2/ski.log",
+            "sha256": "e524ad9c03950b6186e540c3d756f19ac535ef51386f6e4981c7d76d09a2b823"
+          }
+        }
+      ]
+    },
+    "renderedPlayers4": {
+      "status": "PASS",
+      "recordedCheckoutSha": "a0286a13517761b058cbf53286ad0c723d414fc2",
+      "exitCode": 0,
+      "durationSeconds": 216.719,
+      "inputBinaries": [
+        {
+          "name": "python.exe",
+          "bytes": 274424,
+          "sha256": "0b471133e110cfb53a061cad528ce8e517d7b9ac41a0a396c39ad795a487fc14"
+        },
+        {
+          "name": "Godot_v4.7.2-stable_win64.exe",
+          "bytes": 180858888,
+          "sha256": "ab1824f85bfd8e0e4128182c000c4003a3e042245b2967848d089b2a04b22424"
+        }
+      ],
+      "receipt": {
+        "id": "<evidence>/recorder/pt-materials-official472-rendered-p4.json",
+        "sha256": "c27a376ec80c470c712f36353f953a0c2609ef9de3d1a4b6f15ad2e80f786c44"
+      },
+      "log": {
+        "id": "<evidence>/recorder/logs/pt-materials-official472-rendered-p4.log",
+        "sha256": "281dfe9a4571565765c5685b3938b419b69402bd86f0fd32397a7a578e69c886"
+      },
+      "summary": {
+        "id": "<evidence>/materials/official472-rendered-p4/summary.json",
+        "sha256": "6d39a6ab20f7996f45413d70a03220d99d3a7074a106abda30faed08f2035bcd"
+      },
+      "players": 4,
+      "passed": 2,
+      "total": 2,
+      "engineVersion": "4.7.2-stable",
+      "recordedCheckoutShaScope": "Recorder engine-source context only; not the official engine or game commit",
+      "cases": [
+        {
+          "game": "skate",
+          "map": 0,
+          "passed": true,
+          "timeout": false,
+          "errorCount": 0,
+          "png": {
+            "id": "<evidence>/materials/official472-rendered-p4/skate.png",
+            "sha256": "dfb7fc08d558f3d87424910aab1ab8d89583d7924ced5b0ed00768a2440b73fa"
+          },
+          "log": {
+            "id": "<evidence>/materials/official472-rendered-p4/skate.log",
+            "sha256": "456d1f79491748bc5d4e538f2eca24a0bbd5d5ebb0ba6fca1b6cec647f4b9cbf"
+          }
+        },
+        {
+          "game": "ski",
+          "map": 0,
+          "passed": true,
+          "timeout": false,
+          "errorCount": 0,
+          "png": {
+            "id": "<evidence>/materials/official472-rendered-p4/ski.png",
+            "sha256": "23f12295314a9ded4aa01f607662fb67c68426618c3893b827e03026e91e31cc"
+          },
+          "log": {
+            "id": "<evidence>/materials/official472-rendered-p4/ski.log",
+            "sha256": "f2e39ccb016c9d072a0488e73e669e14551a33732f7250ab710052fa6bf64f16"
+          }
+        }
+      ]
+    }
+  },
+  "installedTemplateFixtureExports": {
+    "status": "PASS",
+    "passed": 4,
+    "total": 4,
+    "matrix": {
+      "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/matrix.json",
+      "sha256": "ec4457807ecf37dd3d8e60abc492b33e358d64e7af74a248c883be7f8cbdfebc"
+    },
+    "inputInventory": {
+      "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/input-inventory.json",
+      "sha256": "a4aff7522a061d611bba57291be2a4cb33af8ccdbfee37994828a9adb9a77466"
+    },
+    "customTemplateUsed": false,
+    "freshNugetCache": true,
+    "inputIntegrityAfter": {
+      "feed_unchanged": true,
+      "managed_companions_unchanged": true,
+      "archives_unchanged": true,
+      "editors_unchanged": true
+    },
+    "archives": {
+      "standard": {
+        "name": "godot_4.8-nvidia-rt-dlss-physx_v0.7.3-export_templates_windows_amd64.tpz",
+        "sha256": "0d6109204658deff67348dd916c31a5e597af333268ae8022a924b6fb868369e",
+        "templateVersion": "4.8.beta1"
+      },
+      "mono": {
+        "name": "godot_4.8-nvidia-rt-dlss-physx_v0.7.3-export_templates_windows_amd64_mono.tpz",
+        "sha256": "7e34b948c0489f5fa9392ff3785b5d662fd9fe63e86fb2521e4e33dcbc01db60",
+        "templateVersion": "4.8.beta1.mono"
+      }
+    },
+    "templateInstallationReceipts": {
+      "standard": {
+        "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/standard-template-install.json",
+        "sha256": "7bc580952ac286a1c30aa0edc813ecc694c3594feb5bbf1d84bd0db50d79a831"
+      },
+      "mono": {
+        "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/mono-template-install.json",
+        "sha256": "79b3d886d478b2a78e5b96084ba8c9fce0e9d07a0f81374035fa41c1b0e5a7e1"
+      }
+    },
+    "cases": [
+      {
+        "variant": "standard-debug",
+        "status": "PASS",
+        "passedExportAndRun": true,
+        "templateVersion": "4.8.beta1",
+        "backendLines": [
+          "D3D12 12_0 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 4060 Laptop GPU"
+        ],
+        "smokeMarker": "PHYSX_SMOKE_PASS",
+        "reportedEngineShaPrefix": "a73826e8c",
+        "runtimeProcessEnvironmentWithoutDotnetSdk": false,
+        "selfContained": null,
+        "streamlineDllsPresentInGame": false,
+        "exportedExecutable": [
+          {
+            "file": "RTXAcceptance.exe",
+            "bytes": 95494152,
+            "sha256": "a4aafd24f013d17e154036725a9c9ea7ff933f90b0bdeb70c6ef38b0e9388dc4"
+          }
+        ]
+      },
+      {
+        "variant": "standard-release",
+        "status": "PASS",
+        "passedExportAndRun": true,
+        "templateVersion": "4.8.beta1",
+        "backendLines": [
+          "D3D12 12_0 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 4060 Laptop GPU"
+        ],
+        "smokeMarker": "PHYSX_SMOKE_PASS",
+        "reportedEngineShaPrefix": "a73826e8c",
+        "runtimeProcessEnvironmentWithoutDotnetSdk": false,
+        "selfContained": null,
+        "streamlineDllsPresentInGame": false,
+        "exportedExecutable": [
+          {
+            "file": "RTXAcceptance.exe",
+            "bytes": 80648712,
+            "sha256": "df79d12a443c699b3b2b2393d4182c6a990a15251f923642f8d3e9d8e0ec01e6"
+          }
+        ]
+      },
+      {
+        "variant": "mono-debug",
+        "status": "PASS",
+        "passedExportAndRun": true,
+        "templateVersion": "4.8.beta1.mono",
+        "backendLines": [
+          "D3D12 12_0 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 4060 Laptop GPU"
+        ],
+        "smokeMarker": "CSHARP_PHYSX_SMOKE_PASS",
+        "reportedEngineShaPrefix": "a73826e8c",
+        "runtimeProcessEnvironmentWithoutDotnetSdk": true,
+        "selfContained": {
+          "runtimeConfig": {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/cases/mono-debug/game/data_ManagedSmoke_windows_x86_64/ManagedSmoke.runtimeconfig.json",
+            "sha256": "089a03f26e7e7601a28dc9278a2c8f742e35e1312640b2cd6ef2fe9c58429dab"
+          },
+          "tfm": "net10.0",
+          "includedFrameworks": [
+            {
+              "name": "Microsoft.NETCore.App",
+              "version": "10.0.13"
+            }
+          ],
+          "requiredRuntimeFiles": [
+            "coreclr.dll",
+            "hostfxr.dll",
+            "hostpolicy.dll",
+            "system.private.corelib.dll"
+          ]
+        },
+        "streamlineDllsPresentInGame": false,
+        "exportedExecutable": [
+          {
+            "file": "data_ManagedSmoke_windows_x86_64/createdump.exe",
+            "bytes": 71512,
+            "sha256": "363b481c110ed2657d93211d52199955098d46655f50ca09473cc04a546f175f"
+          },
+          {
+            "file": "RTXAcceptance.exe",
+            "bytes": 95723008,
+            "sha256": "583814e746db40ebedd35f7c226e86e00e6ee1bd2ed3990ed30d753c27cf1711"
+          }
+        ]
+      },
+      {
+        "variant": "mono-release",
+        "status": "PASS",
+        "passedExportAndRun": true,
+        "templateVersion": "4.8.beta1.mono",
+        "backendLines": [
+          "D3D12 12_0 - Forward+ - Using Device #0: NVIDIA - NVIDIA GeForce RTX 4060 Laptop GPU"
+        ],
+        "smokeMarker": "CSHARP_PHYSX_SMOKE_PASS",
+        "reportedEngineShaPrefix": "a73826e8c",
+        "runtimeProcessEnvironmentWithoutDotnetSdk": true,
+        "selfContained": {
+          "runtimeConfig": {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/cases/mono-release/game/data_ManagedSmoke_windows_x86_64/ManagedSmoke.runtimeconfig.json",
+            "sha256": "089a03f26e7e7601a28dc9278a2c8f742e35e1312640b2cd6ef2fe9c58429dab"
+          },
+          "tfm": "net10.0",
+          "includedFrameworks": [
+            {
+              "name": "Microsoft.NETCore.App",
+              "version": "10.0.13"
+            }
+          ],
+          "requiredRuntimeFiles": [
+            "coreclr.dll",
+            "hostfxr.dll",
+            "hostpolicy.dll",
+            "system.private.corelib.dll"
+          ]
+        },
+        "streamlineDllsPresentInGame": false,
+        "exportedExecutable": [
+          {
+            "file": "data_ManagedSmoke_windows_x86_64/createdump.exe",
+            "bytes": 71512,
+            "sha256": "363b481c110ed2657d93211d52199955098d46655f50ca09473cc04a546f175f"
+          },
+          {
+            "file": "RTXAcceptance.exe",
+            "bytes": 80847360,
+            "sha256": "6d678248285a3de57b6949324ee9feb19b68d8221dc697b94f59975bf35330a3"
+          }
+        ]
+      }
+    ],
+    "steps": [
+      {
+        "name": "dotnet-version",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 0.219,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-dotnet-version.json",
+            "sha256": "ca4994115cf422eb657274ac896318a4a7dc08a97d2983998d2f6eb05ad53c77"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-dotnet-version.log",
+            "sha256": "6d5ab2a4ef35ceec908f01287257f530b0c0d68f0e84326df2ebcea641f9134b"
+          }
+        ]
+      },
+      {
+        "name": "standard-editor-version",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 0.578,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-standard-editor-version.json",
+            "sha256": "a25438b2cba35253ab01095db71c7ab7037d810cda7f86dd7ee3cb840e99b4b3"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-standard-editor-version.log",
+            "sha256": "ffded2f91bc423a9a94eb2d7d13d3b98652b55f3b4e5f15cef4c7b082fd619cf"
+          }
+        ]
+      },
+      {
+        "name": "mono-editor-version",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 0.578,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-editor-version.json",
+            "sha256": "7fcce3e4bec1336f576e7d28a94fd284976aba852888916d133baa8d454ae4b4"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-editor-version.log",
+            "sha256": "b0e462db6f8921685f7ea33c1585d227102dd3dcb903339857d564d7336b4443"
+          }
+        ]
+      },
+      {
+        "name": "standard-debug-import",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 5.75,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-standard-debug-import.json",
+            "sha256": "79d0f7633426b842294bacde1173d337c7bd0433ada4e29de4b48581796344ba"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-standard-debug-import.log",
+            "sha256": "b59890a6cab18b422b6ec7b7e27092ffc1b9f427f23b750a33c3edb0570f83f2"
+          }
+        ]
+      },
+      {
+        "name": "standard-debug-export",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 4.265,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-standard-debug-export.json",
+            "sha256": "7767725091a1755bd40323e6c2c8c51f063f10b1eacf80a146c3aeaa468d05b7"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-standard-debug-export.log",
+            "sha256": "36bc8547c47d9210184e6e2d973b0b92c5695358828e05bd2214501e706e45bd"
+          }
+        ]
+      },
+      {
+        "name": "standard-debug-run",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 7.079,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-standard-debug-run.json",
+            "sha256": "3d3dd998333f35c0114f2d76c963223e9a8a061635b03bc8ceb77b7b252c17d8"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-standard-debug-run.log",
+            "sha256": "8f7a6b9fc132e8f4c4f544863adc71b020425d53da32e88514433b367d94f87b"
+          }
+        ]
+      },
+      {
+        "name": "standard-release-import",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 4.0,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-standard-release-import.json",
+            "sha256": "d45fdc32fb716ed8042e8c2bf04a9df65210e3ee3609d6e3b6fdab2012537482"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-standard-release-import.log",
+            "sha256": "b59890a6cab18b422b6ec7b7e27092ffc1b9f427f23b750a33c3edb0570f83f2"
+          }
+        ]
+      },
+      {
+        "name": "standard-release-export",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 4.266,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-standard-release-export.json",
+            "sha256": "8901cdd737493945a102645731178ea97f58cb3194b4c60890459bac3c92edaa"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-standard-release-export.log",
+            "sha256": "36bc8547c47d9210184e6e2d973b0b92c5695358828e05bd2214501e706e45bd"
+          }
+        ]
+      },
+      {
+        "name": "standard-release-run",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 4.562,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-standard-release-run.json",
+            "sha256": "2b07a1c6becebc273f85691c5339328a75b9b80b2ab6506315e9220abf296b50"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-standard-release-run.log",
+            "sha256": "a30ccf86039e40567b4d44ef2166c7672033fd6a1fe54e1f60010873b030ccf6"
+          }
+        ]
+      },
+      {
+        "name": "mono-debug-restore",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 142.594,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-debug-restore.json",
+            "sha256": "ac98ab62fe350c847dc4268a6af88d5bb569772e9d7acdc7582150ef41de6661"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-debug-restore.log",
+            "sha256": "f028d72d220b77b3657c888cfe1b64ff5d3b7a3adae286dd868a84f42161ee41"
+          }
+        ]
+      },
+      {
+        "name": "mono-debug-build",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 2.688,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-debug-build.json",
+            "sha256": "9edf66b5b567ae347ec70624e2914bee7995413baf8245173b49ef99b0680549"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-debug-build.log",
+            "sha256": "9e945aa390dd556963a1378d15cfac074ff7ffcc8eacadfda80aa2eea9e99245"
+          }
+        ]
+      },
+      {
+        "name": "mono-debug-import",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 6.047,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-debug-import.json",
+            "sha256": "6fe746de077293f5f133c0023e679ee2cf48372f669c2765eb86c3698dd1bb7d"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-debug-import.log",
+            "sha256": "6d05ff041268f882f04abac069f517c42458ecfbcf3ba06dc819c90ba5ae6007"
+          }
+        ]
+      },
+      {
+        "name": "mono-debug-export",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 12.719,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-debug-export.json",
+            "sha256": "4301c59fab93d77fb359422bd1806cbd401d01b393a519e8995ec8f315b53a85"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-debug-export.log",
+            "sha256": "f7fe0ba910b577a2a3ff43ef63cdf7a2471b9ca6d29d3ac89e386ff5cc41368a"
+          }
+        ]
+      },
+      {
+        "name": "mono-debug-runtime-environment",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 0.219,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-debug-runtime-environment.json",
+            "sha256": "23b73cf25033eccc3460af047f6be228b1c3478f84d11a2520ffb26a4999bd3a"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-debug-runtime-environment.log",
+            "sha256": "9836fb027b5537063fa73f6be4e3446a6c5c60145036569fba51cbaf16d33274"
+          }
+        ]
+      },
+      {
+        "name": "mono-debug-run",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 6.5,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-debug-run.json",
+            "sha256": "7b667e79d10329658b46fa047702516d48f3fff0a3c1141c614a3e261160b7f3"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-debug-run.log",
+            "sha256": "0f545a1b41481284d675f8ff51767bef7c48f54a3510b53bfd4acb26ca6b4799"
+          }
+        ]
+      },
+      {
+        "name": "mono-release-restore",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 1.266,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-release-restore.json",
+            "sha256": "d6285f19501b6a99f9f929e4e119fe4eac59b516acf8658b463249ac9689b075"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-release-restore.log",
+            "sha256": "1d5fd324c76543e77d480ea5870c78d40644e4b0fbccb15ecd8005ec46428917"
+          }
+        ]
+      },
+      {
+        "name": "mono-release-build",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 2.579,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-release-build.json",
+            "sha256": "3f99ec063988b5ad3bb5b4f10f7e74905ed6d2474ed789512b5aa6219b47c7f5"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-release-build.log",
+            "sha256": "d2adfae1e1f44a94022b4accb2d08a9a24cfb34a361371e2074d1e5e019489f6"
+          }
+        ]
+      },
+      {
+        "name": "mono-release-import",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 4.375,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-release-import.json",
+            "sha256": "d7813b09aa8fd7dea05c67f9de6315f491ed2672fb3c937086dd864aa8191ac0"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-release-import.log",
+            "sha256": "6d05ff041268f882f04abac069f517c42458ecfbcf3ba06dc819c90ba5ae6007"
+          }
+        ]
+      },
+      {
+        "name": "mono-release-export",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 13.094,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-release-export.json",
+            "sha256": "3c848e4c52b54402f1acd565ce1b3001e844a261209245b241d57e08fefe7f16"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-release-export.log",
+            "sha256": "f7fe0ba910b577a2a3ff43ef63cdf7a2471b9ca6d29d3ac89e386ff5cc41368a"
+          }
+        ]
+      },
+      {
+        "name": "mono-release-runtime-environment",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 0.203,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-release-runtime-environment.json",
+            "sha256": "818b93a27a6db0f43b4a7c4dce61ef0ac841995169dad9ea29ecd0740c8254ef"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-release-runtime-environment.log",
+            "sha256": "9836fb027b5537063fa73f6be4e3446a6c5c60145036569fba51cbaf16d33274"
+          }
+        ]
+      },
+      {
+        "name": "mono-release-run",
+        "status": "PASS",
+        "exitCode": 0,
+        "wrapperExitCode": 0,
+        "durationSeconds": 3.891,
+        "rawEvidence": [
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-release-run.json",
+            "sha256": "53c4a4c49c63a8591cc908a18091008a67bd6e09c40363db3f41063d3aeef7cd"
+          },
+          {
+            "id": "<evidence>/recorder/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5/receipts/final-exports-a73826e8c0-20261026T140940Z-ac63c1c5-mono-release-run.log",
+            "sha256": "bd80f5ac4a12eede5fc391a249df80c7ed6ed8d6453434c235e56f3d1e99b9f4"
+          }
+        ]
+      }
+    ],
+    "scope": "A738 installed-template physics fixtures, D3D12, standard/Mono debug/release and absent Streamline DLL startup. Not game PT/RR export acceptance. Mono run removes SDK from process environment; host SDK remains installed. Existing historical bundles are not replaced."
+  },
+  "productionGameExport": {
+    "status": "PASS",
+    "passed": 2,
+    "total": 2,
+    "engineCommit": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+    "scope": "Actual Regina Windows release EXE/PCK, production startup/screenshots/natural RSExit only. D3D12 raster request and Vulkan PT+RR request are separate; not full-match, actual AI model, complete material-quality, strict GPU or performance acceptance.",
+    "effectivePtRrStateReadbackInProduction": false,
+    "activeAiModelIndependentlyConfirmed": false,
+    "steps": [
+      {
+        "status": "PASS",
+        "recordedCheckoutSha": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+        "exitCode": 0,
+        "durationSeconds": 356.578,
+        "inputBinaries": [
+          {
+            "name": "godot.windows.editor.x86_64.exe",
+            "bytes": 161806336,
+            "sha256": "a73a3555c39d0b1bdce13cb3fd6f793788d0c27fbd677f6d81108cdbebf9abfc"
+          }
+        ],
+        "receipt": {
+          "id": "<evidence>/recorder/regina-a738-20261026T142935Z-b7656a86-import.json",
+          "sha256": "ebafafc223eace779260666382acc8f10d3d62279d998e3da5552f2a1b7f44a4"
+        },
+        "log": {
+          "id": "<evidence>/recorder/logs/regina-a738-20261026T142935Z-b7656a86-import.log",
+          "sha256": "89fea9738d3a49aaf240d40c497c6488a78e3afdbff1ba254ded6c12e69b4c42"
+        }
+      },
+      {
+        "status": "PASS",
+        "recordedCheckoutSha": "a73826e8c0fd90351a1bae5095ce87bc6210be7f",
+        "exitCode": 0,
+        "durationSeconds": 14.171,
+        "inputBinaries": [
+          {
+            "name": "godot.windows.editor.x86_64.exe",
+            "bytes": 161806336,
+            "sha256": "a73a3555c39d0b1bdce13cb3fd6f793788d0c27fbd677f6d81108cdbebf9abfc"
+          }
+        ],
+        "receipt": {
+          "id": "<evidence>/recorder/regina-a738-20261026T142935Z-b7656a86-release.json",
+          "sha256": "fdbd6e3b163ea8d2c29dcb19d3609d13e1152fd95fa9a110685c85ed7df16b1a"
+        },
+        "log": {
+          "id": "<evidence>/recorder/logs/regina-a738-20261026T142935Z-b7656a86-release.log",
+          "sha256": "1b04f2b0141567b80c54597e87291ad77bcc7019eb5e8786f64d186d7284c0e2"
+        }
+      }
+    ],
+    "cases": [
+      {
+        "name": "regina-a738-natural-20261026T142935Z-b7656a86-d3d12-skate2",
+        "status": "PASS",
+        "exitCode": 0,
+        "durationSeconds": 37.531,
+        "requestedSettings": {
+          "lighting": 0,
+          "upscaling": 7,
+          "quality": 2,
+          "nvidia_sharpness": 0,
+          "fg": false,
+          "hdr": false,
+          "at": "1,4,8"
+        },
+        "actualBackendHeader": "D3D12 12_0 - Forward+ - Streamline - Using Device #0: NVIDIA - NVIDIA GeForce RTX 4060 Laptop GPU",
+        "checks": {
+          "exit_zero": true,
+          "no_errors": true,
+          "correct_version": true,
+          "correct_api": true,
+          "gpu_4060": true,
+          "actual_cli_game": true,
+          "three_real_screenshots": true,
+          "job_owned": true,
+          "descendants_closed": true,
+          "no_owned_ngx": true,
+          "natural_exit_without_frame_guard": true
+        },
+        "errorLineCount": 0,
+        "forbiddenEngineFlagsPresent": [],
+        "jobAssigned": true,
+        "ownedDescendantsClosedCount": 34,
+        "ngxBeforeCount": 0,
+        "ngxAfterCount": 0,
+        "receipt": {
+          "id": "<evidence>/recorder/regina-a738-natural-20261026T142935Z-b7656a86-d3d12-skate2.json",
+          "sha256": "9203e861be75e0804d6893237e29b01673b38446eae2ca60c9a537308c0a27d8"
+        },
+        "log": {
+          "id": "<evidence>/recorder/logs/regina-a738-natural-20261026T142935Z-b7656a86-d3d12-skate2.log",
+          "sha256": "179b88c158d3800f80ab375e84bdd54489a33bc5640a12fe24e2393a12c71c3d"
+        },
+        "images": [
+          {
+            "name": "production-natural-d3d12/capture/frame_0.png",
+            "sha256": "8fcad264e4786bcf58277703a02c50c0fea533e95cd7d7e284341570424c03d6",
+            "size": [
+              1600,
+              900
+            ]
+          },
+          {
+            "name": "production-natural-d3d12/capture/frame_1.png",
+            "sha256": "297b36a9c906010d34943d734eba5d6b7cabb933ca059ae11c565a619dc71c0e",
+            "size": [
+              1600,
+              900
+            ]
+          },
+          {
+            "name": "production-natural-d3d12/capture/frame_2.png",
+            "sha256": "d62373b0b0c6cfa719d959919a29714ec34af5683d9bd0705c9cb17f3be842e6",
+            "size": [
+              1600,
+              900
+            ]
+          }
+        ],
+        "scope": "Actual exported PCK, production --shots exits through RSExit after the last requested simulation-time capture; no engine frame guard is supplied; the wrapper only has a bounded 180s timeout, no --path or external script."
+      },
+      {
+        "name": "regina-a738-natural-20261026T142935Z-b7656a86-vulkan-skate1",
+        "status": "PASS",
+        "exitCode": 0,
+        "durationSeconds": 45.266,
+        "requestedSettings": {
+          "lighting": 2,
+          "upscaling": 7,
+          "quality": 2,
+          "nvidia_sharpness": 0,
+          "fg": false,
+          "hdr": false,
+          "at": "15,30,45"
+        },
+        "actualBackendHeader": "Vulkan 1.4.341 - Forward+ - Streamline - Using Device #0: NVIDIA - NVIDIA GeForce RTX 4060 Laptop GPU",
+        "checks": {
+          "exit_zero": true,
+          "no_errors": true,
+          "correct_version": true,
+          "correct_api": true,
+          "gpu_4060": true,
+          "actual_cli_game": true,
+          "three_real_screenshots": true,
+          "job_owned": true,
+          "descendants_closed": true,
+          "no_owned_ngx": true,
+          "natural_exit_without_frame_guard": true
+        },
+        "errorLineCount": 0,
+        "forbiddenEngineFlagsPresent": [],
+        "jobAssigned": true,
+        "ownedDescendantsClosedCount": 34,
+        "ngxBeforeCount": 0,
+        "ngxAfterCount": 0,
+        "receipt": {
+          "id": "<evidence>/recorder/regina-a738-natural-20261026T142935Z-b7656a86-vulkan-skate1.json",
+          "sha256": "5075b375e3209022cc5c99b52b553936b13b82c166d8c3e9c0232d663e56c532"
+        },
+        "log": {
+          "id": "<evidence>/recorder/logs/regina-a738-natural-20261026T142935Z-b7656a86-vulkan-skate1.log",
+          "sha256": "bd52d41c2c327780429da6763d2647c1b5069419f9fc803631c701e856fe49f8"
+        },
+        "images": [
+          {
+            "name": "production-natural-vulkan/capture/frame_0.png",
+            "sha256": "a4df999de8886937adeb0b3d582b12446b15353f51c782bb36b3dbb1a4543af2",
+            "size": [
+              1600,
+              900
+            ]
+          },
+          {
+            "name": "production-natural-vulkan/capture/frame_1.png",
+            "sha256": "711f71ff52d5ca20c1f8cea865045e10232a8b5993fab322604b951bcd414d8d",
+            "size": [
+              1600,
+              900
+            ]
+          },
+          {
+            "name": "production-natural-vulkan/capture/frame_2.png",
+            "sha256": "62b4b10b05e9fc41db1e86f1cd2218a6c2654af73c0247264e35420d410dd914",
+            "size": [
+              1600,
+              900
+            ]
+          }
+        ],
+        "scope": "Actual exported PCK, production --shots exits through RSExit after the last requested simulation-time capture; no engine frame guard is supplied; the wrapper only has a bounded 180s timeout, no --path or external script."
+      }
+    ],
+    "naturalExitMatrix": {
+      "id": "<evidence>/materials/regina-a738-export/run-a738-20261026T142935Z-b7656a86/natural-exit-matrix.json",
+      "sha256": "a0047eb16db3b31b326b9e9b170dcb70c6e141a32ab0b3be563aa6bebdb6013c"
+    },
+    "importExportMatrix": {
+      "id": "<evidence>/materials/regina-a738-export/run-a738-20261026T142935Z-b7656a86/matrix.json",
+      "sha256": "20acf48192f13c4ae75efe9a895e70a1e763bc243fe845abfebba4504fabf3ed"
+    },
+    "runtimeInventory": {
+      "id": "<evidence>/materials/regina-a738-export/run-a738-20261026T142935Z-b7656a86/runtime-inventory.json",
+      "sha256": "e33f84fe8901cd23483267377b6cad3e4d8ffcc85b700174801642d891bb0d86"
+    },
+    "templateInstallation": {
+      "id": "<evidence>/materials/regina-a738-export/run-a738-20261026T142935Z-b7656a86/template-install.json",
+      "sha256": "4868447e52890e95c039fe422a9601400f7dc071326914516a4fa4030bd871e9"
+    },
+    "executable": {
+      "file": "RTXAcceptance.exe",
+      "bytes": 80684032,
+      "sha256": "200d624f5390d3924f7d834253957288dd75279225b9b7f11cc13914a9ef8e44"
+    },
+    "pack": {
+      "bytes": 1662380392,
+      "sha256": "ef56751132f51f34a8c996cc2b31971c4c18fef5faa1d5b2e85ccb49c2cc7be0",
+      "format": 4,
+      "entryCount": 1148
+    },
+    "rtInclude": {
+      "resource": "res://shaders/rt_pixel_footprint.gdshaderinc",
+      "bytes": 1654,
+      "sourceSha256": "93d533e430c52ff222eb18ac96953855797c22b42de09298004d3037c17e63a1",
+      "payloadSha256": "93d533e430c52ff222eb18ac96953855797c22b42de09298004d3037c17e63a1",
+      "payloadMd5": "c3f568608c458ca29e6e154568f763db",
+      "directoryMd5": "c3f568608c458ca29e6e154568f763db",
+      "checks": {
+        "includePresent": true,
+        "payloadMatchesSourceBytes": true,
+        "payloadMd5MatchesDirectory": true,
+        "payloadShaMatchesFrozenGameInput": true
+      },
+      "inventory": {
+        "id": "<evidence>/materials/regina-a738-export/run-a738-20261026T142935Z-b7656a86/pck-inventory.json",
+        "sha256": "1ac29099130bec148840eacf5f5d04cd8acc431ffe3d925f6d6ae723db1f9a1d"
+      }
+    },
+    "preparationSnapshot": {
+      "evidence": {
+        "id": "<evidence>/materials/regina-a738-export/run-a738-20261026T142935Z-b7656a86/export-location.json",
+        "sha256": "a03bc62114993b884c1f8bc871901dc27e1775fa8dbec1197e7f5ad2b69cc553"
+      },
+      "recordedRuntimePending": true,
+      "scope": "Original preparation-time pending flag is retained unchanged; completed later natural-exit receipts are separate evidence."
+    }
+  },
+  "reportingUpdatesAfterCpuChecks": {
+    "scope": "Later reporting-only updates add completed production export/runtime receipts and synchronize pin status/docs; the seven CPU checks retain their original input hashes, rather than claiming a rerun against these appended report bytes.",
+    "beforeProductionSummary": {
+      "id": "<evidence>/materials/game-summary-before-production-a738.json",
+      "sha256": "d88e13501639ff5383ff4ca19317e34856b60062be995b187e0cceaafa2b7104"
+    }
+  },
+  "postMetadataCpuChecks": {
+    "status": "PASS",
+    "scope": "Seven sequential CPU checks after metadata/doc changes. No Godot/import/build/GPU/download commands.",
+    "startedUtc": "2026-10-26T14:25:05.867446+00:00",
+    "metadataStaticChecks": {
+      "pin": true,
+      "material_gpu_pin": true,
+      "legacy_pin": true,
+      "historical_cpu_pin": true,
+      "historical_strict_pin": true,
+      "summary_reference": true,
+      "summary_engine": true,
+      "c1_history": true,
+      "c1_summary_exists": true,
+      "shader_hashes": true,
+      "non_release": true
+    },
+    "metadataStaticChecksPassed": 11,
+    "metadataStaticChecksTotal": 11,
+    "results": [
+      {
+        "name": "conventions",
+        "status": "PASS",
+        "exitCode": 0,
+        "durationSeconds": 1.891,
+        "receipt": {
+          "id": "<evidence>/materials/game-cpu/post-metadata-a738/conventions.receipt.json",
+          "sha256": "9ddcc5ad4419c0149320435f16e3ae64b5c8d5e6ae6e0579cf0168662c64822a"
+        },
+        "log": {
+          "id": "<evidence>/materials/game-cpu/post-metadata-a738/conventions.stdout.log",
+          "sha256": "cb7182f3b1f76884e8f9a7bd8e6e7c6533be5f8e97feb921893e254f86d3d763"
+        },
+        "errorCount": 0,
+        "warningCount": 4
+      },
+      {
+        "name": "i18n",
+        "status": "PASS",
+        "exitCode": 0,
+        "durationSeconds": 0.359,
+        "receipt": {
+          "id": "<evidence>/materials/game-cpu/post-metadata-a738/i18n.receipt.json",
+          "sha256": "528c973bea2d5f5f75eead8dc9b1bf086073729d1b61704e4b51027814666d04"
+        },
+        "log": {
+          "id": "<evidence>/materials/game-cpu/post-metadata-a738/i18n.stdout.log",
+          "sha256": "22fa27a985c9ceb12c7c18455b239fd3bbc67e2676494d8f541b6f54c62ee17c"
+        },
+        "textCount": 510,
+        "missingCount": 0,
+        "unusedCount": 0
+      },
+      {
+        "name": "privacy-only",
+        "status": "PASS",
+        "exitCode": 0,
+        "durationSeconds": 1.516,
+        "receipt": {
+          "id": "<evidence>/materials/game-cpu/post-metadata-a738/privacy-only.receipt.json",
+          "sha256": "8037fccc518b817d2f1bf43ffc5a5e31b620fb387b57995d42d184538d08b9b7"
+        },
+        "log": {
+          "id": "<evidence>/materials/game-cpu/post-metadata-a738/privacy-only.stdout.log",
+          "sha256": "1564601c7e177296afd32380cd7ab353aed5f0a60748300501d6e79b96957922"
+        }
+      },
+      {
+        "name": "tools-pytest",
+        "status": "PASS",
+        "exitCode": 0,
+        "durationSeconds": 100.047,
+        "receipt": {
+          "id": "<evidence>/materials/game-cpu/post-metadata-a738/tools-pytest.receipt.json",
+          "sha256": "8534f647369da346a892e0e587bb1c53fd8dc9cbbfeb009da3c757f376a4482d"
+        },
+        "log": {
+          "id": "<evidence>/materials/game-cpu/post-metadata-a738/tools-pytest.stdout.log",
+          "sha256": "602f2467975e51bbc8a8c5263bb0d5e2fc55052a002991f958c1ff83606eeee1"
+        },
+        "testCount": 122,
+        "subtestCount": 293
+      },
+      {
+        "name": "ruff-hub-tools",
+        "status": "PASS",
+        "exitCode": 0,
+        "durationSeconds": 0.203,
+        "receipt": {
+          "id": "<evidence>/materials/game-cpu/post-metadata-a738/ruff-hub-tools.receipt.json",
+          "sha256": "14acee4c326abcc363f6c7d570ce360d181e4be5cf4b967d06e40d985606da00"
+        },
+        "log": {
+          "id": "<evidence>/materials/game-cpu/post-metadata-a738/ruff-hub-tools.stdout.log",
+          "sha256": "82b3e6a6c090a57601d22943bd23fca9218d1031dbe5a7b754092f9a156b4f18"
+        }
+      },
+      {
+        "name": "hub-pytest",
+        "status": "PASS",
+        "exitCode": 0,
+        "durationSeconds": 5.016,
+        "receipt": {
+          "id": "<evidence>/materials/game-cpu/post-metadata-a738/hub-pytest.receipt.json",
+          "sha256": "1d74c92de6a0bb7250301946311e000aef955e12f7b2adecd4de19c13fd22cca"
+        },
+        "log": {
+          "id": "<evidence>/materials/game-cpu/post-metadata-a738/hub-pytest.stdout.log",
+          "sha256": "a7231f0f70dccdc956cd1d0882f14b2475dfcd7ace74fdd16b5c7d0e6d5c195f"
+        },
+        "testCount": 251
+      },
+      {
+        "name": "node-asset-sync",
+        "status": "PASS",
+        "exitCode": 0,
+        "durationSeconds": 0.25,
+        "receipt": {
+          "id": "<evidence>/materials/game-cpu/post-metadata-a738/node-asset-sync.receipt.json",
+          "sha256": "3a225ea9dd59d9e9548cfb1886af2696da6ac9750d752c439cd1f500c64d8961"
+        },
+        "log": {
+          "id": "<evidence>/materials/game-cpu/post-metadata-a738/node-asset-sync.stdout.log",
+          "sha256": "65ac9c3e0a485ec0aae841773782c144c56a5493afca3c8c94b938d5b99d04c2"
+        },
+        "testCount": 12
+      }
+    ],
+    "inputs": {
+      "id": "<evidence>/materials/game-cpu/post-metadata-a738/inputs.json",
+      "sha256": "f70a99000224f9e7ff813bc294ffd62206577d07a77ef1bf3755ab9560e31a16"
+    },
+    "frozenInputsUnchangedDuringCpuChecks": true,
+    "inputHashesBefore": {
+      "game/shaders/facade.gdshader": "b9eacb7e0c937f59db0c9cad0b98c044584667f5587ee512be451c67b3db3ec7",
+      "game/shaders/ski_terrain.gdshader": "e5e59c43b4bf0c9c986ad29f7346c4522ea9d72bcf4b57897b3576404a30551d",
+      "game/shaders/rt_pixel_footprint.gdshaderinc": "93d533e430c52ff222eb18ac96953855797c22b42de09298004d3037c17e63a1",
+      "game/shaders/rt_pixel_footprint.gdshaderinc.uid": "8fb6343f13e9ca7cc33d72f3d3dc2204d0ea19a8024f0442734927e9dfc8ce9d",
+      "tools/rtx_engine.json": "6f81b1a16b877fa23d6c78fc38a148443e73786d31e77a1386517858d049d067",
+      "game/experiments/rtx/basketball_rtx.gd": "22c72bca06bcff6f53a2ceb8950be4bf60ffb69fbcd26d1440559e697775126b",
+      "docs/RTX_EXPERIMENT.md": "81f87c5d01ca8fad1dedb60ba82cbdfb53c6dd07cfa885013edd7d6ec3ad5a0b",
+      "docs/RTX_MIGRATION.md": "9ca141cfa9801d0053a73da35a0c80bb9b32a55b505d4d7c6156f6296847d3ab",
+      "docs/PT_MATERIAL_COMPATIBILITY.md": "f6ec3a74cfe5b3495088c4f1f49e70cf0097f862da7bb02063b7bafcfe535c1b",
+      "docs/validation/rtx-a73826e8c0.json": "b1788fe89b668eaf4f1c7d201fd9e7f804edcec4b1e5ff188fd02e496b31db87"
+    },
+    "inputHashesAfter": {
+      "game/shaders/facade.gdshader": "b9eacb7e0c937f59db0c9cad0b98c044584667f5587ee512be451c67b3db3ec7",
+      "game/shaders/ski_terrain.gdshader": "e5e59c43b4bf0c9c986ad29f7346c4522ea9d72bcf4b57897b3576404a30551d",
+      "game/shaders/rt_pixel_footprint.gdshaderinc": "93d533e430c52ff222eb18ac96953855797c22b42de09298004d3037c17e63a1",
+      "game/shaders/rt_pixel_footprint.gdshaderinc.uid": "8fb6343f13e9ca7cc33d72f3d3dc2204d0ea19a8024f0442734927e9dfc8ce9d",
+      "tools/rtx_engine.json": "6f81b1a16b877fa23d6c78fc38a148443e73786d31e77a1386517858d049d067",
+      "game/experiments/rtx/basketball_rtx.gd": "22c72bca06bcff6f53a2ceb8950be4bf60ffb69fbcd26d1440559e697775126b",
+      "docs/RTX_EXPERIMENT.md": "81f87c5d01ca8fad1dedb60ba82cbdfb53c6dd07cfa885013edd7d6ec3ad5a0b",
+      "docs/RTX_MIGRATION.md": "9ca141cfa9801d0053a73da35a0c80bb9b32a55b505d4d7c6156f6296847d3ab",
+      "docs/PT_MATERIAL_COMPATIBILITY.md": "f6ec3a74cfe5b3495088c4f1f49e70cf0097f862da7bb02063b7bafcfe535c1b",
+      "docs/validation/rtx-a73826e8c0.json": "b1788fe89b668eaf4f1c7d201fd9e7f804edcec4b1e5ff188fd02e496b31db87"
+    },
+    "total": 7,
+    "passed": 7,
+    "finishedUtc": "2026-10-26T14:26:55.303427+00:00",
+    "summarySelfHashScope": "Summary input hash is before this CPU result is appended; appending results is a later reporting-only change.",
+    "matrix": {
+      "id": "<evidence>/materials/game-cpu/post-metadata-a738/matrix.json",
+      "sha256": "bf65e6a7a0dc27e03a63520f5b0d2ea07029948185a968861ad8f720e73b7c0b"
+    }
+  },
+  "history": {
+    "C1": {
+      "commit": "c1fc0252a98913d3be394417b6977a8c5aa4d77d",
+      "summary": "rtx-c1fc0252a9.json",
+      "scope": "Historical C1 17-game and export results, not A738 reruns"
+    },
+    "earlyCpuCommit": "1000baebdaccc35a6dfb9511c7fe9209cdc8295b",
+    "earlyCpuScope": "Earlier headless adapter checks only; not a C1 rerun or GPU validation",
+    "strictGpuCommit": "d37b63e72bd5b0b72c8d72adb7cceb1b20e1b1f8",
+    "strictGpuScope": "Historical d37 controls; this material matrix does not rerun or relabel its strict results"
+  },
+  "limitations": [
+    "True PLAY screenshots with controlled first-player camera sweeps, fixed simulation timestep and bounded duration; no full-match, natural-input, long-session, FPS or input-latency acceptance.",
+    "PT without RR uses a snapshot-only in-memory Environment override; the normal UI intentionally gates that combination.",
+    "DDGI and PT were separate actual runs; D3D12 path tracing is unavailable in this fork and these material matrices are Vulkan only.",
+    "No active DLSS AI model identity, inserted-frame presentation, FG 2X, Reflex latency, MFG or Dynamic MFG claim is made by these material matrices.",
+    "Cold asynchronous hit-group compilation may show grey placeholders; synchronous controls do not establish a clean cold asynchronous path.",
+    "Standard vertex-colour routing covers a conservative opaque nonemissive subset. Alpha clipping/blending, transparency, refraction, emission, position/matrix overrides, trails, point size and heightmap/parallax stay excluded.",
+    "Expanded MultiMesh instances increase TLAS/resource work; no performance-regression conclusion is available.",
+    "Screen-space derivatives were replaced only in the two named game shaders with a first-order local pixel-footprint approximation, not general ray differentials or a texture-LOD rewrite.",
+    "Strict GPU validation remains non-clean: lifecycle PRESENT_AFTER_WRITE and historical Streamline Vulkan 09600/03868/FG diagnostics remain separate; original failures are preserved.",
+    "Original C1, BCC front-end shader failure, owner red and colour red evidence are not overwritten by later independent passes."
+  ]
+}

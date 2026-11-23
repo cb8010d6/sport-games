@@ -1,3 +1,4 @@
+class_name RSBasketballGame
 extends RSPartyGame
 ## 篮球 (basketball three-point contest, a motion game for 1-4): everyone shoots on their own
 ## rooftop half court at once (split screen). Five racks round the arc, five balls each, the
@@ -94,7 +95,7 @@ class Shooter:
 	var clip: Array = []
 	var clip_pts := 0
 	var clip_name := ""
-	var rp_i := 0
+	var replay := RSReplay.new()
 	var rp_ball: RSBasketball
 
 
@@ -106,7 +107,7 @@ var _buzzed := false
 var _ambience: AudioStreamPlayer
 var _crowd: AudioStreamPlayer
 var _rng := RandomNumberGenerator.new()
-var _podium: Node3D
+var _podium: RSPodium
 var _podium_on := false
 var _podium_at := 0.0
 var _podium_order: Array = []
@@ -149,9 +150,10 @@ func _sh(p: Player) -> Shooter:
 func _setup_world() -> void:
 	_rng.seed = 2323
 	RSSfx.warm_up(SFX)
+	RSBasketball.warm_up_fire(self)
 	_ambience = RSSfx.loop(self, "city_amb")
 	_crowd = RSSfx.loop(self, "applause")
-	_podium = Node3D.new()
+	_podium = RSPodium.new()
 	add_child(_podium)
 	_build_podium()
 	lobby_cam.far = 4000
@@ -205,7 +207,7 @@ func _player_added(p: Player) -> void:
 	var s := Shooter.new()
 	p.data = s
 	s.court = clampi(p.c.player - 1, 0, RSBallCourt.COURTS - 1)
-	s.rig = RSBallerRig.new(color_of(p), p.c.player - 1)
+	s.rig = RSBallerRig.new(color_of(p), avatar_of(p))
 	add_child(s.rig)
 	s.rig.visible = false
 	s.rp_ball = RSBasketball.new(0, false)
@@ -237,14 +239,25 @@ func _player_button(p: Player, button: int, pressed: bool) -> void:
 	var s := _sh(p)
 	if pressed and s.st == St.READY:
 		_to(s, St.SET)
-		s.set_yaw = _heading(p.c.orientation)
+		s.set_yaw = _heading(p.c.motion_orientation())
 		s.rig.play(RSBallerRig.Move.SET)
 	elif not pressed and s.st == St.SET:
 		s.rel_t = p.c.sample_time
 		_to(s, St.RELEASE)
 
 
+func _player_cancel_hold(p: Player, button: int) -> void:
+	# Paused or disconnected while holding the ball up: lower it, no shot.
+	if button != RSController.BTN_B:
+		return
+	var s := _sh(p)
+	if s.st == St.SET:
+		_to(s, St.READY)
+		s.rig.play(RSBallerRig.Move.HOLD)
+
+
 func _round_started(list: Array) -> void:
+	_podium.reset()
 	_time_left = TIME_LIMIT
 	_beep = 4
 	_buzzed = false
@@ -277,10 +290,11 @@ func _round_started(list: Array) -> void:
 		s.pend.clear()
 		s.post = -1.0
 		s.clip = []
+		s.replay.reset(s.clip)
 		s.clip_pts = 0
 		s.bot = p.fake
 		s.rng.seed = 77 + p.c.player * 31 + _rng.randi_range(0, 9999)
-		s.bot_sigma = s.rng.randf_range(0.12, 0.17)
+		s.bot_sigma = s.rng.randf_range(0.12, 0.17) * bot_error()
 		_court.tint(s.court, color_of(p))
 		_place(s, RSBallCourt.spot(s.court, 0))
 		_to(s, St.WALK)
@@ -295,7 +309,7 @@ func _round_started(list: Array) -> void:
 
 func _to_lobby() -> void:
 	super._to_lobby()
-	_podium.visible = false
+	_podium.reset()
 	_podium_on = false
 	ui.results_on_right(false)
 	for p: Player in players.values():
@@ -515,10 +529,10 @@ func _read_flick(p: Player, s: Shooter) -> void:
 			break
 		peak = maxf(peak, c.hist_gyro[i].length())
 		if t <= s.rel_t - 0.25 and not have_turn:
-			turn_at = _heading(c.hist_quat[i])
+			turn_at = _heading(c.motion_pose(c.hist_quat[i]))
 			have_turn = true
 	if not have_turn:
-		turn_at = _heading(c.orientation)
+		turn_at = _heading(c.motion_orientation())
 	s.peak = peak
 	s.e_raw = (peak - P_IDEAL) / P_IDEAL
 	s.lat_raw = clampf(-wrapf(turn_at - s.set_yaw, -PI, PI) / LAT_FULL, -1.5, 1.5)
@@ -644,7 +658,7 @@ func _made(p: Player, s: Shooter, b: RSBasketball) -> void:
 	_log(p, "MADE %s +%d" % ["swish" if swish else "rim", pts])
 	if pts > maxi(s.clip_pts, s.pend_pts if s.post >= 0.0 else 0) or pts == s.clip_pts and b.money:
 		var t0 := float(b.get_meta("t0")) - 1.1
-		s.pend = s.rec.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= t0)
+		s.pend = RSReplay.since(s.rec, t0)
 		s.pend_pts = pts
 		s.pend_name = label.trim_suffix("！").trim_suffix("!")   # no-i18n
 		s.pend_ball = b.get_instance_id()
@@ -742,13 +756,10 @@ func _camera(p: Player, s: Shooter, dt: float, snap: bool) -> void:
 	p.cam.fov = 47.0
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
 		# Intro: from high over the city edge, swooping down behind the shooter.
-		var u := smoothstep(0.0, INTRO, phase_time)
 		var p0 := Vector3(RSBallCourt.court_x(s.court) * 0.4, 26.0, 46.0)
 		var p1 := s.pos + back * 9.0 + Vector3.UP * 5.0
-		var at := p0.lerp(p1, u).lerp(p1.lerp(s.cam_pos, u), u)
-		p.cam.global_position = at
-		p.cam.look_at(Vector3(RSBallCourt.court_x(s.court), 1.0, 2.0).lerp(s.cam_look, smoothstep(0.4, 1.0, u)))
-		p.cam.fov = lerpf(50.0, 47.0, u)
+		RSIntro.apply(p.cam, phase_time, INTRO, p0, p1, s.cam_pos,
+			Vector3(RSBallCourt.court_x(s.court), 1.0, 2.0), s.cam_look, 50.0, 47.0, 0.4)
 
 
 # ------------------------------------------------------------------- hints / OLED ----
@@ -796,107 +807,10 @@ func _update_oled(p: Player, s: Shooter, dt: float) -> void:
 # ---------------------------------------------------------------------------- HUD ----
 
 func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
-	var s := _sh(p)
-	var sz := h.size
-	if phase == Phase.RESULTS:
-		_draw_replay(h, p, k)
-		return
-	if phase == Phase.COUNTDOWN and phase_time < INTRO:
-		return
-	var pale := Color(0.92, 0.95, 1.0)
-
-	# Racks: five groups of five along the bottom, money balls ringed in gold.
-	var dot := 9.0 * k
-	var gap := 6.0 * k
-	var group := BALLS * (dot * 2.0 + gap) + 14.0 * k
-	var w := group * RACKS
-	var x0 := sz.x * 0.5 - w * 0.5
-	var y := sz.y - 30.0 * k
-	_pill.set_corner_radius_all(int(14 * k))
-	h.draw_style_box(_pill, Rect2(Vector2(x0 - 12 * k, y - 20 * k), Vector2(w + 10 * k, 40 * k)))
-	for r in RACKS:
-		for b in BALLS:
-			var at := Vector2(x0 + r * group + b * (dot * 2.0 + gap) + dot, y)
-			var res: int = s.results[r][b] if s.results.size() > r else 0
-			var current := r == s.rack and b == s.ball_i and s.st != St.DONE
-			var col := Color(1, 1, 1, 0.18)
-			match res:
-				1:
-					col = Color(0.95, 0.45, 0.12)
-				2:
-					col = Color(1.0, 0.6, 0.15)
-				3:
-					col = Color(0.3, 0.32, 0.36)
-			var rad := dot * (1.15 if b == BALLS - 1 else 1.0)
-			if current:
-				rad *= 1.0 + 0.15 * sin(_clock * 8.0)
-			h.draw_circle(at, rad, col)
-			if b == BALLS - 1:
-				h.draw_arc(at, rad + 1.5 * k, 0, TAU, 20, GOLD, 2.0 * k, true)
-			elif current:
-				h.draw_arc(at, rad + 1.5 * k, 0, TAU, 20, Color.WHITE, 2.0 * k, true)
-			if res == 2:
-				h.draw_arc(at, rad * 0.55, 0, TAU, 16, Color.WHITE, 1.6 * k, true)
-			elif res == 3:
-				h.draw_line(at + Vector2(-0.5, -0.5) * rad, at + Vector2(0.5, 0.5) * rad, Color(0.8, 0.82, 0.86), 2.0 * k)
-				h.draw_line(at + Vector2(-0.5, 0.5) * rad, at + Vector2(0.5, -0.5) * rad, Color(0.8, 0.82, 0.86), 2.0 * k)
-
-	# Shooting and streak under the score.
-	h.draw_style_box(_pill, Rect2(Vector2(12, 68) * k, Vector2(170, 54) * k))
-	draw_text(h, tr("命中 %d/%d") % [s.made, s.shots], Vector2(22 * k, 88 * k), 19 * k, pale)
-	if s.fire:
-		var f := 0.75 + 0.25 * sin(_clock * 10.0)
-		draw_text(h, tr("火热 ×1.5  连中 %d") % s.streak, Vector2(22 * k, 114 * k), 19 * k, Color(FIRE_COL, f))
-	else:
-		draw_text(h, tr("连中 %d") % s.streak, Vector2(22 * k, 114 * k), 19 * k, pale if s.streak > 0 else Color(pale, 0.6))
-
-	# Power meter after each shot: where the flick landed against the sweet spot.
-	var age := _clock - s.meter_t
-	if age < 1.8:
-		var a := clampf((1.8 - age) / 0.4, 0.0, 1.0)
-		var bar := Rect2(Vector2(sz.x - 54 * k, sz.y * 0.28), Vector2(16 * k, sz.y * 0.4))
-		h.draw_style_box(_pill, Rect2(bar.position - Vector2(16, 34) * k, bar.size + Vector2(32, 60) * k))
-		var span := 0.8
-		var ycol := func(e: float) -> float: return bar.end.y - bar.size.y * clampf((e + span) / (span * 2.0), 0.0, 1.0)
-		h.draw_rect(bar, Color(0.85, 0.3, 0.25, 0.7 * a))
-		h.draw_rect(Rect2(Vector2(bar.position.x, ycol.call(0.3)), Vector2(bar.size.x, ycol.call(-0.3) - ycol.call(0.3))), Color(1.0, 0.8, 0.25, 0.85 * a))
-		h.draw_rect(Rect2(Vector2(bar.position.x, ycol.call(0.15)), Vector2(bar.size.x, ycol.call(-0.15) - ycol.call(0.15))), Color(0.35, 0.95, 0.45, 0.95 * a))
-		var my: float = ycol.call(s.e_raw)
-		h.draw_colored_polygon(PackedVector2Array([Vector2(bar.position.x - 4 * k, my), Vector2(bar.position.x - 16 * k, my - 8 * k), Vector2(bar.position.x - 16 * k, my + 8 * k)]), Color(1, 1, 1, a))
-		draw_text(h, tr("力度"), Vector2(bar.get_center().x, bar.position.y - 12 * k), 15 * k, Color(pale, a), true)
-		var word := tr("完美") if absf(s.e_raw) <= 0.15 else (tr("太轻") if s.e_raw < 0.0 else tr("太重"))
-		draw_text(h, word, Vector2(bar.get_center().x, bar.end.y + 20 * k), 15 * k, Color(pale, a), true)
-
-	# The shot's verdict.
-	var fa := _clock - s.flash_t
-	if fa < 1.3:
-		var a := clampf((1.3 - fa) / 0.4, 0.0, 1.0)
-		var grow := 1.0 + 0.25 * maxf(0.0, 1.0 - fa * 6.0)
-		draw_text(h, s.flash, Vector2(sz.x * 0.5, sz.y * 0.3), 46 * k * grow, Color(s.flash_col, a), true)
-
-	if s.st == St.SET and not p.fake:
-		draw_text(h, tr("甩手腕 + 松开 B 出手"), Vector2(sz.x * 0.5, sz.y - 66 * k), 20 * k, Color(1, 1, 1, 0.8), true)
-	if s.st == St.DONE and phase == Phase.PLAY:
-		draw_text(h, tr("投完了！"), Vector2(sz.x * 0.5, sz.y * 0.55), 44 * k, GOLD, true)
-	if s.hint_t > 0.0:
-		var a := clampf(s.hint_t, 0.0, 1.0)
-		draw_pill(h, s.hint, Vector2(sz.x * 0.5, sz.y * 0.16), 17 * k, Color(1, 1, 1, a))
-
+	RSBasketballHud.draw_hud(self, h, p, k)
 
 func _draw_overlay(o: Overlay, k: float) -> void:
-	var m := _court.map
-	if phase == Phase.COUNTDOWN and phase_time < INTRO:
-		var a := clampf(phase_time / 0.6, 0.0, 1.0) * clampf((INTRO - phase_time) / 0.6, 0.0, 1.0)
-		draw_text(o, tr(str(m["name"])), Vector2(o.size.x * 0.5, o.size.y * 0.4), 84 * k, Color(1, 1, 1, a), true)
-		draw_text(o, tr("%s  ·  三分大赛  ·  5 架 × 5 球  ·  %d 秒") % [m["en"], int(TIME_LIMIT)],
-			Vector2(o.size.x * 0.5, o.size.y * 0.4 + 56 * k), 24 * k, Color(1, 0.9, 0.6, a), true)
-	elif phase == Phase.COUNTDOWN:
-		draw_text(o, tr("按住 B 举球，往上甩手腕 + 松开 B 出手"), Vector2(o.size.x * 0.5, o.size.y * 0.45 + 60 * k), 26 * k, Color(0.92, 0.95, 1.0), true)
-	elif phase == Phase.PLAY:
-		draw_clock(o, _time_left, k)
-	elif phase == Phase.RESULTS and _podium_on:
-		_draw_podium_tags(o, k)
-
+	RSBasketballHud.draw_overlay(self, o, k)
 
 # ------------------------------------------------------------------------ replays ----
 
@@ -908,9 +822,7 @@ func _record(s: Shooter, dt: float) -> void:
 	for b in s.flying:
 		if _clock - float(b.get_meta("t0", 0.0)) < 4.0:
 			balls[b.get_instance_id()] = [b.global_transform, b.money]
-	s.rec.append({"t": _clock, "xf": s.rig.global_transform, "pose": s.rig.capture(), "balls": balls})
-	while not s.rec.is_empty() and _clock - float(s.rec[0]["t"]) > CLIP_KEEP:
-		s.rec.pop_front()
+	RSReplay.record(s.rec, {"t": _clock, "xf": s.rig.global_transform, "pose": s.rig.capture(), "balls": balls}, CLIP_KEEP)
 	if s.post >= 0.0:
 		s.pend.append(s.rec.back())
 		s.post -= dt
@@ -928,22 +840,20 @@ func _keep_clip(s: Shooter) -> void:
 	s.post = -1.0
 
 
-func _clip_len(s: Shooter) -> float:
-	return float(s.clip.back()["t"]) - float(s.clip[0]["t"]) if s.clip.size() > 1 else 0.0
-
-
 func finish_round() -> void:
+	if _result_committed:
+		return  # a second call must not reset the replay/podium state below (#57)
 	var longest := 0.0
 	for p: Player in players.values():
 		var s := _sh(p)
 		if s.post >= 0.0:
 			_keep_clip(s)
-		longest = maxf(longest, _clip_len(s) / SLOW)
-		s.rp_i = 0
+		longest = maxf(longest, RSReplay.duration(s.clip) / SLOW)
+		s.replay.reset(s.clip)
 		_clear_balls(s)
 		if s.clip.size() > 1:
 			s.rig.set_layers(1 << p.c.player)
-	_podium_at = minf(longest, 9.0) + (0.3 if longest > 0.0 else 0.0)
+	_podium_at = RSReplay.lead_out(longest, 9.0)
 	results_delay = _podium_at + 1.6
 	_podium_on = false
 	super.finish_round()
@@ -951,17 +861,13 @@ func finish_round() -> void:
 
 func _replay_step(p: Player, delta: float) -> void:
 	var s := _sh(p)
-	if s.clip.size() < 2:
+	if not s.replay.sample(phase_time, SLOW):
 		s.rig.update(delta)
 		_camera(p, s, delta, false)
 		return
-	var t := float(s.clip[0]["t"]) + minf(phase_time * SLOW, _clip_len(s))
-	while s.rp_i + 1 < s.clip.size() and float(s.clip[s.rp_i + 1]["t"]) <= t:
-		s.rp_i += 1
-	var fa: Dictionary = s.clip[s.rp_i]
-	var fb: Dictionary = s.clip[mini(s.rp_i + 1, s.clip.size() - 1)]
-	var span := maxf(float(fb["t"]) - float(fa["t"]), 1e-4)
-	var u := clampf((t - float(fa["t"])) / span, 0.0, 1.0)
+	var fa := s.replay.a
+	var fb := s.replay.b
+	var u := s.replay.weight
 	s.rig.global_transform = (fa["xf"] as Transform3D).interpolate_with(fb["xf"], u)
 	s.rig.show_pose(fa["pose"])
 	var ball_at := Vector3.ZERO
@@ -1005,95 +911,45 @@ func _replay_step(p: Player, delta: float) -> void:
 
 
 func _draw_replay(h: PlayerHud, p: Player, k: float) -> void:
-	var s := _sh(p)
-	var sz := h.size
-	var bar := maxf(sz.y * 0.08, 64.0 * k)
-	h.draw_rect(Rect2(Vector2.ZERO, Vector2(sz.x, bar)), Color(0.02, 0.02, 0.03))
-	h.draw_rect(Rect2(Vector2(0, sz.y - bar), Vector2(sz.x, bar)), Color(0.02, 0.02, 0.03))
-	draw_text(h, "P%d" % p.c.player, Vector2(20 * k, bar * 0.5 + 9 * k), 24 * k, color_of(p))
-	if s.clip.size() < 2:
-		draw_text(h, tr("这局一个都没进……"), Vector2(sz.x * 0.5, sz.y - bar * 0.5 + 8 * k), 22 * k, Color(0.92, 0.95, 1.0), true)
-		return
-	if fmod(_clock, 1.0) < 0.6:
-		h.draw_circle(Vector2(sz.x - 150 * k, bar * 0.5), 7 * k, Color(1.0, 0.25, 0.2))
-	draw_text(h, "REPLAY", Vector2(sz.x - 136 * k, bar * 0.5 + 8 * k), 22 * k, Color.WHITE)
-	draw_text(h, tr("最佳一投  ") + s.clip_name, Vector2(sz.x * 0.5, sz.y - bar - 44 * k), 22 * k, Color.WHITE, true)
-	draw_text(h, "+%d" % s.clip_pts, Vector2(sz.x * 0.5, sz.y - bar - 8 * k), 40 * k, GOLD, true)
-
+	RSBasketballHud.draw_replay(self, h, p, k)
 
 # ------------------------------------------------------------------------- podium ----
 
 func _build_podium() -> void:
-	_podium.visible = false
 	_podium.position = PODIUM_AT
-	var body := StandardMaterial3D.new()
-	body.albedo_color = Color(0.93, 0.93, 0.92)
-	body.roughness = 0.35
-	var trims := [Color(1.0, 0.78, 0.25), Color(0.78, 0.8, 0.84), Color(0.8, 0.5, 0.28)]
-	for i in 3:
-		var x: float = PODIUM[i][0]
-		var hgt: float = PODIUM[i][1]
-		var box := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(1.4, hgt, 1.6)
-		box.mesh = bm
-		box.material_override = body
-		box.position = Vector3(x, hgt * 0.5, 0.0)
-		_podium.add_child(box)
-		var band := MeshInstance3D.new()
-		var band_mesh := BoxMesh.new()
-		band_mesh.size = Vector3(1.42, 0.06, 1.62)
-		band.mesh = band_mesh
-		var trim := StandardMaterial3D.new()
-		trim.albedo_color = trims[i]
-		trim.metallic = 0.9
-		trim.roughness = 0.25
-		band.material_override = trim
-		band.position = Vector3(x, hgt - 0.03, 0.0)
-		_podium.add_child(band)
-		var num := Label3D.new()
-		num.text = str(i + 1)
-		num.font = font
-		num.font_size = 120
-		num.pixel_size = 0.004
-		num.modulate = (trims[i] as Color).darkened(0.25)
-		num.outline_size = 10
-		num.outline_modulate = Color(0.25, 0.22, 0.2)
-		num.position = Vector3(x, hgt * 0.5, 0.81)
-		_podium.add_child(num)
+	_podium.configure(PODIUM, Vector2(1.4, 1.6), Vector3(2.7, 0, 0.7), 1.0, font, 0.0)
 
 
 func _podium_spot(i: int) -> Vector3:
-	if i < 3:
-		return PODIUM_AT + Vector3(PODIUM[i][0], PODIUM[i][1], 0.0)
-	return PODIUM_AT + Vector3(2.7 + (i - 3) * 1.0, 0.0, 0.7)
+	var at := _podium.spot(i)
+	return at
 
 
 func _podium_start() -> void:
 	_podium_on = true
-	_podium.visible = true
 	for p: Player in players.values():
 		_sh(p).rp_ball.visible = false
 	views.visible = false
 	lobby_cam.current = true
 	lobby_cam.fov = 42.0
 	ui.results_on_right(true)
-	_podium_order = ordered()
-	_podium_order.sort_custom(func(a: Player, b: Player) -> bool: return a.score > b.score)
+	_podium_order = ranked_players()
+	var scores := PackedInt64Array()
+	for p: Player in _podium_order:
+		scores.append(p.score)
+	_podium.present(scores)
 	for i in _podium_order.size():
 		var rig := _sh(_podium_order[i]).rig
 		rig.set_layers(1)
 		rig.global_transform = Transform3D(Basis(Vector3.UP, PI), _podium_spot(i))
-		rig.play(RSBallerRig.Move.CHEER if i == 0 else (RSBallerRig.Move.CELEBRATE if i < 3 else RSBallerRig.Move.SAD))
+		rig.play(RSBallerRig.Move.CHEER if _podium.rank(i) == 1 else (RSBallerRig.Move.CELEBRATE if _podium.rank(i) <= 3 else RSBallerRig.Move.SAD))
 	RSSfx.play(self, "chime", -4.0)
 
 
 func _podium_step(delta: float) -> void:
-	var t := phase_time - _podium_at
-	var c := PODIUM_AT
-	var d := 6.2 - minf(t, 6.0) * 0.15
-	lobby_cam.position = c + Vector3(-2.6 + minf(t, 6.0) * 0.12, 1.9, d)
-	lobby_cam.look_at(c + Vector3(1.4 * d / 6.2, 1.25, 0.0))
+	# Framing four players retreats beyond the roof edge; film over the glass handrail.
+	_podium.apply_camera(lobby_cam, phase_time - _podium_at, -2.6, 0.12, 6.2, -0.15, 3.5, 1.4, 1.25)
+	_podium.fit_left(lobby_cam)
 	for p: Player in players.values():
 		_sh(p).rig.update(delta)
 	_crowd.volume_db = lerpf(_crowd.volume_db, -12.0, 1.0 - exp(-delta * 1.5))

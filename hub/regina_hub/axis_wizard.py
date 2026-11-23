@@ -58,7 +58,7 @@ class Listener:
                 self._last_hello = time.monotonic()
             try:
                 data, _ = self.sock.recvfrom(65536)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 continue
@@ -78,7 +78,7 @@ def capture_gravity(listener: Listener, cid: int, seconds: float = 1.5) -> tuple
         acc: list[tuple[float, float, float]] = []
         gyro_max = [0.0]
 
-        def on_sample(c, s):
+        def on_sample(c, s, acc=acc, gyro_max=gyro_max):
             if c == cid:
                 acc.append(s[8:11])
                 gyro_max[0] = max(gyro_max[0], math.sqrt(s[5] ** 2 + s[6] ** 2 + s[7] ** 2))
@@ -115,17 +115,35 @@ def solve(up_raw, fwd_raw) -> tuple[list[str], float]:
     return new_map, min(yq, fq)
 
 
+def resolve_paths(config_arg: Path) -> tuple[Path, Path]:
+    """The one config rule shared with the hub (#51): --config names the base
+    config, and the personal overlay is the config.local.json next to it --
+    the overlay is what load_config applies last, so it is where the wizard
+    writes. Passing the overlay itself (the wizard's old --config meaning)
+    still works and resolves to the same pair."""
+    if config_arg.name == "config.local.json":
+        return config_arg.with_name("config.json"), config_arg
+    return config_arg, config_arg.with_name("config.local.json")
+
+
 def main() -> None:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
-    ap.add_argument("--config", default=str(Path(__file__).resolve().parent.parent / "config.json"))
+    ap.add_argument("--config", default=str(Path(__file__).resolve().parent.parent / "config.json"),
+                    help="base config, same meaning as the hub's --config (default: hub/config.json); "
+                         "the result is written to the config.local.json next to it")
     ap.add_argument("--controller", type=int, default=0, help="controller id (default: first Regina)")
     ap.add_argument("--game-port", type=int, default=P.GAME_PORT)
     ap.add_argument("--hub-port", type=int, default=P.HUB_PORT)
     args = ap.parse_args()
 
-    cfg_path = Path(args.config)
-    cfg = json.loads(cfg_path.read_text(encoding="utf-8")) if cfg_path.exists() else {}
-    current = list(cfg.get("regina_axis_map", ["x", "z", "-y"]))
+    base_path, overlay_path = resolve_paths(Path(args.config))
+    # Read the effective config exactly as the hub does (defaults -> base ->
+    # overlay) via the hub's own loader, so the map inverted below is the one
+    # the running hub is really using even with a custom --config.
+    from .__main__ import load_config
+
+    cfg = load_config(base_path)
+    current = list(cfg["regina_axis_map"])
     to_raw = _invert(current)
 
     listener = Listener(args.game_port, args.hub_port)
@@ -159,9 +177,12 @@ def main() -> None:
     if new_map == current:
         print("当前配置已经正确，无需修改。")
         return
-    cfg["regina_axis_map"] = new_map
-    cfg_path.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
-    print(f"已写入 {cfg_path}，重启 hub 后生效。")
+    local_cfg: dict = {}
+    if overlay_path.exists():
+        local_cfg = json.loads(overlay_path.read_text(encoding="utf-8"))
+    local_cfg["regina_axis_map"] = new_map
+    overlay_path.write_text(json.dumps(local_cfg, indent=2) + "\n", encoding="utf-8")
+    print(f"已写入 {overlay_path}（hub 的个人覆盖层），重启 hub 后生效。")
 
 
 if __name__ == "__main__":

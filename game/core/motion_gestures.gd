@@ -51,14 +51,14 @@ func read(c: RSController, out: RSMotionControls) -> void:
 		var t: float = c.hist_time[i]
 		var dt := clampf(t - _last_time, 0.0, 0.05) if _last_time >= 0.0 else 0.005
 		_last_time = t
-		var q: Quaternion = c.hist_quat[i]
-		var gw: Vector3 = q * c.hist_gyro[i]
+		var q := c.motion_pose(c.hist_quat[i])
+		var gw := q * c.motion_gyro(c.hist_gyro[i])
 		var fr := stick.frame(q)
 		out.yaw_delta += gw.y * dt
 		_detect(t, gw.dot(fr[0]), gw.dot(fr[1]), c.hist_lin[i].y, out)
-	var st := stick.stick(c.orientation)
+	var st := stick.stick(c.motion_orientation())
 	out.steer = st.x
-	out.pitch = clampf(stick.tilt(c.orientation).y / stick.max_pitch, -1.5, 1.5)
+	out.pitch = clampf(stick.tilt(c.motion_orientation()).y / stick.max_pitch, -1.5, 1.5)
 
 
 func _detect(t: float, pitch_rate: float, roll_rate: float, lin_up: float, out: RSMotionControls) -> void:

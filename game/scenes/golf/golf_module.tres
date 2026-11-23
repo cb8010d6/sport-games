@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RSGameModule" format=3]
+
+[ext_resource type="Script" path="res://core/game_module.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "golf"
+name = "高尔夫"
+oled = "GOLF"
+scene = "res://scenes/golf/golf_game.tscn"
+desc = "占位输入：A切换60/120/220米，按住B再松开击球，C取消。三洞一局，每洞150秒，各自同时打球；不计正式纪录。"
+maps_script = "res://scenes/golf/golf_course.gd"
+lessons = PackedStringArray()
+solo_goals = PackedInt32Array()
+players = Vector2i(1, 4)
+mode = "individual"
+ambience = ""
+preview = ""
+ready = false
+order = 1000
+benchmark = false

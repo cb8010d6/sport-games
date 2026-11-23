@@ -48,15 +48,28 @@ if (Port-Owner $gamePort) {
     Fail '游戏已经在运行了（端口 47800 被占用）。'
 }
 
-# Hub: the first run creates the virtual environment, in a visible window so the
-# install shows its progress.
+# Hub: hub\.venv comes from the hashed runtime lock and is reinstalled when the lock
+# changes (regina_hub.setup_env). An install runs in a visible window so it shows its
+# progress; an up-to-date venv starts without one.
 $py = Join-Path $hubDir '.venv\Scripts\python.exe'
+$setupPy = $py
 if (-not (Test-Path $py)) {
     $sys = Get-Command python -ErrorAction SilentlyContinue
     if (-not $sys) { Fail '没有找到 Python。请先安装 Python 3.11 或更新版本（安装时勾选 Add to PATH）。' }
-    $cmd = "title 第一次运行：安装 hub 依赖 && `"$($sys.Source)`" -m venv .venv && .venv\Scripts\python -m pip install -r requirements.txt"
+    $setupPy = $sys.Source
+}
+# The check's message (Chinese) is read back through a pipe: make both ends UTF-8.
+$env:PYTHONIOENCODING = 'utf-8'
+try { [Console]::OutputEncoding = [System.Text.Encoding]::UTF8 } catch { }
+Push-Location $hubDir
+try { $message = (& $setupPy -m regina_hub.setup_env --check | Out-String).Trim(); $status = $LASTEXITCODE }
+finally { Pop-Location }
+if ($status -eq 10) {
+    $cmd = "title 安装 hub 依赖 && `"$setupPy`" -m regina_hub.setup_env"
     $setup = Start-Process -FilePath 'cmd.exe' -ArgumentList @('/c', $cmd) -WorkingDirectory $hubDir -Wait -PassThru
     if ($setup.ExitCode -ne 0 -or -not (Test-Path $py)) { Fail '创建 Python 环境或安装依赖失败，检查一下网络后再试。' }
+} elseif ($status -ne 0) {
+    Fail ($(if ($message) { $message } else { 'hub 的 Python 环境检查失败。单独运行 hub\run_hub.bat 可以看到错误信息。' }))
 }
 
 $hub = $null

@@ -1,0 +1,49 @@
+{
+  "source": "project camera render",
+  "map": 0,
+  "quality": 1,
+  "images": {
+    "plane": {
+      "file": "plane.jpg",
+      "bytes": 83785,
+      "sha256": "e966b3945717688e5d0a2ee558000fb827ef28a2a121aa0772c20aa8a3432855",
+      "width": 1600,
+      "height": 900
+    },
+    "archery": {
+      "file": "archery.jpg",
+      "bytes": 81497,
+      "sha256": "a6f0513a8556c369d3a428cf94250398d8d0a63845d3e9cddc03a8bbb5bbc33b",
+      "width": 1600,
+      "height": 900
+    },
+    "bowling": {
+      "file": "bowling.jpg",
+      "bytes": 119727,
+      "sha256": "dc6afffdbf8d8e5820c7703d96613f143aaeb6592342c856d1117816690e8cd3",
+      "width": 1600,
+      "height": 900
+    },
+    "skate": {
+      "file": "skate.jpg",
+      "bytes": 370244,
+      "sha256": "a36324d71a3a33326154f34ab4eaf2aed5150d6f1164bd1b6a8cb8f0fe6f16c4",
+      "width": 1600,
+      "height": 900
+    },
+    "ski": {
+      "file": "ski.jpg",
+      "bytes": 223468,
+      "sha256": "5d37563a159a11b5613b1b3d5b9a6bfbbf3e8721ae9a7c8ede162be4cead8733",
+      "width": 1600,
+      "height": 900
+    },
+    "basketball": {
+      "file": "basketball.jpg",
+      "bytes": 232136,
+      "sha256": "5c1b3a78e0e5129234ad868d110a72f531402b36713dc9bda3315c28b06ddf7d",
+      "width": 1600,
+      "height": 900
+    }
+  }
+}

@@ -1,0 +1,26 @@
+{
+  "units": "metres; fraction over a single 1/120 s straight cast",
+  "source": "Independent finite-face, edge-circle and vertex-sphere analytic fixtures; not exported by the production kernel",
+  "cases": [
+    {"id":"face","start":[0.2,1,0.2],"end":[0.2,-1,0.2],"radius":0.02135,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"HIT","fraction":0.489325,"point":[0.2,0,0.2],"normal":[0,1,0],"part":"FACE","part_id":0,"flags":["APPROACHING"]},
+    {"id":"edge","start":[0.5,1,-0.010675],"end":[0.5,-1,-0.010675],"radius":0.02135,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"HIT","fraction":0.490755178814601,"point":[0.5,0,0],"normal":[0,0.866025403784439,-0.5],"part":"EDGE","part_id":0,"flags":["APPROACHING"]},
+    {"id":"vertex","start":[-0.010675,1,-0.010675],"end":[-0.010675,-1,-0.010675],"radius":0.02135,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"HIT","fraction":0.492451635110834,"point":[0,0,0],"normal":[-0.5,0.707106781186547,-0.5],"part":"VERTEX","part_id":0,"flags":["APPROACHING"]},
+    {"id":"back-face","start":[0.2,-1,0.2],"end":[0.2,1,0.2],"radius":0.02135,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"HIT","fraction":0.489325,"point":[0.2,0,0.2],"normal":[0,-1,0],"part":"FACE","part_id":0,"flags":["APPROACHING","BACKFACE"]},
+    {"id":"front-only-back-approach","start":[0.2,-1,0.2],"end":[0.2,1,0.2],"radius":0.02135,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"front_only":true,"status":"MISS"},
+    {"id":"finite-face-miss","start":[0.8,1,0.8],"end":[0.8,-1,0.8],"radius":0.02135,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"MISS"},
+    {"id":"finite-edge-end-miss","start":[1.1,1,-0.010675],"end":[1.1,-1,-0.010675],"radius":0.02135,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"MISS"},
+    {"id":"vertex-tangent","start":[-0.25,1,0],"end":[-0.25,-1,0],"radius":0.25,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"HIT","fraction":0.5,"point":[0,0,0],"normal":[-1,0,0],"part":"VERTEX","part_id":0,"flags":["TANGENT"]},
+    {"id":"near-tangent-miss","start":[-0.250001,1,0],"end":[-0.250001,-1,0],"radius":0.25,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"MISS"},
+    {"id":"endpoint-touch","start":[0.25,1,0.25],"end":[0.25,0.25,0.25],"radius":0.25,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"HIT","fraction":1,"point":[0.25,0,0.25],"normal":[0,1,0],"part":"FACE","part_id":0,"flags":["APPROACHING"]},
+    {"id":"start-approaching","start":[0.25,0.25,0.25],"end":[0.25,-1,0.25],"radius":0.25,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"HIT","fraction":0,"point":[0.25,0,0.25],"normal":[0,1,0],"part":"FACE","part_id":0,"flags":["START_TOUCH","APPROACHING"]},
+    {"id":"start-separating","start":[0.25,0.25,0.25],"end":[0.25,1,0.25],"radius":0.25,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"HIT","fraction":0,"point":[0.25,0,0.25],"normal":[0,1,0],"part":"FACE","part_id":0,"flags":["START_TOUCH","SEPARATING"]},
+    {"id":"start-parallel","start":[0.25,0.25,0.25],"end":[0.5,0.25,0.25],"radius":0.25,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"HIT","fraction":0,"point":[0.25,0,0.25],"normal":[0,1,0],"part":"FACE","part_id":0,"flags":["START_TOUCH","TANGENT"]},
+    {"id":"stationary-touch","start":[0.25,0.25,0.25],"end":[0.25,0.25,0.25],"radius":0.25,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"HIT","fraction":0,"point":[0.25,0,0.25],"normal":[0,1,0],"part":"FACE","part_id":0,"flags":["START_TOUCH","TANGENT","STATIONARY"]},
+    {"id":"stationary-clear","start":[0.25,1,0.25],"end":[0.25,1,0.25],"radius":0.25,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"MISS"},
+    {"id":"start-overlap","start":[0.25,0.125,0.25],"end":[0.25,1,0.25],"radius":0.25,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"OVERLAP","fraction":0,"depth":0.125,"point":[0.25,0,0.25],"normal":[0,1,0],"part":"FACE","part_id":0,"flags":["START_OVERLAP","SEPARATING"]},
+    {"id":"undefined-overlap-normal","start":[0.25,0,0.25],"end":[0.25,0,0.25],"radius":0.25,"triangle":[[0,0,0],[1,0,0],[0,0,1]],"status":"OVERLAP","fraction":0,"depth":0.25,"point":[0.25,0,0.25],"normal":[0,0,0],"part":"FACE","part_id":0,"flags":["START_OVERLAP","STATIONARY","NORMAL_UNDEFINED"]},
+    {"id":"fine-shared-edge","start":[0.25,1,0.25],"end":[0.25,-1,0.25],"radius":0.02135,"triangle":[[0,0,0],[0.5,0,0],[0,0,0.5]],"status":"HIT","fraction":0.489325,"point":[0.25,0,0.25],"normal":[0,1,0],"part":"EDGE","part_id":1,"flags":["APPROACHING"]},
+    {"id":"slope-support","start":[0,1,0],"end":[0,-1,0],"radius":0.02135,"triangle":[[-2,-1,-2],[4,2,-2],[-2,-1,4]],"status":"HIT","fraction":0.488064987170095,"point":[0.009548010263924,0.004774005131962,0],"normal":[-0.447213595499958,0.894427190999916,0],"part":"FACE","part_id":0,"flags":["APPROACHING"]},
+    {"id":"high-speed-ridge-face","start":[-0.2,0.05,0],"end":[0.2,0.05,0],"radius":0.02135,"triangle":[[-0.1,0,-1],[0,0.1,-1],[-0.1,0,1]],"status":"HIT","fraction":0.299516351108336,"point":[-0.065096729778333,0.034903270221667,0],"normal":[-0.707106781186548,0.707106781186548,0],"part":"FACE","part_id":0,"flags":["APPROACHING"]}
+  ]
+}

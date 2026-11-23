@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://crxisrc1th7mx"
-path="res://.godot/imported/golfer3_eyebrow011.png-0982dc41a3d8d4983065a8a6168a6f9c.ctex"
+path.s3tc="res://.godot/imported/golfer3_eyebrow011.png-0982dc41a3d8d4983065a8a6168a6f9c.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "166853f3dd42a7eadf37d3d0640e724c"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/characters/golfer3_eyebrow011.png"
-dest_files=["res://.godot/imported/golfer3_eyebrow011.png-0982dc41a3d8d4983065a8a6168a6f9c.ctex"]
+dest_files=["res://.godot/imported/golfer3_eyebrow011.png-0982dc41a3d8d4983065a8a6168a6f9c.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +40,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

@@ -26,17 +26,33 @@ const OLD_FPS := [VSYNC, 30, 60, 120, UNCAPPED]          ## the "fps" key's indi
 const QUALITY_NAMES := ["低", "中", "高", "极高"]
 const WINDOW_NAMES := ["窗口", "全屏", "独占全屏"]
 ## Upscaling: render 3D smaller and let AMD FSR 2 rebuild the detail (its own temporal
-## anti-aliasing replaces MSAA / FXAA). Scales are AMD's presets.
-const UPSCALE_NAMES := ["原生", "FSR 质量", "FSR 均衡", "FSR 性能", "FSR 超级性能"]
-const UPSCALE_SCALES := [1.0, 0.77, 0.67, 0.59, 0.5]
+## anti-aliasing replaces MSAA / FXAA). At 1.0 FSR 2 only anti-aliases (AMD's "Native AA",
+## like DLAA). Scales are AMD's FSR 2 presets.
+const UPSCALE_NAMES := ["原生", "FSR 原生抗锯齿", "FSR 质量", "FSR 均衡", "FSR 性能", "FSR 超级性能", "DLAA", "DLSS 质量", "DLSS 均衡", "DLSS 性能"]
+const UPSCALE_SCALES := [1.0, 1.0, 0.67, 0.59, 0.5, 0.33, 1.0, 2.0 / 3.0, 0.58, 0.5]
+const OLD_UPSCALE := [0, 2, 2, 3, 4]   ## the "upscale" key's scales 1.0 / 0.77 / 0.67 / 0.59 / 0.5
+const TEXT_SCALES := [1.0, 1.25]
+## Split-screen shadow tier: with this many views or more, every view renders the sun's
+## shadows with two cascades instead of four over a shorter distance (#53).
+const SPLIT_TIER_VIEWS := 3
+const SPLIT_SHADOW_DISTANCE := 0.6    ## share of the scene's shadow distance kept
+const SPLIT_SHADOW_SPLIT := 0.25      ## the near cascade's share of that distance
 
 static var fps := 0                          ## index into FPS
 static var quality := 2                      ## index into QUALITY_NAMES
 static var window := 0                       ## index into WINDOW_NAMES
 static var upscale := 0                      ## index into UPSCALE_NAMES
+static var nvidia_preset := 0                ## optional fork; existing saves keep raster defaults
+static var nvidia_lighting := 0
+static var nvidia_sharpness := 0             ## NIS strength in 10% steps; disabled by default
+static var nvidia_fg := false
 static var language := 0                     ## index into RSLang.CODES
 static var hdr := false
+static var color_safe := false
+static var camera_shake := true              ## cosmetic impact jitter; existing behavior by default
+static var text_size := 0                    ## standard / large; existing saves default to standard
 static var volumes := [10, 7, 10, 8]         ## 0..10 per RSAudio.BUSES (master, music, sfx, ambience)
+static var views := 1                        ## 3D views drawn now; not saved (set_views())
 static var _loaded := false
 
 
@@ -44,47 +60,64 @@ static func load_once() -> void:
 	if _loaded:
 		return
 	_loaded = true
-	var cf := ConfigFile.new()
-	cf.load(PATH)
-	language = clampi(int(cf.get_value("general", "language", 0)), 0, RSLang.CODES.size() - 1)   # Chinese first
+	var cf := RSSave.read(PATH)
+	language = clampi(RSSave.integer(cf, "general", "language", 0), 0, RSLang.CODES.size() - 1)   # Chinese first
 	RSLang.apply(language)
+	color_safe = RSSave.boolean(cf, "accessibility", "color_safe", false)
+	camera_shake = RSSave.boolean(cf, "accessibility", "camera_shake", true)
+	text_size = clampi(RSSave.integer(cf, "accessibility", "text_size", 0), 0, TEXT_SCALES.size() - 1)
 	for i in volumes.size():
-		volumes[i] = clampi(int(cf.get_value("audio", (RSAudio.BUSES[i] as String).to_lower(), volumes[i])), 0, RSAudio.STEPS)
+		volumes[i] = clampi(RSSave.integer(cf, "audio", (RSAudio.BUSES[i] as String).to_lower(), volumes[i]), 0, RSAudio.STEPS)
 	if not cf.has_section("display"):
 		return
-	var mode: int = cf.get_value("display", "frame_rate",
-		OLD_FPS[clampi(int(cf.get_value("display", "fps", 0)), 0, OLD_FPS.size() - 1)])
+	var mode := RSSave.integer(cf, "display", "frame_rate",
+		OLD_FPS[clampi(RSSave.integer(cf, "display", "fps", 0), 0, OLD_FPS.size() - 1)])
 	fps = maxi(FPS.find(mode), 0)
-	quality = clampi(int(cf.get_value("display", "quality", quality)), 0, QUALITY_NAMES.size() - 1)
-	window = clampi(int(cf.get_value("display", "window", 1 if cf.get_value("display", "fullscreen", false) else 0)),
+	quality = clampi(RSSave.integer(cf, "display", "quality", quality), 0, QUALITY_NAMES.size() - 1)
+	window = clampi(RSSave.integer(cf, "display", "window", 1 if RSSave.boolean(cf, "display", "fullscreen", false) else 0),
 		0, WINDOW_NAMES.size() - 1)
-	hdr = bool(cf.get_value("display", "hdr", false))
-	upscale = clampi(int(cf.get_value("display", "upscale", 0)), 0, UPSCALE_NAMES.size() - 1)
+	hdr = RSSave.boolean(cf, "display", "hdr", false)
+	upscale = clampi(RSSave.integer(cf, "display", "upscaling",
+		OLD_UPSCALE[clampi(RSSave.integer(cf, "display", "upscale", 0), 0, OLD_UPSCALE.size() - 1)]), 0, UPSCALE_NAMES.size() - 1)
+	nvidia_preset = clampi(RSSave.integer(cf, "display", "nvidia_preset", 0), 0, RSNvidia.PRESETS.size() - 1)
+	nvidia_lighting = clampi(RSSave.integer(cf, "display", "nvidia_lighting", 0), 0, RSNvidia.LIGHTING_NAMES.size() - 1)
+	nvidia_sharpness = clampi(RSSave.integer(cf, "display", "nvidia_sharpness", 0), 0, 10)
+	nvidia_fg = RSSave.boolean(cf, "display", "nvidia_fg", false)
 
 
-static func save() -> void:
+static func save() -> Error:
 	var cf := ConfigFile.new()
 	cf.set_value("display", "frame_rate", FPS[fps])
 	cf.set_value("display", "quality", quality)
 	cf.set_value("display", "window", window)
 	cf.set_value("display", "hdr", hdr)
-	cf.set_value("display", "upscale", upscale)
+	cf.set_value("display", "upscaling", upscale)
+	cf.set_value("display", "nvidia_preset", nvidia_preset)
+	cf.set_value("display", "nvidia_lighting", nvidia_lighting)
+	cf.set_value("display", "nvidia_sharpness", nvidia_sharpness)
+	cf.set_value("display", "nvidia_fg", nvidia_fg)
 	cf.set_value("general", "language", language)
+	cf.set_value("accessibility", "color_safe", color_safe)
+	cf.set_value("accessibility", "camera_shake", camera_shake)
+	cf.set_value("accessibility", "text_size", text_size)
 	for i in volumes.size():
 		cf.set_value("audio", (RSAudio.BUSES[i] as String).to_lower(), volumes[i])
-	cf.save(PATH)
-	_save_override()
+	var err := RSSave.write(PATH, cf)
+	if err == OK:
+		err = _save_override()
+	if err != OK:
+		push_error("RSSettings: cannot save settings (%s)" % error_string(err))
+	return err
 
 
-static func _save_override() -> void:
+static func _save_override() -> Error:
 	## Settings that only take effect at startup.
-	var cf := ConfigFile.new()
-	cf.load(OVERRIDE_PATH)
+	var cf := RSSave.read(OVERRIDE_PATH)
 	if hdr and OS.get_name() == "Windows":
 		cf.set_value("rendering", "rendering_device/driver.windows", "d3d12")
 	elif cf.has_section_key("rendering", "rendering_device/driver.windows"):
 		cf.erase_section_key("rendering", "rendering_device/driver.windows")
-	cf.save(OVERRIDE_PATH)
+	return RSSave.write(OVERRIDE_PATH, cf)
 
 
 static func hdr_ready() -> bool:
@@ -152,11 +185,33 @@ static func window_name() -> String:
 
 
 static func upscale_name() -> String:
+	if upscale >= 6 and not RSNvidia.dlss_available():
+		return RSLang.t("%s（回退 FSR）") % RSLang.t(UPSCALE_NAMES[upscale])
 	return RSLang.t(UPSCALE_NAMES[upscale])
+
+
+static func upscale_count() -> int:
+	return UPSCALE_NAMES.size() if RSNvidia.dlss_available() else 6
+
+
+static func effective_upscale() -> int:
+	return upscale - 5 if upscale >= 6 and not RSNvidia.dlss_available() else upscale
+
+
+static func nvidia_lighting_name() -> String:
+	if not RSNvidia.lighting_available(nvidia_lighting):
+		return RSLang.t("%s（回退光栅）") % RSLang.t(RSNvidia.LIGHTING_NAMES[nvidia_lighting])
+	if nvidia_lighting == 2 and upscale < 6:
+		return RSLang.t("需要 DLAA / DLSS")
+	return RSLang.t(RSNvidia.LIGHTING_NAMES[nvidia_lighting])
 
 
 static func language_name() -> String:
 	return RSLang.NAMES[language]
+
+
+static func text_size_name() -> String:
+	return RSLang.t("大（125%）") if text_size == 1 else RSLang.t("标准（100%）")
 
 
 static func next_language() -> void:
@@ -190,6 +245,7 @@ static func apply(tree: SceneTree) -> void:
 	if mode != want and not DisplayServer.get_name().contains("headless"):
 		DisplayServer.window_set_mode(want)
 	apply_volumes()
+	RSUi.apply_text_sizes(tree.root)
 	# HDR output (the viewports' HDR 2D buffers are set below).
 	tree.root.hdr_output_requested = hdr_active()
 	# Frame rate.
@@ -202,10 +258,19 @@ static func apply(tree: SceneTree) -> void:
 		RenderingServer.SHADOW_QUALITY_SOFT_VERY_LOW, RenderingServer.SHADOW_QUALITY_SOFT_LOW,
 		RenderingServer.SHADOW_QUALITY_SOFT_MEDIUM, RenderingServer.SHADOW_QUALITY_SOFT_HIGH][quality])
 	# Every viewport: resolution scale, anti-aliasing, mesh LOD.
+	RSNvidia.apply_preset()
 	var root := tree.root
 	apply_viewport(root)
 	for vp: Viewport in root.find_children("*", "SubViewport", true, false):
 		apply_viewport(vp)
+	apply_world(root)
+
+
+static func apply_world(root: Node) -> void:
+	## Quality gates for every environment and sun under root, without the window /
+	## viewport parts of apply(). Worlds built after apply() ran (a lobby map switch
+	## builds a fresh environment and sun with scene values) need this re-applied.
+	load_once()
 	for we: WorldEnvironment in root.find_children("*", "WorldEnvironment", true, false):
 		environment(we.environment)
 	for sun: DirectionalLight3D in root.find_children("*", "DirectionalLight3D", true, false):
@@ -214,27 +279,62 @@ static func apply(tree: SceneTree) -> void:
 
 static func apply_viewport(vp: Viewport) -> void:
 	load_once()
-	var fsr := upscale > 0
-	vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2 if fsr else Viewport.SCALING_3D_MODE_BILINEAR
-	vp.scaling_3d_scale = UPSCALE_SCALES[upscale]
-	if fsr:
+	var effective := effective_upscale()
+	var temporal := effective > 0
+	if effective >= 6:
+		vp.scaling_3d_mode = ClassDB.class_get_integer_constant("Viewport", "SCALING_3D_MODE_DLSS") as Viewport.Scaling3DMode
+	else:
+		vp.scaling_3d_mode = Viewport.SCALING_3D_MODE_FSR2 if temporal else Viewport.SCALING_3D_MODE_BILINEAR
+	vp.scaling_3d_scale = UPSCALE_SCALES[effective]
+	if not vp.has_meta("rs_fsr_sharpness"):
+		vp.set_meta("rs_fsr_sharpness", vp.fsr_sharpness)
+	vp.fsr_sharpness = float(nvidia_sharpness) * 0.1 if effective >= 6 else float(vp.get_meta("rs_fsr_sharpness"))
+	RSNvidia.apply_viewport(vp)
+	if temporal:
 		vp.msaa_3d = Viewport.MSAA_DISABLED
 		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_DISABLED
 	else:
 		vp.msaa_3d = [Viewport.MSAA_DISABLED, Viewport.MSAA_2X, Viewport.MSAA_2X, Viewport.MSAA_4X][quality]
 		vp.screen_space_aa = Viewport.SCREEN_SPACE_AA_FXAA if quality < 3 else Viewport.SCREEN_SPACE_AA_SMAA
 	vp.mesh_lod_threshold = [4.0, 2.0, 1.0, 0.5][quality]
+	# Positional (omni/spot) shadow atlas: every split-screen view renders its own,
+	# so the low tiers shrink it well below the project default.
+	vp.positional_shadow_atlas_size = [1024, 2048, 4096, 4096][quality]
 	# Float buffers so the split-screen views and the window keep highlights above SDR white.
 	vp.use_hdr_2d = hdr_active()
+
+
+static func set_views(n: int, root: Node) -> void:
+	## How many 3D views are drawn now (RSPartyViews keeps this current). Crossing the split
+	## tier re-applies the sun shadows under root.
+	var was := split_tier()
+	views = maxi(n, 1)
+	if split_tier() != was and root != null and root.is_inside_tree():
+		for sun: DirectionalLight3D in root.find_children("*", "DirectionalLight3D", true, false):
+			sun_shadows(sun)
+
+
+static func split_tier() -> bool:
+	return views >= SPLIT_TIER_VIEWS
 
 
 static func sun_shadows(sun: DirectionalLight3D) -> void:
 	## Shadows that soften with distance from the caster (PCSS, from the sun's angular size)
 	## can be expensive; below 极高 the sun keeps an ordinary filtered soft edge instead.
-	## The scene's value is kept as metadata.
+	## Three or four split-screen views each render the sun's cascades, so there the sun
+	## drops to two cascades over a shorter distance. The scene's values are kept as metadata.
 	if not sun.has_meta("angular_distance"):
 		sun.set_meta("angular_distance", sun.light_angular_distance)
 	sun.light_angular_distance = sun.get_meta("angular_distance") if quality >= 3 else 0.0
+	if not sun.has_meta("shadow_mode"):
+		sun.set_meta("shadow_mode", sun.directional_shadow_mode)
+		sun.set_meta("shadow_distance", sun.directional_shadow_max_distance)
+		sun.set_meta("shadow_split_1", sun.directional_shadow_split_1)
+	var mode: int = sun.get_meta("shadow_mode")
+	var split := split_tier() and mode == DirectionalLight3D.SHADOW_PARALLEL_4_SPLITS
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS if split else mode as DirectionalLight3D.ShadowMode
+	sun.directional_shadow_max_distance = float(sun.get_meta("shadow_distance")) * (SPLIT_SHADOW_DISTANCE if split else 1.0)
+	sun.directional_shadow_split_1 = SPLIT_SHADOW_SPLIT if split else float(sun.get_meta("shadow_split_1"))
 
 
 static func environment(env: Environment) -> void:
@@ -242,6 +342,7 @@ static func environment(env: Environment) -> void:
 	## metadata so they come back at higher settings.
 	if env == null:
 		return
+	RSNvidia.environment(env)
 	for key in ["ssao_enabled", "ssr_enabled", "ssil_enabled", "sdfgi_enabled", "glow_enabled", "volumetric_fog_enabled"]:
 		if not env.has_meta(key):
 			env.set_meta(key, env.get(key))

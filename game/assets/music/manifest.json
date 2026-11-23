@@ -1,0 +1,38 @@
+{
+  "sample_rate": 22050,
+  "channels": 1,
+  "bits": 16,
+  "license": "CC0-1.0",
+  "tracks": {
+    "menu": {
+      "bpm": 104,
+      "loop": true,
+      "seconds": 18.46154195011338,
+      "sha256": "f7d7b26206934ee7a2c35d201a93f0f8b22da00e9a86d0c2152966673e7b0ca9",
+      "bytes": 814198,
+      "peak": 0.7799999999999999,
+      "rms": 0.1767638242494834,
+      "seam": 0.0
+    },
+    "lobby": {
+      "bpm": 88,
+      "loop": true,
+      "seconds": 21.818185941043083,
+      "sha256": "8af4b1d60609978085cabde7b4a53551bfc615e2a6e79713c6703c15b61a3571",
+      "bytes": 962226,
+      "peak": 0.78,
+      "rms": 0.17252703505300024,
+      "seam": 0.0
+    },
+    "victory": {
+      "bpm": 120,
+      "loop": false,
+      "seconds": 6.0,
+      "sha256": "f120f8a44e807a6c8a92faa1d282eb63ae8457f234cb8d235bad6e10c3f08251",
+      "bytes": 264644,
+      "peak": 0.7800000000000001,
+      "rms": 0.2456118131340996,
+      "seam": 0.0
+    }
+  }
+}

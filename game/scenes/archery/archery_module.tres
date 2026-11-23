@@ -1,0 +1,20 @@
+[gd_resource type="Resource" script_class="RSGameModule" format=3]
+
+[ext_resource type="Script" path="res://core/game_module.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "archery"
+name = "射箭"
+oled = "ARCHERY"
+scene = "res://scenes/archery/archery_game.tscn"
+desc = "用手柄瞄准，按住 A 拉弓、松开放箭。3 轮 15 / 25 / 40 米，有风。1–4 人分屏同时射。"
+maps_script = ""
+lessons = PackedStringArray("AIM", "DRAW")
+solo_goals = PackedInt32Array(25, 50, 75)
+players = Vector2i(1, 4)
+mode = "individual"
+ambience = ""
+preview = "res://assets/previews/archery.jpg"
+ready = true
+order = 20

@@ -18,6 +18,16 @@ func _init(owner_game: RSPartyGame) -> void:
 
 func _ready() -> void:
 	get_viewport().size_changed.connect(layout)
+	visibility_changed.connect(_count_views)
+
+
+func _exit_tree() -> void:
+	RSSettings.set_views(1, null)
+
+
+func _count_views() -> void:
+	## Hidden cells don't render (the lobby camera does), so they don't count.
+	RSSettings.set_views(game.ordered().size() if is_visible_in_tree() else 1, game)
 
 
 func add(p: RSPartyGame.Player) -> void:
@@ -66,3 +76,4 @@ func layout() -> void:
 		var cell: Control = (list[i] as RSPartyGame.Player).cell
 		cell.position = r.position + Vector2(2, 2) * float(n > 1)
 		cell.size = r.size - Vector2(4, 4) * float(n > 1)
+	_count_views()

@@ -1,0 +1,157 @@
+{
+  "schemaVersion": 3,
+  "date": "2026-10-27",
+  "status": "experimental; bounded warm-up acceptance passed; automatic/F Vulkan RR strict validation still fails",
+  "engineRepository": "https://github.com/cb8010d6/godot",
+  "engineCommit": "d29e7065306d670a643ca0ea7a362c4b38cea3c5",
+  "gameProgramTestedCommit": "3d51851c6eec09ff4cb8a2b0f818e837d06ca4e8",
+  "documentationDescendantDoesNotRelabelGpuSha": true,
+  "streamlineSdkVersion": "2.14.16",
+  "publicEvidenceCommit": "ce8ae17454f2c4ce43223d3a416a47492b182b1c",
+  "publicReport": "https://github.com/cb8010d6/godot/blob/ce8ae17454f2c4ce43223d3a416a47492b182b1c/devtools/RT_WARMUP_ACCEPTANCE_2026_10_27.md",
+  "publicEvidenceManifestSha256": "d576f3b9060b8df8eeabe400444f9b1b1c42e06d191fd5f1005c7af6f0b82da1",
+  "rawEvidenceIncludedInGameRepository": false,
+  "evidenceLocator": "Original hashes are mapped to sanitized public records in the engine evidence snapshot PROVENANCE.json.",
+  "windowsBuild": {
+    "status": "PASS",
+    "nativeCommit": "d29e7065306d670a643ca0ea7a362c4b38cea3c5",
+    "sixTargets": true,
+    "jobs": 2,
+    "durationSeconds": 352.344,
+    "evidence": {
+      "sourceFilename": "warmup-final-six-build.json",
+      "originalSha256": "39ba93d97a5939a45730c3e96413a77f3b22a9d4c68a7cc29bedfed7f4423cc4"
+    }
+  },
+  "standardAndMonoSmoke": {
+    "status": "PASS",
+    "evidence": {
+      "sourceFilename": "matrix.json",
+      "originalSha256": "247008e67a84a51a1415ec5d7e06ca582f5b05a35f40d95cf839e0c3932f0ddd"
+    }
+  },
+  "fourInstalledTemplateExports": {
+    "status": "PASS",
+    "apis": [
+      "d3d12"
+    ],
+    "ownNaturalExit": true,
+    "evidence": {
+      "sourceFilename": "matrix.json",
+      "originalSha256": "f7d8419b2e094fbfd74a016d9451bebf921789a9d17f6838da5c6bd5703fd6a3"
+    }
+  },
+  "publicReleaseReadiness": {
+    "status": "PASS",
+    "fivePhases": true,
+    "pendingObserved": true,
+    "intentionalShaderFailureDetected": true
+  },
+  "actualGamePck": {
+    "status": "PASS",
+    "packBytes": 1660185676,
+    "packSha256": "4415969e935cbcec05c8c4d3df574dee80367ab953205f6f43558400bf8e4c20",
+    "compiledWarmupAndIncludeAudited": true,
+    "productionApis": [
+      "vulkan",
+      "d3d12"
+    ],
+    "ownNaturalExit": true,
+    "scope": "Startup/three original captures per API/exit, not a full match or independent RR/model proof",
+    "evidence": {
+      "sourceFilename": "natural-exit-matrix.json",
+      "originalSha256": "40378fd7e30112fd42d695ae802036cb47bc44e820343ed9eb297433b33b99d1"
+    }
+  },
+  "rrDCompatibility": {
+    "status": "BOUNDED_GPU_STRICT_CLEAN",
+    "conditions": {
+      "rrPresetRequest": "D",
+      "startupDlssGPluginOmitted": true,
+      "nisSharpness": 0
+    },
+    "cases": [
+      {
+        "players": 1,
+        "status": "CLEAN",
+        "diagnosticNativeCommit": "8b1055662793954959fe5ce8b11843437af0adc3",
+        "workingCheckoutCommit": "d29e7065306d670a643ca0ea7a362c4b38cea3c5",
+        "gameProgramCommit": "3d51851c6eec09ff4cb8a2b0f818e837d06ca4e8",
+        "traceViewportIds": [
+          1,
+          2
+        ],
+        "sdkGetterViewportIds": [
+          1,
+          2
+        ],
+        "requestedRrPreset": "D",
+        "fgPluginInitialized": false,
+        "actualModelWeightsReadBack": false,
+        "originalEvidence": {
+          "sourceFilename": "result.json",
+          "originalSha256": "9a92944a70e378c99a1479d73564efbc33781be438c689c1cdcdae84f7785a64"
+        }
+      },
+      {
+        "players": 4,
+        "status": "CLEAN",
+        "diagnosticNativeCommit": "8b1055662793954959fe5ce8b11843437af0adc3",
+        "workingCheckoutCommit": "d29e7065306d670a643ca0ea7a362c4b38cea3c5",
+        "gameProgramCommit": "3d51851c6eec09ff4cb8a2b0f818e837d06ca4e8",
+        "traceViewportIds": [
+          1,
+          2,
+          3,
+          4,
+          5
+        ],
+        "sdkGetterViewportIds": [
+          1,
+          2
+        ],
+        "requestedRrPreset": "D",
+        "fgPluginInitialized": false,
+        "actualModelWeightsReadBack": false,
+        "originalEvidence": {
+          "sourceFilename": "result.json",
+          "originalSha256": "712e033df3a3ac99bf2ac911125efcd07a345d8ffb322dd0aa783d6380b85652"
+        }
+      }
+    ],
+    "limits": [
+      "No preset getter/model-weight identity",
+      "SDK getters only viewport IDs 1/2",
+      "No direct SL ID to Godot path join",
+      "No every-frame/quality parity/long stress claim"
+    ]
+  },
+  "automaticAndFStrict": {
+    "status": "FAIL",
+    "messageTypes": [
+      "SYNC-HAZARD-WRITE-AFTER-WRITE",
+      "VUID-vkCmdDraw-None-09600"
+    ],
+    "notRelabelledByDControl": true
+  },
+  "unchangedDefaults": {
+    "rrPreset": "?",
+    "ordinaryFgPolicy": true,
+    "srRecommendedPolicy": true,
+    "normalReleaseGodot": "4.7.2"
+  },
+  "notNewlyAccepted": [
+    "Ordinary FG generated frames",
+    "MFG/Dynamic MFG",
+    "Actual neural-model weight identity",
+    "LDAT/performance/ghosting",
+    "Dedicated Blast/Flow or isolated PhysX GPU dynamics"
+  ],
+  "knownLimitations": [
+    "Automatic/F RR strict failures remain",
+    "Old SDK210 also has one pre-RR device-loss failure and is not a production downgrade",
+    "SDK lazy retention is not by itself a proven leak",
+    "Viewport ID/history reclamation risk is unmeasured"
+  ],
+  "aiDisclosure": "Codex assisted implementation and validation; all claimed native logs and PNGs came from actual local execution."
+}

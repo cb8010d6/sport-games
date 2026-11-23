@@ -16,6 +16,10 @@
 *.bat text eol=crlf
 *.ps1 text eol=crlf
 
+# Unified patches require context prefixes before tabs and empty source lines.
+tools/engine_patches/*.patch text eol=lf whitespace=-blank-at-eol,-space-before-tab
+tools/engine_patches/*.txt text eol=lf
+
 # Generated assets use ordinary Git; upstream downloads are ignored and synced separately.
 # Explicitly disable filters so these files never become LFS pointers.
 *.glb binary -filter

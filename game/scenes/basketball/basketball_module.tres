@@ -1,0 +1,21 @@
+[gd_resource type="Resource" script_class="RSGameModule" format=3]
+
+[ext_resource type="Script" path="res://core/game_module.gd" id="1"]
+
+[resource]
+script = ExtResource("1")
+id = "basketball"
+name = "篮球"
+oled = "3PT"
+scene = "res://scenes/basketball/basketball_game.tscn"
+desc = "三分大赛：5 个球架 × 5 个球，按住 B 举球，往上甩手腕同时松开 B 出手。花球双倍、空心加分、连进三球手感火热。2 张天台地图，1–4 人分屏各投各的。"
+maps_script = "res://scenes/basketball/court.gd"
+lessons = PackedStringArray("AIM", "THROW")
+solo_goals = PackedInt32Array(800, 2000, 3500)
+players = Vector2i(1, 4)
+mode = "individual"
+ambience = "city_amb"
+preview = "res://assets/previews/basketball.jpg"
+ready = true
+order = 60
+benchmark = true

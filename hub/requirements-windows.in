@@ -1,0 +1,3 @@
+# Keep this version in sync with pyinstallerVersion in tools/release_config.json.
+-r requirements.txt
+pyinstaller==6.22.3

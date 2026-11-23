@@ -1,0 +1,104 @@
+{
+  "schema_version": 2,
+  "scope": "Historical single 5s-warmup/10s observation; not formal acceptance",
+  "cases": [
+    {
+      "case": "before-p2",
+      "source_sha": "ac4a3ec01abcf05db82a13294ce960ec3b9aad7a",
+      "avg_fps": 133.48886702849,
+      "cpu_process_ms": null,
+      "duration_ms": 10000.834,
+      "engine": "4.7.2-stable (official)",
+      "frames": 1335,
+      "gpu": "AMD Radeon 780M Graphics",
+      "one_percent_low_fps": 114.908565612791,
+      "players": 2,
+      "purpose": "short issue-25 rendering comparison; one run, not a formal performance baseline",
+      "quality": 2,
+      "resolution": [
+        1600,
+        900
+      ],
+      "status": "PASS",
+      "upscale": 0,
+      "warmup_seconds": 5,
+      "whole_frame_gpu_ms": null
+    },
+    {
+      "case": "before-p4",
+      "source_sha": "ac4a3ec01abcf05db82a13294ce960ec3b9aad7a",
+      "avg_fps": 101.033620911061,
+      "cpu_process_ms": null,
+      "duration_ms": 10006.57,
+      "engine": "4.7.2-stable (official)",
+      "frames": 1011,
+      "gpu": "AMD Radeon 780M Graphics",
+      "one_percent_low_fps": 88.9197862691683,
+      "players": 4,
+      "purpose": "short issue-25 rendering comparison; one run, not a formal performance baseline",
+      "quality": 2,
+      "resolution": [
+        1600,
+        900
+      ],
+      "status": "PASS",
+      "upscale": 0,
+      "warmup_seconds": 5,
+      "whole_frame_gpu_ms": null
+    },
+    {
+      "case": "after-p2",
+      "source_sha": "737232ee328486d514623bcedf176f95b87dfa30",
+      "avg_fps": 113.263189463424,
+      "cpu_process_ms": null,
+      "duration_ms": 10003.25,
+      "engine": "4.7.2-stable (official)",
+      "frames": 1133,
+      "gpu": "AMD Radeon 780M Graphics",
+      "one_percent_low_fps": 94.4755426438981,
+      "players": 2,
+      "purpose": "short issue-25 rendering comparison; one run, not a formal performance baseline",
+      "quality": 2,
+      "resolution": [
+        1600,
+        900
+      ],
+      "status": "PASS",
+      "upscale": 0,
+      "warmup_seconds": 5,
+      "whole_frame_gpu_ms": null
+    },
+    {
+      "case": "after-p4",
+      "source_sha": "737232ee328486d514623bcedf176f95b87dfa30",
+      "avg_fps": 94.0497398190406,
+      "cpu_process_ms": null,
+      "duration_ms": 10005.344,
+      "engine": "4.7.2-stable (official)",
+      "frames": 941,
+      "gpu": "AMD Radeon 780M Graphics",
+      "one_percent_low_fps": 74.6268656716418,
+      "players": 4,
+      "purpose": "short issue-25 rendering comparison; one run, not a formal performance baseline",
+      "quality": 2,
+      "resolution": [
+        1600,
+        900
+      ],
+      "status": "PASS",
+      "upscale": 0,
+      "warmup_seconds": 5,
+      "whole_frame_gpu_ms": null
+    }
+  ],
+  "limitations": [
+    "One run per case; no repeated steady-state measurement",
+    "Before 2P overlapped other tool-test work; background load was not controlled",
+    "No whole-frame CPU/GPU attribution; do not attribute the differences solely to B1"
+  ],
+  "raw_storage": {
+    "archive_id": "pr31-comment6392600213-20261025-A",
+    "storage": "Private local review-evidence; not in Git and not uploaded",
+    "archive_manifest_sha256": "99de0b89b0d80824872146b91b62dbec1be856085276b0eb7f7c5816106f4ae9"
+  }
+}

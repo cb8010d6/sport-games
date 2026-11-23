@@ -1,4 +1,7 @@
 shader_type spatial;
+#if defined(RT)
+#include "res://shaders/rt_pixel_footprint.gdshaderinc"
+#endif
 // Mountain snow for RSSkiCourse. Vertex colour R = groomed piste (1) .. untouched powder (0).
 // Groomed: Poly Haven snow_02 with corduroy ridges along the fall line and the groomer's lanes;
 // powder: snow_01 at a larger scale; rock (dark_rock_02) shows through where it is steep.
@@ -59,7 +62,15 @@ void fragment() {
 	// Corduroy: fine ridges along the fall line (faded out where they would alias), and
 	// slightly different lanes where the groomer passed.
 	float phase = wpos.x / 0.045;
+#if defined(RT)
+	// The ridges repeat every 4.5 cm along world X. Filter by their projected
+	// cycles per pixel, including the widening footprint on oblique terrain.
+	float phase_width = rs_rt_pixel_footprint(wpos, wnrm, vec3(1.0, 0.0, 0.0), vec3(0.0, 0.0, 1.0),
+		CAMERA_POSITION_WORLD, INV_VIEW_MATRIX, PROJECTION_MATRIX, VIEWPORT_SIZE).x / 0.045;
+	float aa = 1.0 - smoothstep(0.25, 0.8, phase_width);
+#else
 	float aa = 1.0 - smoothstep(0.25, 0.8, fwidth(phase));
+#endif
 	float ridge = sin(phase * 6.2831) * aa;
 	float lane = vnoise(vec2(floor(wpos.x / 4.2), wpos.z * 0.004)) - 0.5;
 	gn = normalize(gn + vec3(ridge * 0.35, 0.0, 0.0));

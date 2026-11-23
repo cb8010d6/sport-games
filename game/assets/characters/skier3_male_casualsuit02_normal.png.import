@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bmjx87rwho77r"
-path="res://.godot/imported/skier3_male_casualsuit02_normal.png-b9c298b817e6f63a8e4b9bdfa9fa01b4.ctex"
+path.s3tc="res://.godot/imported/skier3_male_casualsuit02_normal.png-b9c298b817e6f63a8e4b9bdfa9fa01b4.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "c78282b84e57e469c3abd9f3189330e6"
@@ -14,17 +15,17 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/characters/skier3_male_casualsuit02_normal.png"
-dest_files=["res://.godot/imported/skier3_male_casualsuit02_normal.png-b9c298b817e6f63a8e4b9bdfa9fa01b4.ctex"]
+dest_files=["res://.godot/imported/skier3_male_casualsuit02_normal.png-b9c298b817e6f63a8e4b9bdfa9fa01b4.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
 compress/rdo_quality_loss=0.0
 compress/hdr_compression=1
-compress/normal_map=0
+compress/normal_map=1
 compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1
@@ -39,5 +40,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=2048
 detect_3d/compress_to=1

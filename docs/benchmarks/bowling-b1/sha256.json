@@ -1,0 +1,38 @@
+{
+  "schema_version": 2,
+  "archive": {
+    "archive_id": "pr31-comment6392600213-20261025-A",
+    "storage": "Private local review-evidence; not in Git and not uploaded",
+    "archive_manifest_sha256": "99de0b89b0d80824872146b91b62dbec1be856085276b0eb7f7c5816106f4ae9"
+  },
+  "raw_files": [
+    {
+      "archived_name": "before-p2.json",
+      "bytes": 8298,
+      "sha256": "a648c3ac8f63782aa199c35717f99e991d6b1129c4417a4363bb2d45492477a1",
+      "frames": 1335,
+      "source_sha": "ac4a3ec01abcf05db82a13294ce960ec3b9aad7a"
+    },
+    {
+      "archived_name": "before-p4.json",
+      "bytes": 6765,
+      "sha256": "a547fa128800da7fdec15e1a75ddb1a0f7baadd693c98ae5146d0afbe3ea73fd",
+      "frames": 1011,
+      "source_sha": "ac4a3ec01abcf05db82a13294ce960ec3b9aad7a"
+    },
+    {
+      "archived_name": "after-p2.json",
+      "bytes": 7106,
+      "sha256": "1e63abacbc59478249194cb991293cb53dfecc74463291ad433ba8c76086394d",
+      "frames": 1133,
+      "source_sha": "737232ee328486d514623bcedf176f95b87dfa30"
+    },
+    {
+      "archived_name": "after-p4.json",
+      "bytes": 6812,
+      "sha256": "9af3ea2b73584ee8dac74a08b1bca0aa2625c663b65195b6fa5163e3e4bcb3d3",
+      "frames": 941,
+      "source_sha": "737232ee328486d514623bcedf176f95b87dfa30"
+    }
+  ]
+}

@@ -60,7 +60,7 @@ class Racer:
 	var clip: Array = []
 	var clip_pts := 0
 	var clip_names := ""
-	var rp_i := 0
+	var replay := RSReplay.new()
 	var rp_side := Vector3.RIGHT
 
 
@@ -74,11 +74,12 @@ var _beep := 4
 var _crowd: AudioStreamPlayer
 var _ambience: AudioStreamPlayer
 var _rng := RandomNumberGenerator.new()
-var _podium: Node3D
+var _podium: RSPodium
 var _podium_on := false
 var _podium_at := 0.0
 var _podium_order: Array = []
 var _lobby_snow: GPUParticles3D
+var _snow_views := -1
 var _board_lines: PackedStringArray = []
 
 
@@ -120,10 +121,11 @@ func _setup_world() -> void:
 	RSSfx.warm_up(SFX)
 	_crowd = RSSfx.loop(self, "applause")
 	_ambience = RSSfx.loop(self, "wind_amb")
-	_podium = Node3D.new()
+	_podium = RSPodium.new()
 	add_child(_podium)
 	_build_podium()
-	_lobby_snow = _make_snow(1 << SNOW_LAYER)
+	_lobby_snow = RSSkiSnow.make(1 << SNOW_LAYER, RSSettings.quality)
+	add_child(_lobby_snow)
 	lobby_cam.cull_mask = 1 | (1 << SNOW_LAYER)
 	lobby_cam.far = 5000
 	lobby_cam.fov = 62
@@ -160,8 +162,9 @@ func _load_map(i: int) -> void:
 	_podium.rotation.y = _course.heading_at(podium_s)
 	var amount := float(_course.map["snowfall"])
 	for sn: GPUParticles3D in _snow_systems():
-		sn.emitting = amount > 0.0
-		sn.amount_ratio = maxf(amount, 0.01)
+		RSSkiSnow.apply(sn, amount, RSSettings.views)
+	# The first map loads before the split-screen container exists: this is still the lobby.
+	_lobby_snow.emitting = amount > 0.0 and (views == null or not views.visible)
 	_board_lines = []
 	_course.set_board(str(_course.map["en"]))
 	_lobby_s = 0.0
@@ -172,55 +175,6 @@ func _snow_systems() -> Array[GPUParticles3D]:
 	for p: Player in players.values():
 		out.append(_racer(p).snow)
 	return out
-
-
-func _make_snow(layers: int) -> GPUParticles3D:
-	## Falling snow in a box that follows a camera (only that camera sees it).
-	var flake := QuadMesh.new()
-	flake.size = Vector2(0.035, 0.035)
-	var fm := StandardMaterial3D.new()
-	fm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	fm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	fm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	fm.albedo_color = Color(1, 1, 1, 0.85)
-	var g := Gradient.new()
-	g.colors = PackedColorArray([Color(1, 1, 1, 1), Color(1, 1, 1, 0)])
-	var dot := GradientTexture2D.new()
-	dot.gradient = g
-	dot.fill = GradientTexture2D.FILL_RADIAL
-	dot.fill_from = Vector2(0.5, 0.5)
-	dot.fill_to = Vector2(0.5, 0.0)
-	dot.width = 32
-	dot.height = 32
-	fm.albedo_texture = dot
-	flake.material = fm
-	var ps := GPUParticles3D.new()
-	ps.amount = 2400
-	ps.lifetime = 2.6
-	ps.preprocess = 2.6
-	ps.local_coords = false
-	ps.visibility_aabb = AABB(Vector3(-30, -30, -30), Vector3(60, 60, 60))
-	var pm := ParticleProcessMaterial.new()
-	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	pm.emission_box_extents = Vector3(16, 8, 16)
-	pm.direction = Vector3(0.25, -1, 0.1)
-	pm.spread = 12.0
-	pm.initial_velocity_min = 2.0
-	pm.initial_velocity_max = 4.0
-	pm.gravity = Vector3(0.6, -1.2, 0.0)
-	pm.turbulence_enabled = true
-	pm.turbulence_noise_strength = 1.5
-	pm.turbulence_noise_scale = 4.0
-	pm.scale_min = 0.6
-	pm.scale_max = 1.6
-	ps.process_material = pm
-	ps.draw_pass_1 = flake
-	ps.layers = layers
-	ps.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	ps.top_level = true
-	ps.emitting = false
-	add_child(ps)
-	return ps
 
 
 func _oled_lobby(p: Player) -> void:
@@ -246,6 +200,13 @@ func _ambience_db() -> float:
 
 
 func _follow_snow(sn: GPUParticles3D, cam: Camera3D) -> void:
+	if _snow_views != RSSettings.views:
+		_snow_views = RSSettings.views
+		var amount := float(_course.map["snowfall"])
+		for system: GPUParticles3D in _snow_systems():
+			RSSkiSnow.apply(system, amount, _snow_views)
+		# A view-count update must not re-enable the hidden lobby camera's snowfall.
+		_lobby_snow.emitting = amount > 0.0 and (views == null or not views.visible)
 	sn.global_position = cam.global_position + (-cam.global_basis.z) * 8.0 + Vector3.UP * 4.0
 
 
@@ -254,7 +215,7 @@ func _follow_snow(sn: GPUParticles3D, cam: Camera3D) -> void:
 func _player_added(p: Player) -> void:
 	var r := Racer.new()
 	p.data = r
-	r.sk = RSSkier.new(_course, color_of(p), p.c.player - 1, p.c.player)
+	r.sk = RSSkier.new(_course, color_of(p), avatar_of(p), p.c.player)
 	add_child(r.sk)
 	r.sk.visible = false
 	r.sk.gate_passed.connect(_on_gate.bind(p, true))
@@ -264,10 +225,10 @@ func _player_added(p: Player) -> void:
 	r.sk.landed.connect(_on_landed.bind(p))
 	r.sk.net_hit.connect(_on_net.bind(p))
 	r.sk.finished_run.connect(_on_finished.bind(p))
-	r.snow = _make_snow(1 << p.c.player)
+	r.snow = RSSkiSnow.make(1 << p.c.player, RSSettings.quality)
+	add_child(r.snow)
 	var amount := float(_course.map["snowfall"])
-	r.snow.emitting = amount > 0.0
-	r.snow.amount_ratio = maxf(amount, 0.01)
+	RSSkiSnow.apply(r.snow, amount, RSSettings.views)
 
 
 func _player_removed(p: Player) -> void:
@@ -278,11 +239,11 @@ func _player_removed(p: Player) -> void:
 
 func _player_ready(p: Player, is_ready: bool) -> void:
 	if is_ready:
-		_racer(p).gest.capture(p.c.orientation)
+		_racer(p).gest.capture(p.c.motion_orientation())
 
 
 func _player_recentered(p: Player) -> void:
-	_racer(p).gest.capture(p.c.orientation)
+	_racer(p).gest.capture(p.c.motion_orientation())
 	p.popup(tr("已重设“平”的姿势"))
 
 
@@ -292,6 +253,7 @@ func _player_button(p: Player, button: int, pressed: bool) -> void:
 
 
 func _round_started(list: Array) -> void:
+	_podium.reset()
 	_time_left = TIME_LIMIT
 	_finishers = 0
 	_all_done_t = -1.0
@@ -315,20 +277,23 @@ func _round_started(list: Array) -> void:
 		r.pend.clear()
 		r.post = -1.0
 		r.clip = []
+		r.replay.reset(r.clip)
 		r.clip_pts = 0
 		r.air_from = 0.0
 		r.sk.rig.cheer = 0.0
 		r.sk.rig.set_layers(1)
 		r.bot = null
 		if p.fake:
-			r.bot = RSSkiBot.new(r.sk, 91 + p.c.player * 17 + _rng.randi_range(0, 9999))
+			r.bot = RSSkiBot.new(r.sk, 91 + p.c.player * 17 + _rng.randi_range(0, 9999), bot_ability())
 		send_ui(p, {"clear": true, "title": "SKI", "main": "0", "sub": "READY", "legends": ["", "POLE", "", null]})
 		_camera(p, r, 0.0, true)
+	_lobby_snow.emitting = false
 
 
 func _to_lobby() -> void:
 	super._to_lobby()
-	_podium.visible = false
+	_lobby_snow.emitting = float(_course.map["snowfall"]) > 0.0
+	_podium.reset()
 	_podium_on = false
 	ui.results_on_right(false)
 	for p: Player in players.values():
@@ -447,7 +412,7 @@ func _on_trick(points: int, names: PackedStringArray, sketchy: bool, p: Player) 
 	r.banked_sketchy = sketchy
 	r.banked_names = " + ".join(names)
 	if points > maxi(r.clip_pts, r.pend_pts if r.post >= 0.0 else 0):
-		r.pend = r.rec.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= r.air_from - PRE_ROLL)
+		r.pend = RSReplay.since(r.rec, r.air_from - PRE_ROLL)
 		r.pend_pts = points
 		r.pend_names = r.banked_names
 		r.post = POST_ROLL
@@ -493,7 +458,7 @@ func _on_finished(p: Player) -> void:
 	_course.set_board("\n".join(_board_lines.slice(maxi(0, _board_lines.size() - 4))))
 	# No jump to show in the replay: show crossing the line instead.
 	if r.clip.is_empty() and r.post < 0.0:
-		r.pend = r.rec.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= _clock - 2.6)
+		r.pend = RSReplay.since(r.rec, _clock - 2.6)
 		r.pend_pts = 0
 		r.pend_names = tr("冲过终点  ") + _fmt_time(r.sk.finish_time)
 		r.post = POST_ROLL
@@ -521,6 +486,7 @@ func _fmt_time(t: float) -> String:
 
 func _camera(p: Player, r: Racer, dt: float, snap: bool) -> void:
 	var sk := r.sk
+	var at := sk.draw_pos   # drawn (smoothed) position, as the rider mesh
 	var fwd := Vector3(-sin(sk.heading), 0.0, -cos(sk.heading))
 	if sk.mode == RSSkier.Mode.AIR and Vector2(sk.vel.x, sk.vel.z).length() > 0.5:
 		fwd = Vector3(sk.vel.x, 0.0, sk.vel.z).normalized()
@@ -530,28 +496,28 @@ func _camera(p: Player, r: Racer, dt: float, snap: bool) -> void:
 	r.cam_fwd = fwd if snap else r.cam_fwd.lerp(fwd, 1.0 - exp(-dt * 2.5)).normalized()
 	var spd := sk.current_speed()
 	var dist := 4.6 + clampf(spd - 8.0, 0.0, 18.0) * 0.1
-	var want := sk.pos - r.cam_fwd * dist + Vector3.UP * (2.3 + clampf(spd - 10.0, 0.0, 15.0) * 0.04)
-	var look := sk.pos + r.cam_fwd * 6.0 + Vector3.UP * 0.4
+	var want := at - r.cam_fwd * dist + Vector3.UP * (2.3 + clampf(spd - 10.0, 0.0, 15.0) * 0.04)
+	var look := at + r.cam_fwd * 6.0 + Vector3.UP * 0.4
 	if sk.mode == RSSkier.Mode.CRASH:
-		want = r.cam_pos.lerp(sk.pos - r.cam_fwd * 6.0 + Vector3.UP * 3.0, 0.03)
-		look = sk.pos + Vector3.UP * 0.4
+		want = r.cam_pos.lerp(at - r.cam_fwd * 6.0 + Vector3.UP * 3.0, 0.03)
+		look = at + Vector3.UP * 0.4
 	elif sk.finished and spd < 2.5:
 		r.orbit += dt * 0.35
-		want = sk.pos + Vector3(sin(r.orbit) * 4.5, 1.8, cos(r.orbit) * 4.5)
-		look = sk.pos + Vector3.UP * 1.0
+		want = at + Vector3(sin(r.orbit) * 4.5, 1.8, cos(r.orbit) * 4.5)
+		look = at + Vector3.UP * 1.0
 	want.y = maxf(want.y, _course.height(want.x, want.z) + 1.0)
 	if snap:
-		r.cam_off = want - sk.pos
+		r.cam_off = want - at
 		r.cam_pos = want
 		r.cam_look = look
 	elif sk.mode == RSSkier.Mode.CRASH or (sk.finished and spd < 2.5):
 		r.cam_pos = r.cam_pos.lerp(want, k)
-		r.cam_off = r.cam_pos - sk.pos
+		r.cam_off = r.cam_pos - at
 		r.cam_look = r.cam_look.lerp(look, minf(k * 1.4, 1.0))
 	else:
 		# Smooth the offset from the skier, not the position: no lag however fast.
-		r.cam_off = r.cam_off.lerp(want - sk.pos, k)
-		r.cam_pos = sk.pos + r.cam_off
+		r.cam_off = r.cam_off.lerp(want - at, k)
+		r.cam_pos = at + r.cam_off
 		r.cam_look = r.cam_look.lerp(look, minf(k * 2.5, 1.0))
 	r.cam_pos.y = maxf(r.cam_pos.y, _course.height(r.cam_pos.x, r.cam_pos.z) + 0.8)
 	# Never inside another skier: rise over anyone right in front of the lens.
@@ -564,21 +530,19 @@ func _camera(p: Player, r: Racer, dt: float, snap: bool) -> void:
 			r.cam_pos.y = maxf(r.cam_pos.y, o.pos.y + 1.0 + sqrt(1.8 * 1.8 - minf(d * d, 3.0)) + 0.4)
 	r.shake = maxf(r.shake - dt * 1.6, 0.0)
 	var jitter := Vector3(_rng.randf() - 0.5, _rng.randf() - 0.5, _rng.randf() - 0.5) * r.shake * 0.35
+	# Consume the same RNG values so this visual option cannot change gameplay.
+	if not RSSettings.camera_shake:
+		jitter = Vector3.ZERO
 	p.cam.global_position = r.cam_pos + jitter
 	if p.cam.global_position.distance_to(r.cam_look) > 0.1:
 		p.cam.look_at(r.cam_look + jitter * 0.5)
 	p.cam.fov = lerpf(p.cam.fov, 62.0 + clampf(spd - 8.0, 0.0, 18.0) * 0.6, 1.0 if snap else 1.0 - exp(-dt * 2.0))
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
 		# Intro: high over the run looking down the valley, then swooping in behind the racer.
-		var u := smoothstep(0.0, INTRO, phase_time)
 		var ahead := _course.world(0.0, 180.0, 0.0)
 		var p0 := _course.world(-40.0, -60.0, 60.0)
-		var p1 := sk.pos + Vector3(6.0 * signf(sk.pos.x - _course.centre(0.0) + 0.01), 4.0, 12.0)
-		var at := p0.lerp(p1, u).lerp(p1.lerp(r.cam_pos, u), u)
-		var lk := ahead.lerp(r.cam_look, smoothstep(0.3, 1.0, u))
-		p.cam.global_position = at
-		p.cam.look_at(lk)
-		p.cam.fov = lerpf(55.0, 64.0, u)
+		var p1 := at + Vector3(6.0 * signf(at.x - _course.centre(0.0) + 0.01), 4.0, 12.0)
+		RSIntro.apply(p.cam, phase_time, INTRO, p0, p1, r.cam_pos, ahead, r.cam_look, 55.0, 64.0, 0.3)
 	_follow_snow(r.snow, p.cam)
 
 
@@ -650,20 +614,12 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 		return
 	var pale := Color(0.92, 0.95, 1.0)
 
-	# Gates and run time under the score, speed at the bottom, on dark panels (white snow).
-	_pill.set_corner_radius_all(int(10 * k))
-	h.draw_style_box(_pill, Rect2(Vector2(12, 68) * k, Vector2(150, 54) * k))
-	h.draw_style_box(_pill, Rect2(Vector2(12 * k, sz.y - 46 * k), Vector2(170, 36) * k))
-	var gt := tr("旗门 %d/%d") % [sk.gates_hit, _course.gates.size()]
-	if sk.gates_missed > 0:
-		gt += tr("  漏 %d") % sk.gates_missed
-	draw_text(h, gt, Vector2(20 * k, 88 * k), 19 * k, pale)
-	draw_text(h, _fmt_time(sk.finish_time if sk.finished else sk.run_time), Vector2(20 * k, 114 * k), 19 * k, GOLD if sk.finished else pale)
+	RSSkiHud.draw_stats(self, h, sk, _course.gates.size(), _fmt_time(sk.finish_time if sk.finished else sk.run_time), k, GOLD)
 
 	# Run progress: everyone's position on the way to the finish.
 	var bar := Rect2(Vector2(sz.x - 250 * k, 30 * k), Vector2(220 * k, 8 * k))
 	h.draw_style_box(_pill, Rect2(bar.position - Vector2(16, 16) * k, bar.size + Vector2(32 * k, 56 * k)))
-	h.draw_rect(bar, Color(1, 1, 1, 0.25))
+	draw_box(h, bar, Color(1, 1, 1, 0.25), 0)
 	for q: Player in players.values():
 		var f := clampf(_racer(q).sk.s() / _course.length, 0.0, 1.0)
 		var at := bar.position + Vector2(bar.size.x * f, bar.size.y * 0.5)
@@ -673,10 +629,6 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 	h.draw_rect(Rect2(bar.end - Vector2(0, 14 * k), Vector2(3 * k, 16 * k)), Color.WHITE)
 	var to_go := maxi(0, roundi(_course.length - sk.s()))
 	draw_text(h, tr("终点 %d m") % to_go if not sk.finished else tr("已到终点"), bar.position + Vector2(bar.size.x, 32 * k), 15 * k, pale, false, true)
-
-	draw_text(h, "%d km/h" % roundi(sk.current_speed() * 3.6), Vector2(22 * k, sz.y - 20 * k), 22 * k, pale)
-	if sk.tuck > 0.5 and sk.mode == RSSkier.Mode.RIDE:
-		draw_text(h, tr("团身"), Vector2(130 * k, sz.y - 20 * k), 16 * k, GOLD)
 
 	# Next gate: a marker over it in its colour.
 	if sk.next_gate < _course.gates.size() and not sk.finished:
@@ -696,7 +648,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 		var a := clampf(0.7 - (_clock - r.gate_t), 0.0, 0.7) / 0.7
 		if r.gate_ok:
 			var streak := "  ×%d" % sk.gate_streak if sk.gate_streak >= 3 else ""
-			draw_text(h, "+%d%s" % [GATE_POINTS + mini(sk.gate_streak - 1, 10) * 10, streak], Vector2(sz.x * 0.5, sz.y * 0.36), 30 * k, Color(0.55, 1.0, 0.6, a), true)
+			draw_text(h, "+%d%s" % [GATE_POINTS + mini(sk.gate_streak - 1, 10) * 10, streak], Vector2(sz.x * 0.5, sz.y * 0.36), 30 * k, Color(0.55, 1.0, 0.6, a), true, false, RSUi.font_bold())
 
 	# Speed lines at the screen edges when going fast.
 	var fast := clampf((sk.current_speed() - 16.0) / 10.0, 0.0, 1.0)
@@ -714,7 +666,7 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 		var a := clampf(1.8 - (_clock - r.banked_t), 0.0, 1.0)
 		var c1 := Color(1.0, 0.7, 0.35, a) if r.banked_sketchy else Color(GOLD, a)
 		draw_text(h, r.banked_names, Vector2(sz.x * 0.5, y - 40 * k), 21 * k, Color(1, 1, 1, a * 0.9), true)
-		draw_text(h, (tr("勉强落地  +%s") if r.banked_sketchy else "+%s") % _fmt(r.banked_pts), Vector2(sz.x * 0.5, y), 44 * k, c1, true)
+		draw_text(h, (tr("勉强落地  +%s") if r.banked_sketchy else "+%s") % _fmt(r.banked_pts), Vector2(sz.x * 0.5, y), 44 * k, c1, true, false, RSUi.font_bold())
 	elif sk.mode == RSSkier.Mode.AIR and sk.air_t > 0.25:
 		var deg := roundi(absf(sk.spin) / PI * 180.0 / 90.0) * 90
 		var t := "%d°" % deg if deg >= 90 else ""
@@ -728,8 +680,8 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 		draw_pill(h, r.hint, Vector2(sz.x * 0.5, sz.y * 0.2), 17 * k, Color(1, 1, 1, a))
 
 	if sk.finished:
-		draw_text(h, tr("完成！第 %d 名") % r.place if players.size() > 1 else tr("完成！"), Vector2(sz.x * 0.5, sz.y * 0.3), 46 * k, GOLD, true)
-		draw_text(h, _fmt_time(sk.finish_time), Vector2(sz.x * 0.5, sz.y * 0.3 + 44 * k), 28 * k, Color.WHITE, true)
+		draw_text(h, tr("完成！第 %d 名") % r.place if players.size() > 1 else tr("完成！"), Vector2(sz.x * 0.5, sz.y * 0.3), 46 * k, GOLD, true, false, RSUi.font_bold())
+		draw_text(h, _fmt_time(sk.finish_time), Vector2(sz.x * 0.5, sz.y * 0.3 + 44 * k), 28 * k, Color.WHITE, true, false, num_font)
 		var waiting := false
 		for q: Player in players.values():
 			waiting = waiting or not _racer(q).sk.finished
@@ -740,10 +692,8 @@ func _draw_hud(h: PlayerHud, p: Player, k: float) -> void:
 func _draw_overlay(o: Overlay, k: float) -> void:
 	var m := _course.map
 	if phase == Phase.COUNTDOWN and phase_time < INTRO:
-		var a := clampf(phase_time / 0.6, 0.0, 1.0) * clampf((INTRO - phase_time) / 0.6, 0.0, 1.0)
-		draw_text(o, tr(str(m["name"])), Vector2(o.size.x * 0.5, o.size.y * 0.4), 84 * k, Color(1, 1, 1, a), true)
-		draw_text(o, tr("%s  ·  %d 米  ·  %d 道旗门  ·  难度 %s") % [m["en"], roundi(_course.length), _course.gates.size(), RSSkiMaps.stars(map_index)],
-			Vector2(o.size.x * 0.5, o.size.y * 0.4 + 56 * k), 24 * k, Color(1, 0.9, 0.6, a), true)
+		var a := RSIntro.fade(phase_time, INTRO)
+		draw_title_card(o, tr(str(m["name"])), tr("%s  ·  %d 米  ·  %d 道旗门  ·  难度 %s") % [m["en"], roundi(_course.length), _course.gates.size(), RSSkiMaps.stars(map_index)], a, k)
 	elif phase == Phase.COUNTDOWN:
 		draw_text(o, tr("倾斜手柄转弯，往前压团身，往后仰刹车"), Vector2(o.size.x * 0.5, o.size.y * 0.45 + 60 * k), 26 * k, Color(0.92, 0.95, 1.0), true)
 	elif phase == Phase.PLAY:
@@ -756,12 +706,10 @@ func _draw_overlay(o: Overlay, k: float) -> void:
 
 func _record(r: Racer, dt: float) -> void:
 	var rig := r.sk.rig
-	r.rec.append({"t": _clock, "xf": rig.global_transform, "imp": rig.impacts, "in": [rig.crouch, rig.tuck, rig.lean,
+	RSReplay.record(r.rec, {"t": _clock, "xf": rig.global_transform, "imp": rig.impacts, "in": [rig.crouch, rig.tuck, rig.lean,
 		rig.edge, rig.yaw, rig.wedge, rig.grounded, rig.plant, rig.plant_side, rig.push, rig.grab, rig.feet_lift, rig.arms,
-		1.0 if rig.is_crashing() else 0.0]})
+		1.0 if rig.is_crashing() else 0.0]}, CLIP_MAX + PRE_ROLL + POST_ROLL + 1.0)
 	rig.impacts = 0.0
-	while not r.rec.is_empty() and _clock - float(r.rec[0]["t"]) > CLIP_MAX + PRE_ROLL + POST_ROLL + 1.0:
-		r.rec.pop_front()
 	if r.post >= 0.0:
 		r.pend.append(r.rec.back())
 		r.post -= dt
@@ -773,7 +721,7 @@ func _record(r: Racer, dt: float) -> void:
 
 func _keep_clip(r: Racer) -> void:
 	var end := float(r.pend.back()["t"]) if not r.pend.is_empty() else 0.0
-	r.clip = r.pend.filter(func(f: Dictionary) -> bool: return float(f["t"]) >= end - CLIP_MAX - POST_ROLL)
+	r.clip = RSReplay.since(r.pend, end - CLIP_MAX - POST_ROLL)
 	r.clip_pts = r.pend_pts
 	r.clip_names = r.pend_names
 	r.pend = []
@@ -781,18 +729,16 @@ func _keep_clip(r: Racer) -> void:
 	r.post = -1.0
 
 
-func _clip_len(r: Racer) -> float:
-	return float(r.clip.back()["t"]) - float(r.clip[0]["t"]) if r.clip.size() > 1 else 0.0
-
-
 func finish_round() -> void:
+	if _result_committed:
+		return  # a second call must not reset the replay/podium state below (#57)
 	var longest := 0.0
 	for p: Player in players.values():
 		var r := _racer(p)
 		if r.post >= 0.0:
 			_keep_clip(r)
-		longest = maxf(longest, _clip_len(r) / SLOW)
-		r.rp_i = 0
+		longest = maxf(longest, RSReplay.duration(r.clip) / SLOW)
+		r.replay.reset(r.clip)
 		r.sk.quiet()
 		r.sk.rig.end_crash()
 		if r.clip.size() > 1:
@@ -808,7 +754,7 @@ func finish_round() -> void:
 				r.rp_side = -r.rp_side
 			r.cam_pos = a + r.rp_side * 6.0 + Vector3.UP * 1.5
 			r.cam_look = a + Vector3.UP * 0.8
-	_podium_at = minf(longest, 9.0) + (0.3 if longest > 0.0 else 0.0)
+	_podium_at = RSReplay.lead_out(longest, 9.0)
 	results_delay = _podium_at + 1.6
 	_podium_on = false
 	super.finish_round()
@@ -817,22 +763,21 @@ func finish_round() -> void:
 func _replay_step(p: Player, delta: float) -> void:
 	var r := _racer(p)
 	var rig := r.sk.rig
-	if r.clip.size() < 2:
+	if not r.replay.sample(phase_time, SLOW):
 		rig.update(delta)
 		_camera(p, r, delta, false)
 		return
-	var t := float(r.clip[0]["t"]) + minf(phase_time * SLOW, _clip_len(r))
-	while r.rp_i + 1 < r.clip.size() and float(r.clip[r.rp_i + 1]["t"]) <= t:
-		r.rp_i += 1
-		var imp := float(r.clip[r.rp_i]["imp"])
+	var crossed := r.replay.crossed_from
+	while crossed <= r.replay.index:
+		var imp := float(r.clip[crossed]["imp"])
 		if imp > 0.0:
 			rig.impact(imp)
 			if imp > 0.9:
 				RSSfx.play(self, "snowland", -10.0 + r.sk.gain_db, 0.75)
-	var fa: Dictionary = r.clip[r.rp_i]
-	var fb: Dictionary = r.clip[mini(r.rp_i + 1, r.clip.size() - 1)]
-	var span := maxf(float(fb["t"]) - float(fa["t"]), 1e-4)
-	var u := clampf((t - float(fa["t"])) / span, 0.0, 1.0)
+		crossed += 1
+	var fa := r.replay.a
+	var fb := r.replay.b
+	var u := r.replay.weight
 	rig.global_transform = (fa["xf"] as Transform3D).interpolate_with(fb["xf"], u)
 	var ia: Array = fa["in"]
 	var ib: Array = fb["in"]
@@ -883,10 +828,10 @@ func _draw_replay(h: PlayerHud, p: Player, k: float) -> void:
 		return
 	if fmod(_clock, 1.0) < 0.6:
 		h.draw_circle(Vector2(sz.x - 150 * k, bar * 0.5), 7 * k, Color(1.0, 0.25, 0.2))
-	draw_text(h, "REPLAY", Vector2(sz.x - 136 * k, bar * 0.5 + 8 * k), 22 * k, Color.WHITE)
+	draw_text(h, tr("回放"), Vector2(sz.x - 136 * k, bar * 0.5 + 8 * k), 22 * k, Color.WHITE)
 	if r.clip_pts > 0:
 		draw_text(h, tr("最佳动作  ") + r.clip_names, Vector2(sz.x * 0.5, sz.y - bar - 44 * k), 22 * k, Color.WHITE, true)
-		draw_text(h, "+" + _fmt(r.clip_pts), Vector2(sz.x * 0.5, sz.y - bar - 8 * k), 40 * k, GOLD, true)
+		draw_text(h, "+" + _fmt(r.clip_pts), Vector2(sz.x * 0.5, sz.y - bar - 8 * k), 40 * k, GOLD, true, false, RSUi.font_bold())
 	else:
 		draw_text(h, r.clip_names, Vector2(sz.x * 0.5, sz.y - bar - 12 * k), 30 * k, GOLD, true)
 
@@ -894,61 +839,28 @@ func _draw_replay(h: PlayerHud, p: Player, k: float) -> void:
 # ------------------------------------------------------------------------- podium ----
 
 func _build_podium() -> void:
-	_podium.visible = false
-	var body := StandardMaterial3D.new()
-	body.albedo_color = Color(0.93, 0.93, 0.92)
-	body.roughness = 0.35
-	var trims := [Color(1.0, 0.78, 0.25), Color(0.78, 0.8, 0.84), Color(0.8, 0.5, 0.28)]
-	for i in 3:
-		var x: float = PODIUM[i][0]
-		var hgt: float = PODIUM[i][1]
-		var box := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(1.4, hgt + 1.0, 2.1)
-		box.mesh = bm
-		box.material_override = body
-		box.position = Vector3(x, (hgt - 1.0) * 0.5, 0.0)
-		_podium.add_child(box)
-		var band := MeshInstance3D.new()
-		var band_mesh := BoxMesh.new()
-		band_mesh.size = Vector3(1.42, 0.06, 2.12)
-		band.mesh = band_mesh
-		var trim := StandardMaterial3D.new()
-		trim.albedo_color = trims[i]
-		trim.metallic = 0.9
-		trim.roughness = 0.25
-		band.material_override = trim
-		band.position = Vector3(x, hgt - 0.03, 0.0)
-		_podium.add_child(band)
-		var num := Label3D.new()
-		num.text = str(i + 1)
-		num.font = font
-		num.font_size = 120
-		num.pixel_size = 0.004
-		num.modulate = (trims[i] as Color).darkened(0.25)
-		num.outline_size = 10
-		num.outline_modulate = Color(0.25, 0.22, 0.2)
-		num.position = Vector3(x, hgt * 0.5, 1.06)
-		_podium.add_child(num)
+	_podium.configure(PODIUM, Vector2(1.4, 2.1), Vector3(2.6, 0, 0.8), 1.0, font, 1.0)
 
 
 func _podium_spot(i: int) -> Vector3:
-	var local := Vector3(PODIUM[i][0], PODIUM[i][1], 0.0) if i < 3 else Vector3(2.6 + (i - 3) * 1.0, 0.0, 0.8)
-	var at := _podium.global_transform * local
-	if i >= 3:
+	var at := _podium.spot(i)
+	if i >= 3 and _podium.rank(i) > 3:
 		at.y = _course.height(at.x, at.z)
 	return at
 
 
 func _podium_start() -> void:
 	_podium_on = true
-	_podium.visible = true
 	views.visible = false
 	lobby_cam.current = true
+	_lobby_snow.emitting = float(_course.map["snowfall"]) > 0.0
 	lobby_cam.fov = 42.0
 	ui.results_on_right(true)
-	_podium_order = ordered()
-	_podium_order.sort_custom(func(a: Player, b: Player) -> bool: return a.score > b.score)
+	_podium_order = ranked_players()
+	var scores := PackedInt64Array()
+	for p: Player in _podium_order:
+		scores.append(p.score)
+	_podium.present(scores)
 	for i in _podium_order.size():
 		var rig := _racer(_podium_order[i]).sk.rig
 		rig.set_layers(1)
@@ -967,18 +879,13 @@ func _podium_start() -> void:
 		rig.grab = 0
 		rig.feet_lift = 0.0
 		rig.arms = 0.1
-		rig.cheer = 1.0 if i == 0 else (0.5 if i < 3 else 0.0)
+		rig.cheer = _podium.cheer(i)
 	RSSfx.play(self, "chime", -4.0)
 
 
 func _podium_step(delta: float) -> void:
-	var t := phase_time - _podium_at
-	var c := _podium.global_position
-	var back := _podium.global_basis.z     # up the hill
-	var side := _podium.global_basis.x
-	var d := 8.5 - minf(t, 6.0) * 0.3
-	lobby_cam.position = c + back * d + side * (2.4 - minf(t, 6.0) * 0.12) + Vector3.UP * 1.8
-	lobby_cam.look_at(c + side * (2.7 * d / 8.5) + Vector3.UP * 1.3)
+	_podium.apply_camera(lobby_cam, phase_time - _podium_at, 2.4, -0.12, 8.5, -0.3, 1.8, 2.7, 1.3)
+	_podium.fit_left(lobby_cam)
 	_follow_snow(_lobby_snow, lobby_cam)
 	for p: Player in players.values():
 		_racer(p).sk.rig.update(delta)

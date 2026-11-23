@@ -1,0 +1,11 @@
+{
+  "godot_ref": "4.7.2-stable",
+  "godot_commit": "ed1daf0bf001b61586d9930840f2f1394092c079",
+  "upstream_fix": "b460ec416dd94fc121d1c2597aa521359a0d588e",
+  "build_name": "regina_ridfix1",
+  "scons": "4.10.0",
+  "toolchain_archive": "llvm-mingw-20261020-ucrt-x86_64.zip",
+  "toolchain_url": "https://github.com/mstorsjo/llvm-mingw/releases/download/20261020/llvm-mingw-20261020-ucrt-x86_64.zip",
+  "toolchain_sha256": "fd5462b7f5d93b2ff981fcd3f9c7e427e47f3203c64ea91c27bcc444eebd74cd",
+  "output_binary": "Godot_v4.7.2-regina-ridfix1.exe"
+}

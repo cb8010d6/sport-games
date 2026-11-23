@@ -1,0 +1,13 @@
+# Framework shared by every game: changes need the maintainer's review (see AGENTS.md).
+/game/core/                 @cb8010d6
+/game/autoload/             @cb8010d6
+/game/project.godot         @cb8010d6
+/game/scenes/menu/          @cb8010d6
+/docs/protocol.md           @cb8010d6
+/docs/ARCHITECTURE.md       @cb8010d6
+/docs/CODING_STANDARDS.md   @cb8010d6
+/docs/REVIEW_CHECKLIST.md   @cb8010d6
+/AGENTS.md                  @cb8010d6
+/CLAUDE.md                  @cb8010d6
+/.github/                   @cb8010d6
+/tools/check_conventions.py @cb8010d6
