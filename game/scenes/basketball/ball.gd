@@ -13,6 +13,7 @@ const SHADER := preload("res://shaders/basketball.gdshader")
 
 static var _mesh: SphereMesh
 static var _mats: Dictionary = {}
+static var _fire_res: Array = []
 
 var money := false
 var touched_rim := false
@@ -148,6 +149,40 @@ func _integrate_forces(state: PhysicsDirectBodyState3D) -> void:
 
 
 func _make_fire() -> GPUParticles3D:
+	return _fire_node()
+
+
+static func _fire_node() -> GPUParticles3D:
+	var resources := fire_resources()
+	var ps := GPUParticles3D.new()
+	ps.amount = 120
+	ps.lifetime = 0.4
+	ps.local_coords = false
+	ps.draw_pass_1 = resources[0]
+	ps.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	ps.visibility_aabb = AABB(Vector3(-4, -4, -4), Vector3(8, 8, 8))
+	ps.process_material = resources[1]
+	ps.emitting = false
+	return ps
+
+
+static func warm_up_fire(parent: Node) -> void:
+	## Warm once during scene setup; the parent also owns cleanup if it leaves early.
+	if not parent.is_inside_tree():
+		fire_resources()
+		return
+	var ps := _fire_node()
+	parent.add_child(ps)
+	ps.emitting = true
+	await parent.get_tree().process_frame
+	if is_instance_valid(ps):
+		ps.queue_free()
+
+
+static func fire_resources() -> Array:
+	## These resources are immutable after construction; only per-ball nodes are toggled.
+	if not _fire_res.is_empty():
+		return _fire_res
 	var q := QuadMesh.new()
 	q.size = Vector2(0.22, 0.22)
 	var m := StandardMaterial3D.new()
@@ -167,13 +202,6 @@ func _make_fire() -> GPUParticles3D:
 	dot.height = 64
 	m.albedo_texture = dot
 	q.material = m
-	var ps := GPUParticles3D.new()
-	ps.amount = 120
-	ps.lifetime = 0.4
-	ps.local_coords = false
-	ps.draw_pass_1 = q
-	ps.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
-	ps.visibility_aabb = AABB(Vector3(-4, -4, -4), Vector3(8, 8, 8))
 	var pm := ParticleProcessMaterial.new()
 	pm.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
 	pm.emission_sphere_radius = R * 0.9
@@ -196,6 +224,5 @@ func _make_fire() -> GPUParticles3D:
 	var rt := GradientTexture1D.new()
 	rt.gradient = ramp
 	pm.color_ramp = rt
-	ps.process_material = pm
-	ps.emitting = false
-	return ps
+	_fire_res = [q, pm]
+	return _fire_res

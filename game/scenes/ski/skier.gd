@@ -34,6 +34,7 @@ const SPIN_GAIN := 2.0
 const CRASH_TIME := 1.8
 const PUSH_V := 1.4
 const PUSH_MAX := 7.0
+const SILENT_DB := -59.0       ## pause inaudible loops; retain their playback position
 const SPIN_POINTS := {360: 400, 540: 650, 720: 950, 900: 1300, 1080: 1700, 1260: 2200, 1440: 2800}
 const GRABS := ["Mute", "Safety", "Tail", "Japan"]
 
@@ -108,7 +109,20 @@ func _ready() -> void:
 
 func quiet() -> void:
 	for a: AudioStreamPlayer in [_carve, _skid_snd, _wind]:
-		a.volume_db = -80.0
+		_set_loop_db(a, -80.0)
+
+
+func _set_loop_db(a: AudioStreamPlayer, db: float) -> void:
+	a.volume_db = db
+	a.stream_paused = db <= SILENT_DB
+
+
+func active_loops() -> int:
+	var count := 0
+	for a: AudioStreamPlayer in [_carve, _skid_snd, _wind]:
+		if a != null and not a.stream_paused:
+			count += 1
+	return count
 
 
 func place(u: float, s: float) -> void:
@@ -672,13 +686,13 @@ func _update_audio(dt: float) -> void:
 	var spd := current_speed()
 	var on := mode == Mode.RIDE and spd > 0.5
 	var carve_db := linear_to_db(clampf(spd / 16.0, 0.05, 1.0) * (0.55 + 0.45 * clampf(absf(_lean), 0.0, 1.0))) - 8.0 + gain_db + RSSfx.trim_db("carve") if on else -60.0
-	_carve.volume_db = lerpf(_carve.volume_db, carve_db, k)
+	_set_loop_db(_carve, lerpf(_carve.volume_db, carve_db, k))
 	_carve.pitch_scale = clampf(0.75 + spd / 30.0, 0.7, 1.5)
 	var skid_db := linear_to_db(clampf(skid * spd / 10.0, 0.01, 1.0)) - 6.0 + gain_db + RSSfx.trim_db("skid") if on and skid > 0.05 else -60.0
-	_skid_snd.volume_db = lerpf(_skid_snd.volume_db, skid_db, k)
+	_set_loop_db(_skid_snd, lerpf(_skid_snd.volume_db, skid_db, k))
 	_skid_snd.pitch_scale = clampf(0.85 + spd / 40.0, 0.8, 1.4)
 	var fast := clampf((spd - 8.0) / 16.0, 0.0, 1.0)
 	if mode == Mode.AIR:
 		fast = maxf(fast, clampf(air_t, 0.0, 1.0) * 0.8)
-	_wind.volume_db = lerpf(_wind.volume_db, linear_to_db(maxf(fast, 0.001)) - 12.0 + gain_db, k * 0.5)
+	_set_loop_db(_wind, lerpf(_wind.volume_db, linear_to_db(maxf(fast, 0.001)) - 12.0 + gain_db, k * 0.5))
 	_wind.pitch_scale = clampf(0.8 + spd / 50.0, 0.8, 1.5)

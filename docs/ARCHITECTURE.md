@@ -95,10 +95,12 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 
 | 需求 | 用这个 | 不要 |
 |---|---|---|
+| 赛道、名次、机器人跟线 | `RSRaceTrack` 管理进度与检查门；`RSRaceFollower` 提供前视目标、速度曲线与追赶系数 | 项目自己复制路线进度或机器人跟线逻辑 |
 | 项目列表、地图、教学、挑战 | `RSCatalog`（读各项目的 `RSGameModule` 清单）；工具用 `tools/catalog.py` | 在框架、菜单、测试或工具里另写一份项目或地图列表 |
-| 大厅教学 | 清单的 `lessons` 引用 `RSTutorial` 的步骤常量；新动作先在 `RSTutorial` 加通用步骤 | 项目自己做教学流程 |
+| 大厅教学 | 清单的 `lessons` 引用 `RSTutorial` 的步骤常量（含 `SWING`）；新动作先在 `RSTutorial` 加通用步骤 | 项目自己做教学流程 |
 | 手柄状态、按键 | `ControllerHub` 的信号，`RSController`（`orientation`、`forward()`、`pitch()`、`is_pressed()`） | 自己连 UDP 或解析协议 |
-| 体感手势 | `RSMotionGestures` → `RSMotionControls`（倾斜转向、甩动起跳、翻转、转体）；`RSSwingDetector`（挥动）；`RSTiltStick`（倾斜当摇杆） | 在项目里重写阈值和滤波 |
+| 体感手势 | `RSMotionGestures` → `RSMotionControls`（倾斜转向、甩动起跳、翻转、转体）；`RSSwingDetector.swing_peaked`（挥动峰值候选）；`RSSwingClassifier`（挥拍分类，见 39-08）；`RSTiltStick`（倾斜当摇杆） | 在项目里重写阈值和滤波 |
+| 球类飞行与击球 | `RSBallFlight`：固定步长受力与连续碰撞、拍面响应、只读预测、落点瞄准 | 项目重复积分球路、预测推进真实球或在物理类里判规则 |
 | 震动 | `haptic(p, "hit")`、`haptic_all(name)`（名称表是 `ControllerHub.HAPTICS`，新名称加在那里） | 直接 `ControllerHub.vibrate`（ARCH-HAPTIC） |
 | 手柄屏幕 | `send_ui(p, {...})`（自动去重） | 每帧发同样的内容 |
 | 音效 | `RSSfx.play(node, id)`、`RSSfx.loop(node, id)`，加载时 `RSSfx.warm_up([...])` | 自己 new AudioStreamPlayer（ARCH-AUDIO）；所有声音必须走 `RSAudio` 的总线，音量设置才有效 |
@@ -108,9 +110,11 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 | 开场飞越 | `RSIntro.apply(camera, elapsed, duration, start, via, end, look_start, look_end, fov_start, fov_end, look_delay)`：公共二次 Bézier 飞越、视线过渡与 FOV；`RSIntro.fade` 提供标题淡入淡出 | 项目各自重写相同插值公式 |
 | 分屏 | `RSPartyViews`（`views`）；每个玩家的相机在 `p.cam`，可见层为 `1 | 1 << 玩家号` | 自建 SubViewport |
 | 慢动作回放 | `RSReplay.record / since / duration / lead_out` 管理内存中的时间窗口与片段；每玩家一个 `RSReplay`，`reset(clip)` 后以成绩阶段秒数 `sample(elapsed, speed)` 取得帧对、插值和新跨越的帧范围 | 项目各自维护播放游标和相同的时间采样算法 |
-| 画面设置 | `RSSettings.apply(tree)`、`apply_viewport(vp)`、`environment(env)`、`sun_shadows(sun)` | 写死阴影、抗锯齿、帧率 |
+| 画面设置 | `RSSettings.apply(tree)`、`apply_viewport(vp)`、`environment(env)`、`sun_shadows(sun)`；`apply_world(root)` 刷新子树内 `QUALITY_GROUP` 的 `apply_quality()`，监听者只读设置、不保存，人物材质共用构建时的门控规则 | 写死阴影、抗锯齿、帧率 |
 | 文案 | 节点里 `tr("中文")`，静态代码里 `RSLang.t("中文")`；英文在 `game/i18n/en.json` | 直接写英文、拼接句子 |
 | 材质、道具 | `RSPbr.surface / standard`，`RSProps.place`（MultiMesh 批量） | 每个物体一个材质、一个节点 |
+| 水面 | `RSWater`（共享波浪数学）、`RSWaterSurface`（水面与同一游戏时钟的高度查询）、`RSWaterWake`（固定容量尾迹、`splash` 浪花） | 项目另写波浪公式或独立计时的水面 / 尾迹 |
+| 场馆构件 | `RSArena`（看台 / 围挡）、`RSArenaLights`（灯架）、`RSScoreboard`（记分牌）、`RSCrowd.fill_seats`（按座位填观众）、`RSArenaHall`（室内壳与环境） | 项目自建通用场馆构件或绕开 `RSSettings` 的室内效果 |
 | 人物 | `RSHumanRig` 子类（MPFB 角色，FK / IK 姿态） | 另做一套骨骼控制 |
 | 领奖台 | `RSPodium.configure(steps, footprint, extra, spacing, font, buried)` 在场景加载时建模；`present(scores)`、`rank(i)`、`cheer(i)`、`spot(i)`、`apply_camera(...)` 共用名次、台面、世界坐标站位和推进镜头；`fit_left(camera)` 为右侧成绩留出空间，`reset()` 隐藏并清除上一局名次 | 三个项目重复搭建台阶、计算名次与镜头公式 |
 | 存档 | 只在 `core` 里读写 `user://`（ARCH-SAVE）：`RSSettings`（settings.cfg），还有 `RSProfiles`（profiles.cfg）、`RSRecords`（records.cfg）、`RSTournament`（内存中的派对赛） | 项目自己写文件 |

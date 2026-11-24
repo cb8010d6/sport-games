@@ -40,6 +40,7 @@ const SNAP_RAIL := 0.45
 const SNAP_LEDGE := 0.35
 const GRIND_FRICTION := 0.7
 const STALL_V := 1.6           ## slower than this and the grind ends
+const SILENT_DB := -59.0       ## pause inaudible loops; retain their playback position
 
 const SPIN_POINTS := {180: 200, 360: 450, 540: 800, 720: 1200, 900: 1600, 1080: 2200}
 
@@ -134,7 +135,20 @@ func _ready() -> void:
 func quiet() -> void:
 	## Silence the rolling / grinding / wind loops (they are only driven while stepping).
 	for a: AudioStreamPlayer in [_roll, _grind_metal, _grind_ledge, _wind]:
-		a.volume_db = -80.0
+		_set_loop_db(a, -80.0)
+
+
+func _set_loop_db(a: AudioStreamPlayer, db: float) -> void:
+	a.volume_db = db
+	a.stream_paused = db <= SILENT_DB
+
+
+func active_loops() -> int:
+	var count := 0
+	for a: AudioStreamPlayer in [_roll, _grind_metal, _grind_ledge, _wind]:
+		if a != null and not a.stream_paused:
+			count += 1
+	return count
 
 
 func place(x: float, s: float) -> void:
@@ -1030,16 +1044,16 @@ func _update_audio(dt: float) -> void:
 	var k := 1.0 - exp(-dt * 12.0)
 	var rolling := mode in [Mode.RIDE, Mode.MANUAL] and speed > 0.3
 	var roll_db := linear_to_db(clampf(speed / 10.0, 0.05, 1.0)) - 9.0 + gain_db + RSSfx.trim_db("roll") if rolling else -60.0
-	_roll.volume_db = lerpf(_roll.volume_db, roll_db, k)
+	_set_loop_db(_roll, lerpf(_roll.volume_db, roll_db, k))
 	_roll.pitch_scale = clampf(0.65 + speed / 16.0, 0.5, 1.6)
 	var metal := mode == Mode.GRIND and not _rail.ledge
 	var ledge := mode == Mode.GRIND and _rail.ledge
-	_grind_metal.volume_db = lerpf(_grind_metal.volume_db, (-7.0 + gain_db) if metal else -60.0, 0.5 if metal else k)
-	_grind_ledge.volume_db = lerpf(_grind_ledge.volume_db, (-6.0 + gain_db) if ledge else -60.0, 0.5 if ledge else k)
+	_set_loop_db(_grind_metal, lerpf(_grind_metal.volume_db, (-7.0 + gain_db) if metal else -60.0, 0.5 if metal else k))
+	_set_loop_db(_grind_ledge, lerpf(_grind_ledge.volume_db, (-6.0 + gain_db) if ledge else -60.0, 0.5 if ledge else k))
 	if mode == Mode.GRIND:
 		_grind_metal.pitch_scale = clampf(0.8 + _rail_v / 20.0, 0.7, 1.4)
 		_grind_ledge.pitch_scale = clampf(0.8 + _rail_v / 20.0, 0.7, 1.4)
 	var fast := clampf((current_speed() - 7.0) / 8.0, 0.0, 1.0)
 	if mode == Mode.AIR:
 		fast = maxf(fast, clampf(air_t, 0.0, 1.0) * 0.8)
-	_wind.volume_db = lerpf(_wind.volume_db, linear_to_db(maxf(fast, 0.001)) - 14.0 + gain_db, k * 0.5)
+	_set_loop_db(_wind, lerpf(_wind.volume_db, linear_to_db(maxf(fast, 0.001)) - 14.0 + gain_db, k * 0.5))

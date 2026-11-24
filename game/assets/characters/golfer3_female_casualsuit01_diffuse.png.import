@@ -3,9 +3,10 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://8aj5m4kjj8jv"
-path="res://.godot/imported/golfer3_female_casualsuit01_diffuse.png-2bb4692fae241041f091c6081528ca65.ctex"
+path.s3tc="res://.godot/imported/golfer3_female_casualsuit01_diffuse.png-2bb4692fae241041f091c6081528ca65.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "73d5f735848243471864230dc192ae82"
@@ -14,11 +15,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/characters/golfer3_female_casualsuit01_diffuse.png"
-dest_files=["res://.godot/imported/golfer3_female_casualsuit01_diffuse.png-2bb4692fae241041f091c6081528ca65.ctex"]
+dest_files=["res://.godot/imported/golfer3_female_casualsuit01_diffuse.png-2bb4692fae241041f091c6081528ca65.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +40,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=2048
 detect_3d/compress_to=1

@@ -124,6 +124,8 @@ game/assets/
 | 模型 | `meshes/generate_lods=true`、`create_shadow_meshes=true`、`ensure_tangents=true`；不导入无用动画；纹理外部引用 |
 | 音频 | WAV 单声道（环境循环可立体声），裁掉首尾静音；循环 ≤ 1.6 MB，一次性 ≤ 300 KB |
 
+用 `python tools/texture_imports.py --check` 检查角色和共享纹理的导入设置。
+
 重复物体用 `RSProps` / MultiMesh、同一材质。三角面：主角器材 ≤ 5k（水上摩托 ≤ 15k），场边道具
 ≤ 10k，人物 LOD0 ≤ 30k，前排观众 ≤ 3k / 人；40 m 外的植被 / 观众 / 远景用 impostor；高面数
 扫描模型先减面或烘焙再入库。
