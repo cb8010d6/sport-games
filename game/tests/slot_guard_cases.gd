@@ -57,6 +57,7 @@ static func run(check: Callable) -> void:
 	var bot := RSController.new()
 	bot.id = 5703
 	bot.player = 4
+	bot.connected = true
 	var fake := game._add_player(bot, true)
 	bot.player = 1
 	game._guard_slots()
@@ -75,6 +76,20 @@ static func run(check: Callable) -> void:
 		game._guard_slots()
 		check.call(game.pins.size() == before + 1 and game.players[c.id] == p,
 			"slot guard also preserves the player during countdown and results")
+	game.phase = RSPartyGame.Phase.PLAY
+	game._clock += RSPartyGame.SLOT_PIN_INTERVAL + 0.01
+	var before_reconnect := game.pins.size()
+	ControllerHub._apply_roster({"controllers": [{"id": 5704, "player": 3, "connected": true}]})
+	game._guard_slots()
+	check.call(not c.connected and game.players[c.id] == p and not game.players.has(5704),
+		"a different controller ID does not take over the disconnected player")
+	check.call(game.pins.size() == before_reconnect, "slot guard does not request a slot for an offline controller")
+	ControllerHub._apply_roster({"controllers": [{"id": c.id, "kind": "replay", "player": 3, "connected": true}]})
+	game._guard_slots()
+	check.call(c.connected and game.players[c.id] == p and p.score == 57 and views.removed == 0,
+		"same-ID roster reconnect preserves the player, score and view")
+	check.call(game.pins.size() == before_reconnect + 1 and game.pins[-1] == [c.id, 2],
+		"same-ID roster reconnect requests the joined slot")
 	game.phase = RSPartyGame.Phase.LOBBY
 	game._clock += RSPartyGame.SLOT_PIN_INTERVAL + 0.01
 	var before_lobby := game.pins.size()

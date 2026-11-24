@@ -578,7 +578,8 @@ func _guard_slots() -> void:
 	if phase == Phase.LOBBY:
 		return
 	for p: Player in players.values():
-		if not p.fake and p.c.player != p.slot and _clock - p._slot_pin_at >= SLOT_PIN_INTERVAL:
+		# A reconnect must keep the controller ID to retain this Player and its view.
+		if not p.fake and p.c.connected and p.c.player != p.slot and _clock - p._slot_pin_at >= SLOT_PIN_INTERVAL:
 			p._slot_pin_at = _clock
 			_pin_slot(p)
 
