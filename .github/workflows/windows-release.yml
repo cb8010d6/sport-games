@@ -34,10 +34,33 @@ jobs:
           package-manager-cache: false
       - name: Verify publication scope
         run: node tools/publication_audit.mjs --strict
-      - name: Restore and verify pinned upstream assets
+      - name: List safe pinned upstream cache paths
+        id: polyhaven_paths
+        run: |
+          paths="$(node tools/sync_assets.mjs --cache-paths)"
+          printf 'paths<<POLYHAVEN_CACHE_PATHS\n%s\nPOLYHAVEN_CACHE_PATHS\n' "$paths" >> "$GITHUB_OUTPUT"
+      - name: Restore pinned upstream asset cache
+        id: polyhaven
+        uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.polyhaven_paths.outputs.paths }}
+          key: polyhaven-v1-${{ runner.os }}-${{ hashFiles('tools/assets.lock.json', 'tools/sync_assets.mjs', 'tools/asset_metadata.mjs') }}
+      - name: Verify cached pinned upstream assets offline
+        if: steps.polyhaven.outputs.cache-hit == 'true'
+        run: |
+          echo 'Exact Poly Haven cache hit; verifying locked files offline.'
+          node tools/sync_assets.mjs --check
+      - name: Sync and verify uncached pinned upstream assets
+        if: steps.polyhaven.outputs.cache-hit != 'true'
         run: |
           node tools/sync_assets.mjs
           node tools/sync_assets.mjs --check
+      - name: Save verified pinned upstream asset cache
+        if: success() && steps.polyhaven.outputs.cache-hit != 'true' && github.event_name == 'push' && github.event.repository.full_name == github.repository && (github.ref == 'refs/heads/dev' || github.ref == 'refs/heads/main')
+        uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ${{ steps.polyhaven_paths.outputs.paths }}
+          key: ${{ steps.polyhaven.outputs.cache-primary-key }}
       - name: Install verified official Godot and Windows export templates
         run: python tools/download_godot.py --platform linux --templates
       - name: Restore Godot import cache
