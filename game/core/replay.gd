@@ -3,6 +3,8 @@ extends RefCounted
 ## In-memory slow-motion sampling shared by sports. Frames have nondecreasing t (seconds)
 ## and sport-owned payloads. One cursor per player; reset on each round/clip. No physics.
 
+const RECORD_HZ := 60.0
+
 var index := 0
 var crossed_from := 1             ## Inclusive newly crossed frame range, through index.
 var a: Dictionary = {}
@@ -10,6 +12,11 @@ var b: Dictionary = {}
 var weight := 0.0
 var _clip: Array = []
 var _time := 0.0
+
+
+static func due(frames: Array, t: float, hz := RECORD_HZ) -> bool:
+	## Call before constructing a frame; allow 1e-4 seconds of timestamp rounding.
+	return frames.is_empty() or t - float(frames.back()["t"]) >= 1.0 / hz - 1e-4
 
 
 static func record(frames: Array, frame: Dictionary, window: float) -> void:
