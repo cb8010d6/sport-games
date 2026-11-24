@@ -64,14 +64,17 @@ const checks = [
   ['network-share-path', /\\\\[A-Za-z0-9_-]+\\[A-Za-z0-9_$-]+/g],
   ['credential-in-url', /https?:\/\/[^\s/@:]+:[^\s/@]+@/gi]
 ];
-// Godot's unmodified upstream copyright notice includes public contributor contact lines.
-const godotCopyrightPath = 'tools/licenses/godot/4.7.2/COPYRIGHT.txt';
-const godotCopyrightSha256 = 'cb1980c88089573bcacd7221d777c689bb8bbd778799f24c27fca0fe5f774d6d';
+// These exact upstream notices include public copyright contact lines.
+const reviewedNoticeDigests = new Map([
+  ['tools/licenses/godot/4.7.2/COPYRIGHT.txt', 'cb1980c88089573bcacd7221d777c689bb8bbd778799f24c27fca0fe5f774d6d'],
+  ['tools/licenses/pywinrt/3.2.1/LICENSE.txt', '6e898069e8b3c6d8d23dc70ac7067cc2b7c9db14c36df873026758db82c0891d']
+]);
 function scanText(p, text, metadata = false) {
-  const reviewedGodotCopyright = !metadata && p === godotCopyrightPath &&
-    crypto.createHash('sha256').update(text, 'utf8').digest('hex') === godotCopyrightSha256;
+  const reviewedDigest = reviewedNoticeDigests.get(p);
+  const reviewedNotice = !metadata && reviewedDigest !== undefined &&
+    crypto.createHash('sha256').update(text, 'utf8').digest('hex') === reviewedDigest;
   for (const [category, pattern] of checks) {
-    if (category === 'email-review' && reviewedGodotCopyright) continue;
+    if (category === 'email-review' && reviewedNotice) continue;
     pattern.lastIndex = 0;
     for (const m of text.matchAll(pattern)) {
       // Generic route-selection target; UDP connect sends no packet and reveals no saved host IP.
