@@ -23,6 +23,21 @@ NATIVE = {"libcrypto-3.dll": "openssl", "libssl-3.dll": "openssl", "libffi-8.dll
           "sqlite3.dll": "sqlite", "zlib1.dll": "zlib", "tcl86t.dll": "tcl", "tk86t.dll": "tk"}
 CRT = re.compile(r"(?:vcruntime140(?:_1)?|msvcp140|ucrtbase|api-ms-win-crt-[a-z0-9-]+)\.dll", re.I)
 
+# Unmodified LICENSE from PyWinRT v3.2.1 (21cbd0fd7ff91422ed76b4e3611d3fb52716e017).
+_PYWINRT_NOTICE_VERSION = "3.2.1"
+_PYWINRT_NOTICE_SHA256 = "6e898069e8b3c6d8d23dc70ac7067cc2b7c9db14c36df873026758db82c0891d"
+_PYWINRT_NOTICE_PACKAGES = frozenset({
+    "winrt-runtime",
+    "winrt-windows-devices-bluetooth",
+    "winrt-windows-devices-bluetooth-advertisement",
+    "winrt-windows-devices-bluetooth-genericattributeprofile",
+    "winrt-windows-devices-enumeration",
+    "winrt-windows-devices-radios",
+    "winrt-windows-foundation",
+    "winrt-windows-foundation-collections",
+    "winrt-windows-storage-streams",
+})
+
 
 def canonical(name: str) -> str:
     return re.sub(r"[-_.]+", "-", name).lower()
@@ -397,20 +412,30 @@ def copy_distribution_notices(target: Path, inventory: dict, distributions=None)
             selected.append(choices[0])
         selected.extend(p for p in records if p not in selected and
                         re.match(r"^(license|licence|copying|copyright|notice|authors)([._-]|$)", PurePosixPath(p).name, re.I))
-        if not selected:
-            raise RuntimeError("Frozen distribution has no recorded license text: " + name)
-        install_root = Path(dist.locate_file("")).absolute()
-        install_root = notice_path(install_root, install_root.resolve(), "source")
-        for record in selected:
-            record = relative(record)
-            source = notice_path(Path(dist.locate_file(records[record])), install_root, "source")
+        if selected:
+            source_root = Path(dist.locate_file("")).absolute()
+            source_root = notice_path(source_root, source_root.resolve(), "source")
+            sources = []
+            for record in selected:
+                record = relative(record)
+                suffix = record[len(base) + 1:] if record.startswith(base + "/") else record
+                sources.append((suffix, Path(dist.locate_file(records[record]))))
+        else:
+            if (name not in _PYWINRT_NOTICE_PACKAGES or version != _PYWINRT_NOTICE_VERSION or
+                    dist.metadata.get("License-Expression") != "MIT"):
+                raise RuntimeError("Frozen distribution has no recorded license text: " + name)
+            source_root = Path(__file__).resolve().parent
+            sources = [("LICENSE.txt", source_root / "licenses/pywinrt" / version / "LICENSE.txt")]
+        for suffix, path in sources:
+            source = notice_path(path, source_root, "source")
             try:
                 contents = source.read_bytes()
             except OSError:
                 raise RuntimeError("Frozen notice source unavailable: " + name) from None
             if not contents:
                 raise RuntimeError("Frozen distribution notice is empty: " + name)
-            suffix = record[len(base) + 1:] if record.startswith(base + "/") else record
+            if not selected and hashlib.sha256(contents).hexdigest() != _PYWINRT_NOTICE_SHA256:
+                raise RuntimeError("PyWinRT license digest differs from reviewed source")
             dest = target / "python" / (name + "-" + version) / relative(suffix)
             key = dest.relative_to(target).as_posix().casefold()
             if key in destinations or dest.exists():

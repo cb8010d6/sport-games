@@ -411,6 +411,69 @@ class FreezeInventoryTests(unittest.TestCase):
         self.assertNotEqual(a.read_bytes(), b.read_bytes())
         self.assertEqual(len(list(target.rglob("LICENSE.txt"))), 2)
 
+    def test_locked_pywinrt_wheels_receive_the_exact_upstream_license(self):
+        repo = Path(__file__).resolve().parents[2]
+        lock = pins(repo / "hub/requirements-windows.txt", {"sys_platform": "win32"})
+        approved = [(name, version) for name, version in lock.items() if name.startswith("winrt-") and version == "3.2.1"]
+        self.assertEqual(len(approved), 9)
+        wheels = []
+        for name, version in approved:
+            wheel = Distribution(self.site, name, version, {f"{name}-{version}.dist-info/METADATA": b"MIT"})
+            wheel.metadata["License-Expression"] = "MIT"
+            wheels.append(wheel)
+        inventory = {"distributions": [{"name": name, "version": version} for name, version in approved]}
+        target = self.root / "notices"
+        copy_distribution_notices(target, inventory, wheels)
+        upstream = (repo / "tools/licenses/pywinrt/3.2.1/LICENSE.txt").read_bytes()
+        self.assertEqual({p.parent.name for p in target.rglob("LICENSE.txt")}, {f"{n}-{v}" for n, v in approved})
+        for name, version in approved:
+            with self.subTest(name=name):
+                self.assertEqual((target / "python" / f"{name}-{version}" / "LICENSE.txt").read_bytes(), upstream)
+
+    def test_pywinrt_fallback_rejects_other_names_versions_and_license_expressions(self):
+        for name, version, expression in (
+            ("winrt-unreviewed", "3.2.1", "MIT"),
+            ("other", "3.2.1", "MIT"),
+            ("winrt-runtime", "3.2.2", "MIT"),
+            ("winrt-runtime", "3.2.1", "BSD-3-Clause"),
+        ):
+            wheel = Distribution(self.site, name, version, {f"{name}-{version}.dist-info/METADATA": b"metadata"})
+            wheel.metadata["License-Expression"] = expression
+            inventory = {"distributions": [{"name": name, "version": version}]}
+            with self.subTest(name=name, version=version, expression=expression), self.assertRaisesRegex(
+                RuntimeError, "no recorded license text"
+            ):
+                copy_distribution_notices(self.root / "notices", inventory, [wheel])
+        self.assertFalse((self.root / "notices").exists())
+
+    def test_pywinrt_wheel_notice_takes_precedence_and_missing_declared_file_still_fails(self):
+        wheel = self.add_dist("winrt-runtime", "3.2.1", {})
+        wheel.metadata["License-Expression"] = "MIT"
+        inventory = {"distributions": [{"name": "winrt-runtime", "version": "3.2.1"}]}
+        target = self.root / "notices"
+        copy_distribution_notices(target, inventory, [wheel])
+        package_notices = target / "python/winrt-runtime-3.2.1"
+        self.assertEqual((package_notices / "licenses/LICENSE").read_bytes(), b"license winrt-runtime 0")
+        self.assertFalse((package_notices / "LICENSE.txt").exists())
+        wheel.files = [PurePosixPath("winrt_runtime-3.2.1.dist-info/METADATA")]
+        with self.assertRaisesRegex(RuntimeError, "Declared notice is missing"):
+            copy_distribution_notices(self.root / "unwritten", inventory, [wheel])
+
+    def test_pywinrt_fallback_fails_when_the_reviewed_bytes_change(self):
+        wheel = Distribution(self.site, "winrt-runtime", "3.2.1",
+                             {"winrt_runtime-3.2.1.dist-info/METADATA": b"MIT"})
+        wheel.metadata["License-Expression"] = "MIT"
+        inventory = {"distributions": [{"name": "winrt-runtime", "version": "3.2.1"}]}
+        source_root = self.root / "tools"
+        source = source_root / "licenses/pywinrt/3.2.1/LICENSE.txt"
+        source.parent.mkdir(parents=True)
+        source.write_bytes(b"changed upstream notice")
+        target = self.root / "notices"
+        with mock.patch("tools.freeze_inventory.__file__", str(source_root / "freeze_inventory.py")):
+            with self.assertRaisesRegex(RuntimeError, "license digest"):
+                copy_distribution_notices(target, inventory, [wheel])
+        self.assertFalse(target.exists())
+
     def test_declared_notice_traversal_missing_text_and_duplicate_destinations_fail(self):
         inventory = {"distributions": [{"name": "alpha", "version": "1"}]}
         dist = self.distributions[0]
