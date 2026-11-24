@@ -64,8 +64,14 @@ const checks = [
   ['network-share-path', /\\\\[A-Za-z0-9_-]+\\[A-Za-z0-9_$-]+/g],
   ['credential-in-url', /https?:\/\/[^\s/@:]+:[^\s/@]+@/gi]
 ];
+// Godot's unmodified upstream copyright notice includes public contributor contact lines.
+const godotCopyrightPath = 'tools/licenses/godot/4.7.2/COPYRIGHT.txt';
+const godotCopyrightSha256 = 'cb1980c88089573bcacd7221d777c689bb8bbd778799f24c27fca0fe5f774d6d';
 function scanText(p, text, metadata = false) {
+  const reviewedGodotCopyright = !metadata && p === godotCopyrightPath &&
+    crypto.createHash('sha256').update(text, 'utf8').digest('hex') === godotCopyrightSha256;
   for (const [category, pattern] of checks) {
+    if (category === 'email-review' && reviewedGodotCopyright) continue;
     pattern.lastIndex = 0;
     for (const m of text.matchAll(pattern)) {
       // Generic route-selection target; UDP connect sends no packet and reveals no saved host IP.
