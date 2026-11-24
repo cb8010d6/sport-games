@@ -23,6 +23,17 @@ def run(command: list[str], **options) -> None:
     subprocess.run(command, cwd=ROOT, check=True, **options)
 
 
+def _freeze_environment() -> dict[str, str]:
+    # PyInstaller resolves DLL imports during analysis. Keep unrelated runner tools
+    # out of its PATH while retaining the locked interpreter and Windows runtime.
+    windows = Path(os.environ["WINDIR"])
+    if not windows.is_absolute():
+        raise RuntimeError("Windows system directory must be absolute")
+    python = Path(sys.base_prefix)
+    search = (Path(sys.executable).parent, python, python / "DLLs", windows / "System32", windows)
+    return dict(os.environ, PATH=os.pathsep.join(str(directory) for directory in search))
+
+
 def collect_notices(target: Path, version: str, inventory: dict) -> None:
     target.mkdir(parents=True, exist_ok=True)
     for name in ["LICENSE.txt", "COPYRIGHT.txt"]:
@@ -49,12 +60,13 @@ def main() -> None:
     (out / "game").mkdir(parents=True)
     work = ROOT / "build/pyinstaller"
     shared = [sys.executable, "-m", "PyInstaller", "--noconfirm", "--clean"]
+    freeze_env = _freeze_environment()
     run(shared + ["--workpath", str(work / "cache/hub"), "--distpath", str(work / "output"),
-                  str(ROOT / "tools/pyinstaller/hub.spec")])
+                  str(ROOT / "tools/pyinstaller/hub.spec")], env=freeze_env)
     shutil.copytree(work / "output/sport-hub", out / "hub")
     shutil.copy2(ROOT / "hub/config.json", out / "hub/config.json")
     run(shared + ["--workpath", str(work / "cache/launcher"), "--distpath", str(out),
-                  str(ROOT / "tools/pyinstaller/launcher.spec")])
+                  str(ROOT / "tools/pyinstaller/launcher.spec")], env=freeze_env)
     inventory = merge_inventories(ROOT, out)
     if args.game_input:
         for name in ["SportGames.exe", "SportGames.pck"]:

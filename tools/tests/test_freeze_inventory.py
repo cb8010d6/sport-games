@@ -539,6 +539,23 @@ class FreezeInventoryTests(unittest.TestCase):
         with self.assertRaisesRegex(RuntimeError, "Revalidate"):
             self.capture()
 
+    def test_freeze_path_excludes_unrelated_runner_tools_without_changing_the_parent(self):
+        tools = Path(__file__).resolve().parents[1]
+        windows = self.root / "Windows"
+        executable = self.venv / "Scripts/python.exe"
+        path = str(self.root / "runner-tools/bin")
+        with mock.patch.object(sys, "path", [str(tools), *sys.path]):
+            freeze_environment = runpy.run_path(str(tools / "build_windows.py"))["_freeze_environment"]
+        with (mock.patch.dict(os.environ, {"PATH": path, "WINDIR": str(windows), "TEMP": str(self.root)}),
+              mock.patch.object(sys, "executable", str(executable)),
+              mock.patch.object(sys, "base_prefix", str(self.python))):
+            env = freeze_environment()
+            self.assertEqual(os.environ["PATH"], path)
+        self.assertEqual(env["PATH"].split(os.pathsep), [str(directory) for directory in (
+            executable.parent, self.python, self.python / "DLLs", windows / "System32", windows,
+        )])
+        self.assertEqual(env["TEMP"], str(self.root))
+
     def test_reviewed_specs_keep_modes_hidden_imports_web_data_and_disable_upx(self):
         repo = Path(__file__).resolve().parents[2]
         for bundle in ("hub", "launcher"):
