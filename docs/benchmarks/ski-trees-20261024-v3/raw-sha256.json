@@ -1,0 +1,192 @@
+{
+  "schema_version": 1,
+  "suite": "ski37",
+  "archive_name": "ski-raw-archive-20261025-pr37.zip",
+  "archive_sha256": "f7c47e895b19606aa4466556ac0f15874fb07a9970356c460d5380c33cbe3492",
+  "archive_bytes": 2456996,
+  "availability": "Local review-evidence archive only; no public URL or release attachment",
+  "files": [
+    {
+      "file": "01-ski_before-skate-m0-p2-q2-r1.json",
+      "sha256": "fa9dd59a30cb921ff8ad523355c309dc1cfc0ecf91d51413ab2cf2f692975b60",
+      "bytes": 538988
+    },
+    {
+      "file": "02-ski_before-skate-m0-p2-q2-r2.json",
+      "sha256": "ba4a765a1b4816eea354da2dcba496dea464532c5ee3ba79c532e3811e7b71db",
+      "bytes": 548830
+    },
+    {
+      "file": "03-ski_before-skate-m0-p2-q2-r3.json",
+      "sha256": "a99e1a150c22c2b45698f8927120ca788b13de1eb1429e73e9a006f5c02da5f9",
+      "bytes": 543334
+    },
+    {
+      "file": "04-ski_before-skate-m0-p4-q2-r1.json",
+      "sha256": "f9e071d8250c533da603bbdc624f49617fdbfe1394b835e5dde51aca1b15436a",
+      "bytes": 418006
+    },
+    {
+      "file": "05-ski_before-skate-m0-p4-q2-r2.json",
+      "sha256": "633f9b93d4a4dee10ac835c73b06f0febc42ee271e481b6de04a56626dc604fd",
+      "bytes": 434178
+    },
+    {
+      "file": "06-ski_before-skate-m0-p4-q2-r3.json",
+      "sha256": "9377163cc7033cacd5c8e1d795af6023cdc160cafa017176b39937d0516765d1",
+      "bytes": 428578
+    },
+    {
+      "file": "07-ski_before-ski-m1-p2-q2-r1.json",
+      "sha256": "ec28e47a6f7d835705ab75789bce27bacd90d5e047c465bf0267f4797e269319",
+      "bytes": 529751
+    },
+    {
+      "file": "08-ski_before-ski-m1-p2-q2-r2.json",
+      "sha256": "b909469157bbeeb7f56ff8a5e82f257cfa39da9758a9410d98f85a0eb401a874",
+      "bytes": 530476
+    },
+    {
+      "file": "09-ski_before-ski-m1-p2-q2-r3.json",
+      "sha256": "0e6855bec7bc8a38cb9b490193b08e637602044a95e2ea06969e66416f7a1fd1",
+      "bytes": 530815
+    },
+    {
+      "file": "10-ski_before-ski-m1-p4-q2-r1.json",
+      "sha256": "d4721e8fdb88022853607c947dd97c8dffff83c562ba9081e59b38368224dc5c",
+      "bytes": 377844
+    },
+    {
+      "file": "11-ski_before-ski-m1-p4-q2-r2.json",
+      "sha256": "3caa82560082b7ece64bda8c1f3aa702c642b81564dd9e1758b0792eac0d326d",
+      "bytes": 378717
+    },
+    {
+      "file": "12-ski_before-ski-m1-p4-q2-r3.json",
+      "sha256": "85f0cd03224c835fd36651b1447818ea4dbd82ab1463045648bfc9fe8956c603",
+      "bytes": 376676
+    },
+    {
+      "file": "13-ski_before-ski-m3-p2-q2-r1.json",
+      "sha256": "99b4e7d2e6d323bf41c20585de674611ba2c465627a4e7cf30efe565b6d16768",
+      "bytes": 560230
+    },
+    {
+      "file": "14-ski_before-ski-m3-p2-q2-r2.json",
+      "sha256": "9211b0564c2e17c31f2c398c06cf66400f19d53d7bb3c5f62c9b928d2b01c901",
+      "bytes": 562413
+    },
+    {
+      "file": "15-ski_before-ski-m3-p2-q2-r3.json",
+      "sha256": "5e6ea83dc6f4b832dbb9fdd14f15bd52404e1329e8985b016330eed46fb1e8a1",
+      "bytes": 569727
+    },
+    {
+      "file": "16-ski_before-ski-m3-p4-q2-r1.json",
+      "sha256": "3560faa748b3ff4646976b8c27a73321c4c1fa87bdd9f1ab1b3bc4e531613ec4",
+      "bytes": 432291
+    },
+    {
+      "file": "17-ski_before-ski-m3-p4-q2-r2.json",
+      "sha256": "84305cb008353129c4cde19185b21e49818fadf3d9645dcd2b5a09b4b465990e",
+      "bytes": 425303
+    },
+    {
+      "file": "18-ski_before-ski-m3-p4-q2-r3.json",
+      "sha256": "6f2e4d1c02d6ad4b07f41239dba01486120ab6bd19361cdbb739b33e0a3e5da8",
+      "bytes": 440187
+    },
+    {
+      "file": "19-ski_after-skate-m0-p2-q2-r1.json",
+      "sha256": "5fe0daee1660fb8c59e80bca4103aa8bc7c011cc0e88c77a005946020e9814f0",
+      "bytes": 529503
+    },
+    {
+      "file": "20-ski_after-skate-m0-p2-q2-r2.json",
+      "sha256": "36dce2f40a0293a02eab8686413616b9f69419f4562811dfffc7c46498fc6af7",
+      "bytes": 519345
+    },
+    {
+      "file": "21-ski_after-skate-m0-p2-q2-r3.json",
+      "sha256": "a940d862a2dcfe167e88895542da7740e92bf4b68404e126f2bd57bf346e5b15",
+      "bytes": 505390
+    },
+    {
+      "file": "22-ski_after-skate-m0-p4-q2-r1.json",
+      "sha256": "7658f2d602cc622be6fabd5e2ecc03f91f45dcd6d1c8af7538084664316d5db0",
+      "bytes": 405553
+    },
+    {
+      "file": "23-ski_after-skate-m0-p4-q2-r2.json",
+      "sha256": "92bcad454e592f9047877f5f008e80341c0de05b96e68f6083cd4064b25f5b4b",
+      "bytes": 406944
+    },
+    {
+      "file": "24-ski_after-skate-m0-p4-q2-r3.json",
+      "sha256": "680427f4c5a01c523d03d2afc05312223a070921fc39cd8a3c307118d314b4a4",
+      "bytes": 402589
+    },
+    {
+      "file": "25-ski_after-ski-m1-p2-q2-r1.json",
+      "sha256": "d59b8851cbff5961ae1feadb4a67caa64598e243398e8d5231e08fdbb5bac5b5",
+      "bytes": 510210
+    },
+    {
+      "file": "26-ski_after-ski-m1-p2-q2-r2.json",
+      "sha256": "555f953de300a96dbe8ed8a61b589fb2b7253801ad2f6a95f5a43719edb8c812",
+      "bytes": 473901
+    },
+    {
+      "file": "27-ski_after-ski-m1-p2-q2-r3.json",
+      "sha256": "328ae6a3b67dd5c2d6c23ad6ef63972ff27c4b5490248e6dce8ec5b5f2353879",
+      "bytes": 497619
+    },
+    {
+      "file": "28-ski_after-ski-m1-p4-q2-r1.json",
+      "sha256": "7b75bb1823b6ec30461374fbc546f191d2967cda7a3990d3d92149999be852bd",
+      "bytes": 367106
+    },
+    {
+      "file": "29-ski_after-ski-m1-p4-q2-r2.json",
+      "sha256": "7d6858a5049903ef20773a97271edbc2294c4a0f8b66bd5e3f71f7889e0b51d5",
+      "bytes": 369065
+    },
+    {
+      "file": "30-ski_after-ski-m1-p4-q2-r3.json",
+      "sha256": "6eca8a8137f756e5b4d53ba56e2fb18587616305f31f6aaf1c00545af898f076",
+      "bytes": 376589
+    },
+    {
+      "file": "31-ski_after-ski-m3-p2-q2-r1.json",
+      "sha256": "0ec8a098c471450ce37919229d078f30c236b000a427b9d20e650b9ff7c46a93",
+      "bytes": 517990
+    },
+    {
+      "file": "32-ski_after-ski-m3-p2-q2-r2.json",
+      "sha256": "de2ce7d801ac5d295ef17ee1edb9e6e96f2f526e65db997c373c9eb4df1ec5d3",
+      "bytes": 514985
+    },
+    {
+      "file": "33-ski_after-ski-m3-p2-q2-r3.json",
+      "sha256": "534974852e7af19973b3396d9755a58d85d9913a3a096ba7eee843fd9ce4ac10",
+      "bytes": 539980
+    },
+    {
+      "file": "34-ski_after-ski-m3-p4-q2-r1.json",
+      "sha256": "9e5a62c9a498f2580d0ba28452fe8cf9a44d559180061f31b68f450a2f1227e9",
+      "bytes": 447516
+    },
+    {
+      "file": "35-ski_after-ski-m3-p4-q2-r2.json",
+      "sha256": "621affa8475134c85e50b606286ecf2726799f7871348d067d4b482874b00923",
+      "bytes": 459386
+    },
+    {
+      "file": "36-ski_after-ski-m3-p4-q2-r3.json",
+      "sha256": "09d79cd0117325c1e47248710063007a7a6b13d45ce80446ecf326857a7501be",
+      "bytes": 458927
+    }
+  ],
+  "historical_manifest_sha256": "dc5f62b04d02bfb08b40663be93adda97b725516911a3b729152105b5aa2bc49",
+  "historical_statistics_sha256": "7c03ae943aae151fa44133e7c538da5a1f82f32db9cb2c28a1d1d06631b2b664"
+}
