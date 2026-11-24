@@ -110,7 +110,7 @@ game/assets/<类别>/... 本项目素材（来源记录见 docs/ASSETS.md）
 | 开场飞越 | `RSIntro.apply(camera, elapsed, duration, start, via, end, look_start, look_end, fov_start, fov_end, look_delay)`：公共二次 Bézier 飞越、视线过渡与 FOV；`RSIntro.fade` 提供标题淡入淡出 | 项目各自重写相同插值公式 |
 | 分屏 | `RSPartyViews`（`views`）；每个玩家的相机在 `p.cam`，可见层为 `1 | 1 << 玩家号` | 自建 SubViewport |
 | 慢动作回放 | `RSReplay.record / since / duration / lead_out` 管理内存中的时间窗口与片段；每玩家一个 `RSReplay`，`reset(clip)` 后以成绩阶段秒数 `sample(elapsed, speed)` 取得帧对、插值和新跨越的帧范围 | 项目各自维护播放游标和相同的时间采样算法 |
-| 画面设置 | `RSSettings.apply(tree)`、`apply_viewport(vp)`、`environment(env)`、`sun_shadows(sun)`；`apply_world(root)` 刷新子树内 `QUALITY_GROUP` 的 `apply_quality()`，监听者只读设置、不保存，人物材质共用构建时的门控规则 | 写死阴影、抗锯齿、帧率 |
+| 画面设置 | `RSSettings.apply(tree)`、`apply_viewport(vp)`、`environment(env)`、`sun_shadows(sun)`、`local_shadows(light)`（点光 / 聚光阴影按画质和视图数门控）；`apply_world(root)` 刷新子树内 `QUALITY_GROUP` 的 `apply_quality()`，监听者只读设置、不保存，人物材质共用构建时的门控规则 | 写死阴影、抗锯齿、帧率 |
 | 文案 | 节点里 `tr("中文")`，静态代码里 `RSLang.t("中文")`；英文在 `game/i18n/en.json` | 直接写英文、拼接句子 |
 | 材质、道具 | `RSPbr.surface / standard`，`RSProps.place`（MultiMesh 批量） | 每个物体一个材质、一个节点 |
 | 水面 | `RSWater`（共享波浪数学）、`RSWaterSurface`（水面与同一游戏时钟的高度查询）、`RSWaterWake`（固定容量尾迹、`splash` 浪花） | 项目另写波浪公式或独立计时的水面 / 尾迹 |
