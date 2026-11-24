@@ -706,12 +706,14 @@ func _draw_overlay(o: Overlay, k: float) -> void:
 
 func _record(r: Racer, dt: float) -> void:
 	var rig := r.sk.rig
-	RSReplay.record(r.rec, {"t": _clock, "xf": rig.global_transform, "imp": rig.impacts, "in": [rig.crouch, rig.tuck, rig.lean,
-		rig.edge, rig.yaw, rig.wedge, rig.grounded, rig.plant, rig.plant_side, rig.push, rig.grab, rig.feet_lift, rig.arms,
-		1.0 if rig.is_crashing() else 0.0]}, CLIP_MAX + PRE_ROLL + POST_ROLL + 1.0)
-	rig.impacts = 0.0
+	if RSReplay.due(r.rec, _clock):
+		RSReplay.record(r.rec, {"t": _clock, "xf": rig.global_transform, "imp": rig.impacts, "in": [rig.crouch, rig.tuck, rig.lean,
+			rig.edge, rig.yaw, rig.wedge, rig.grounded, rig.plant, rig.plant_side, rig.push, rig.grab, rig.feet_lift, rig.arms,
+			1.0 if rig.is_crashing() else 0.0]}, CLIP_MAX + PRE_ROLL + POST_ROLL + 1.0)
+		rig.impacts = 0.0
+		if r.post >= 0.0:
+			r.pend.append(r.rec.back())
 	if r.post >= 0.0:
-		r.pend.append(r.rec.back())
 		r.post -= dt
 		if r.post < 0.0:
 			_keep_clip(r)
